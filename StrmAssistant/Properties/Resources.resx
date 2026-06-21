@@ -1,0 +1,780 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="PluginOptions_CatchupMode_Catch_up_Mode__Experimental_" xml:space="preserve">
+    <value>Catch-up Mode</value>
+  </data>
+  <data name="PluginOptions_CatchupMode_Catch_up_users_favorites__exclusive_to_Strm___Default_is_False_" xml:space="preserve">
+    <value>Extract media info for newly added items and intro marker detection or sync in near real-time. Default is OFF.</value>
+  </data>
+  <data name="PluginOptions_IncludeExtra_Include_Extra" xml:space="preserve">
+    <value>Include Additional Part and Extra</value>
+  </data>
+  <data name="PluginOptions_IncludeExtra_Include_media_extras_to_extract__Default_is_False_" xml:space="preserve">
+    <value>Include additional parts and extras to extract. Default is OFF.</value>
+  </data>
+  <data name="PluginOptions_StrmOnly_Strm_Only" xml:space="preserve">
+    <value>Strm Only</value>
+  </data>
+  <data name="PluginOptions_StrmOnly_Extract_media_info_of_Strm_only__Default_is_True_" xml:space="preserve">
+    <value>Include Strm only. Turn off to support all. Default is ON.</value>
+  </data>
+  <data name="PluginOptions_MaxConcurrentCount_Max_Concurrent_Count" xml:space="preserve">
+    <value>Master Max Concurrent Thread Count</value>
+  </data>
+  <data name="PluginOptions_MaxConcurrentCount_Max_Concurrent_Count_must_be_between_1_to_10__Default_is_1_" xml:space="preserve">
+    <value>Shared by mediainfo extract, image capture, video thumbnail and fingerprint extract tasks. It must be between 1 to 20. Default is 1.</value>
+  </data>
+  <data name="PluginOptions_EditorTitle_Strm_Extract" xml:space="preserve">
+    <value>MediaInfo Extract</value>
+  </data>
+  <data name="PluginOptions_LibraryScope_Library_Scope" xml:space="preserve">
+    <value>Library Scope</value>
+  </data>
+  <data name="PluginOptions_LibraryScope_Library_scope_to_extract__Blank_includes_all_" xml:space="preserve">
+    <value>Library scope to extract. Blank includes all.</value>
+  </data>
+  <data name="PluginOptions_EnableImageCapture_Enable_Image_Capture" xml:space="preserve">
+    <value>Image Capture and Thumbnail Preview Enhanced</value>
+  </data>
+  <data name="PluginOptions_EnableImageCapture_Perform_image_capture_for_videos_without_primary_image__Default_is_False_" xml:space="preserve">
+    <value>Unlock image capture, video thumbnail BIF for Strm. Skip embedded image. Default is OFF.</value>
+  </data>
+  <data name="PluginOptions_EnableIntroSkip_Enable_Intro_Skip__Experimental_" xml:space="preserve">
+    <value>Adaptive Intro Skip</value>
+  </data>
+  <data name="PluginOptions_EnableIntroSkip_Enable_intro_skip_and_credits_skip_for_episodes__Default_is_False_" xml:space="preserve">
+    <value>Playback behavior-based intro and credits detection for episodes. Default is OFF.</value>
+  </data>
+  <data name="IntroSkipOptions_MaxIntroDurationSeconds" xml:space="preserve">
+    <value>Max Intro Duration (Seconds), Default is 150</value>
+  </data>
+  <data name="IntroSkipOptions_MaxCreditsDurationSeconds" xml:space="preserve">
+    <value>Max Credits Duration (Seconds), Default is 360</value>
+  </data>
+  <data name="PluginOptions_IntroSkipOptions_Intro_Credits_Detection" xml:space="preserve">
+    <value>Intro and Credits Detection</value>
+  </data>
+  <data name="IntroSkipOptions_LibraryScope_Library_Scope" xml:space="preserve">
+    <value>Library Scope</value>
+  </data>
+  <data name="IntroSkipOptions_LibraryScope_TV_shows_library_scope_to_detect__Blank_includes_all_" xml:space="preserve">
+    <value>TV shows library scope to detect. Blank includes all TV shows libraries.</value>
+  </data>
+  <data name="PluginOptions_EditorTitle_Strm_Assistant" xml:space="preserve">
+    <value>Strm Assistant</value>
+  </data>
+  <data name="PluginOptions_IncompatibleMessage_Please_uninstall_the_conflict_plugin_Strm_Extract" xml:space="preserve">
+    <value>Please uninstall the StrmExtract.dll plugin that duplicates functionality and/or the InfuseSync.dll plugin that has thread-safe issues, and then restart Emby.</value>
+  </data>
+  <data name="Notification_CatchupUpdate_EventName" xml:space="preserve">
+    <value>Favorites Updated</value>
+  </data>
+  <data name="Notification_IntroSkipUpdate_EventName" xml:space="preserve">
+    <value>IntroSkip Updated</value>
+  </data>
+  <data name="Notification_CatchupUpdate_EventDescription" xml:space="preserve">
+    <value>Catch-up mode update - {0}\n\n{1}'s favorite</value>
+  </data>
+  <data name="Notification_IntroUpdate_Description" xml:space="preserve">
+    <value>{0} - {1} - Intro marker updated\n\nIntro start time: {2}\nIntro end time: {3}\n\nby {4}</value>
+  </data>
+  <data name="Notification_CreditsUpdate_Description" xml:space="preserve">
+    <value>{0} - {1} - Credits marker updated\n\nCredits duration: {2}\n\nby {3}</value>
+  </data>
+  <data name="Notification_IntroUpdate_Message" xml:space="preserve">
+    <value>{0} - {1} - Intro marker updated</value>
+  </data>
+  <data name="Notification_CreditsUpdate_Message" xml:space="preserve">
+    <value>{0} - {1} - Credits marker updated</value>
+  </data>
+  <data name="GeneralOptions_EditorTitle_General_Options" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="GeneralOptions_MergeMultiVersion_Merge_Multiple_Versions" xml:space="preserve">
+    <value>Auto Merge Multi-version</value>
+  </data>
+  <data name="GeneralOptions_MergeMultiVersion_Auto_merge_multiple_versions_if_in_the_same_folder_" xml:space="preserve">
+    <value>While library scan, auto merge movies and series to multi versions, bypass naming convention. Default is OFF.</value>
+  </data>
+  <data name="PluginOptions_ModOptions_Mod_Features" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="ModOptions_ChineseMovieDb_Chinese_MovieDb" xml:space="preserve">
+    <value>Customize MovieDb Fallback Language</value>
+  </data>
+  <data name="ModOptions_ChineseMovieDb_Optimize_MovieDb_for_Chinese_metadata__Default_is_OFF_" xml:space="preserve">
+    <value>Try to get Chinese or Japanese metadata from MovieDb. Default is OFF.</value>
+  </data>
+  <data name="ModOptions_FallbackLanguages_Fallback_Languages" xml:space="preserve">
+    <value>Fallback Languages</value>
+  </data>
+  <data name="ModOptions_FallbackLanguages_Fallback_languages__Default_is_zh_SG_" xml:space="preserve">
+    <value>Fallback metadata languages, prioritized from left to right.</value>
+  </data>
+  <data name="Favorites" xml:space="preserve">
+    <value>❤️Favorites</value>
+  </data>
+  <data name="ModOptions_ExclusiveExtract_Exclusive_Extract" xml:space="preserve">
+    <value>Exclusive MediaInfo Extract</value>
+  </data>
+  <data name="ModOptions_ExclusiveExtract_Only_allow_this_plugin_to_extract_media_info__ffprobe__and_capture_image__ffmpeg___Default_is_OFF_" xml:space="preserve">
+    <value>Take over media info extract (ffprobe) and image capture (ffmpeg) for all libraries. Default is OFF.</value>
+  </data>
+  <data name="About_Fork" xml:space="preserve">
+    <value>StrmAssistant_less</value>
+  </data>
+  <data name="Original_Repo_Link" xml:space="preserve">
+    <value>Original_Repo_Link</value>
+  </data>
+  <data name="Blog_Url" xml:space="preserve">
+    <value>blog url</value>
+  </data>
+  <data name="AboutOptions_EditorTitle_About" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="IntroSkipOptions_UserScope_User_Scope" xml:space="preserve">
+    <value>Allowed Users</value>
+  </data>
+  <data name="IntroSkipOptions_UserScope_Users_allowed_to_detect__Blank_includes_all" xml:space="preserve">
+    <value>Users allowed to detect. Blank includes all users.</value>
+  </data>
+  <data name="ModOptions_OriginalPoster_Original_Poster" xml:space="preserve">
+    <value>Original Language Poster</value>
+  </data>
+  <data name="ModOptions_OriginalPoster_Show_original_poster_based_on_original_language__Default_is_OFF_" xml:space="preserve">
+    <value>Prefer original poster based on the original language. Support TMDB, TVDB and FANART. Default is OFF.</value>
+  </data>
+  <data name="IntroSkipOptions_UnlockIntroSkip_Built_in_Intro_Skip_Enhanced" xml:space="preserve">
+    <value>Built-in Intro Detection Enhanced</value>
+  </data>
+  <data name="IntroSkipOptions_UnlockIntroSkip_Unlock_Strm_support_for_built_in_intro_skip_detection" xml:space="preserve">
+    <value>Provide customizable options, unlock Strm support. Default is OFF.</value>
+  </data>
+  <data name="ModOptions_EnhanceChineseSearch_Enhance_Chinese_Search" xml:space="preserve">
+    <value>Chinese Search Enhanced</value>
+  </data>
+  <data name="ModOptions_EnhanceChineseSearch_Support_Chinese_fuzzy_search_and_Pinyin_search__Default_is_OFF_" xml:space="preserve">
+    <value>Support Chinese fuzzy search and Pinyin search. Default is OFF.</value>
+  </data>
+  <data name="ItemType_Movie_Movie" xml:space="preserve">
+    <value>Movie</value>
+  </data>
+  <data name="ItemType_Book_Book" xml:space="preserve">
+    <value>Book</value>
+  </data>
+  <data name="ItemType_Collection_Collection" xml:space="preserve">
+    <value>Collection</value>
+  </data>
+  <data name="ItemType_Episode_Episode" xml:space="preserve">
+    <value>Episode</value>
+  </data>
+  <data name="ItemType_Game_Game" xml:space="preserve">
+    <value>Game</value>
+  </data>
+  <data name="ItemType_Genre_Genre" xml:space="preserve">
+    <value>Genre</value>
+  </data>
+  <data name="ItemType_LiveTv_LiveTv" xml:space="preserve">
+    <value>LiveTv</value>
+  </data>
+  <data name="ItemType_Music_Music" xml:space="preserve">
+    <value>Music</value>
+  </data>
+  <data name="ItemType_MusicAlbum_MusicAlbum" xml:space="preserve">
+    <value>Music Album</value>
+  </data>
+  <data name="ItemType_Person_Person" xml:space="preserve">
+    <value>Person</value>
+  </data>
+  <data name="ItemType_Photo_Photo" xml:space="preserve">
+    <value>Photo</value>
+  </data>
+  <data name="ItemType_PhotoAlbum_PhotoAlbum" xml:space="preserve">
+    <value>Photo Album</value>
+  </data>
+  <data name="ItemType_Playlist_Playlist" xml:space="preserve">
+    <value>Playlist</value>
+  </data>
+  <data name="ItemType_Series_Series" xml:space="preserve">
+    <value>Series</value>
+  </data>
+  <data name="ItemType_Studio_Studio" xml:space="preserve">
+    <value>Studio</value>
+  </data>
+  <data name="ItemType_Tag_Tag" xml:space="preserve">
+    <value>Tag</value>
+  </data>
+  <data name="ItemType_Trailer_Trailer" xml:space="preserve">
+    <value>Trailer</value>
+  </data>
+  <data name="ModOptions_SearchScope_Search_Scope" xml:space="preserve">
+    <value>Search Scope</value>
+  </data>
+  <data name="ModOptions_SearchScope_Include_item_types__Blank_includes_all_" xml:space="preserve">
+    <value>Include search item types. Default is Movie, Collection, Series. Blank includes all.</value>
+  </data>
+  <data name="ModOptions_PinyinSortName_Pinyin_Sort_Title" xml:space="preserve">
+    <value>Pinyin Initials Sort Title</value>
+  </data>
+  <data name="ModOptions_PinyinSortName_Auto_generate_pinyin_initials_as_sort_title" xml:space="preserve">
+    <value>Auto generate pinyin initials as sort title. Default is OFF.</value>
+  </data>
+  <data name="PluginOptions_MetadataEnhanceOptions_Metadata_Enhance" xml:space="preserve">
+    <value>Metadata Enhance</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EnhanceNfoMetadata_Nfo_Metadata_Import_Enhanced" xml:space="preserve">
+    <value>Nfo Metadata Import Enhanced</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EnhanceNfoMetadata_Add_support_to_import_actor_image_url__Default_is_OFF_" xml:space="preserve">
+    <value>Add support to import actor image URL from Nfo. Default is OFF.</value>
+  </data>
+  <data name="ModOptions_HidePersonNoImage_Hide_Person_without_Image" xml:space="preserve">
+    <value>Hide Cast and Crew by Preference</value>
+  </data>
+  <data name="ModOptions_HidePersonNoImage_Hide_person_without_image__Default_is_OFF_" xml:space="preserve">
+    <value>Hide cast and crew based on your preferences. Default is OFF.</value>
+  </data>
+  <data name="ItemType_MusicArtist_MusicArtist" xml:space="preserve">
+    <value>Music Artist</value>
+  </data>
+  <data name="UIFunctionOptions_EditorTitle_UI_Functions" xml:space="preserve">
+    <value>UI Functions</value>
+  </data>
+  <data name="UIFunctionOptions_BeautifyMissingMetadata_Beautify_Missing_Metadata" xml:space="preserve">
+    <value>Beautify Title Display</value>
+  </data>
+  <data name="UIFunctionOptions_BeautifyMissingMetadata_Beautify_missing_metadata_for_episode_display__Default_is_OFF_" xml:space="preserve">
+    <value>Beautify episode title display with no metadata and additional part title display. Default is OFF.</value>
+  </data>
+  <data name="UIFunctionOptions_EnforceLibraryOrder_Enforce_Library_Order" xml:space="preserve">
+    <value>Enforce Library Order</value>
+  </data>
+  <data name="UIFunctionOptions_EnforceLibraryOrder_Enforce_library_order_per_the_first_admin__Default_if_OFF_" xml:space="preserve">
+    <value>Enforce customized library order per the first admin. Default if OFF.</value>
+  </data>
+  <data name="IntroSkipOptions_IntroDetectionFingerprintMinutes_Intro_Detection_Fingerprint_Minutes" xml:space="preserve">
+    <value>Intro Detection Fingerprint Length (Minute)</value>
+  </data>
+  <data name="IntroSkipOptions_MarkerEnabledLibraryScope_Library_Scope" xml:space="preserve">
+    <value>Library Scope</value>
+  </data>
+  <data name="IntroSkipOptions_MarkerEnabledLibraryScope_Intro_detection_enabled_library_scope__Blank_includes_all_" xml:space="preserve">
+    <value>Library scope to extract fingerprint. Blank includes all libraries with intro detection enabled. Favorites is single selection only</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EnableAltMovieDbUrl" xml:space="preserve">
+    <value>Use Alternative MovieDb Config</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EnhanceMovieDbPerson_Enhance_MovieDb_Person" xml:space="preserve">
+    <value>Enhance MovieDb Person</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EnhanceMovieDbPerson_Import_season_cast_and_update_series_people__Default_is_OFF_" xml:space="preserve">
+    <value>Extract also_known_as while running refresh person scheduled task, import season cast, update series cast. Default is OFF.</value>
+  </data>
+  <data name="IntroSkipOptions_MinOpeningPlotDurationSeconds" xml:space="preserve">
+    <value>Min Opening Plot Duration (Seconds), Default is 60</value>
+  </data>
+  <data name="InvalidAltMovieDbApiUrl" xml:space="preserve">
+    <value>Alternative MovieDb Api Url is invalid</value>
+  </data>
+  <data name="InvalidAltMovieDbImageUrl" xml:space="preserve">
+    <value>Alternative MovieDb Image Url is invalid</value>
+  </data>
+  <data name="MetadataEnhanceOptions_AltMovieDbApiUrl_Alternative_MovieDb_Api_Url" xml:space="preserve">
+    <value>Alternative MovieDb Api Url</value>
+  </data>
+  <data name="MetadataEnhanceOptions_AltMovieDbImageUrl_Alternative_MovieDb_Image_Url" xml:space="preserve">
+    <value>Alternative MovieDb Image Url</value>
+  </data>
+  <data name="MetadataEnhanceOptions_AltMovieDbApiUrl_Default_alternative_is_https___api_tmdb_org" xml:space="preserve">
+    <value>Default alternative URL is https://api.tmdb.org Blank uses system default https://api.themoviedb.org</value>
+  </data>
+  <data name="MetadataEnhanceOptions_AltMovieDbImageUrl_No_default_alternative__Provide_by_yourself_" xml:space="preserve">
+    <value>Provide your own alternative Url. Blank uses system default https://image.tmdb.org</value>
+  </data>
+  <data name="MetadataEnhanceOptions_AltMovieDbApiKey_Alternative_MovieDb_Api_Key" xml:space="preserve">
+    <value>Alternative MovieDb Api Key</value>
+  </data>
+  <data name="MetadataEnhanceOptions_AltMovieDbApiKey_Provide_your_own_MovieDb_Api_Key__Blank_uses_system_default_" xml:space="preserve">
+    <value>Provide your own Api Key. Blank uses system default.</value>
+  </data>
+  <data name="InvalidAltMovieDbApiKey" xml:space="preserve">
+    <value>Alternative MovieDb Api Key is invalid</value>
+  </data>
+  <data name="MediaInfoExtractOptions_PersistMediaInfo_Persist_MediaInfo" xml:space="preserve">
+    <value>MediaInfo Persist</value>
+  </data>
+  <data name="MediaInfoExtractOptions_PersistMediaInfo_Persist_media_info_in_JSON_file__Default_is_OFF_" xml:space="preserve">
+    <value>Store or load media info and chapters to/from JSON file and also restore video thumbnail BIF.</value>
+  </data>
+  <data name="UIFunctionOptions_EnhanceMissingEpisodes_Missing_Episodes_Enhanced" xml:space="preserve">
+    <value>View Missing Episodes Enhanced</value>
+  </data>
+  <data name="UIFunctionOptions_EnhanceMissingEpisodes_Add_MovieDb_support_for_the_missing_episodes_function__Default_is_OFF_" xml:space="preserve">
+    <value>Add MovieDb support for the view missing episodes function, support Episode Group. Default is OFF.</value>
+  </data>
+  <data name="MediaInfoExtractOptions_MediaInfoJsonRootFolder_MediaInfo_Json_Root_Folder" xml:space="preserve">
+    <value>Optional MediaInfo JSON Root Folder</value>
+  </data>
+  <data name="MediaInfoExtractOptions_MediaInfoJsonRootFolder_Store_or_load_media_info_JSON_files_under_this_root_folder__Default_is_EMPTY_" xml:space="preserve">
+    <value>Store or load media info JSON files under this root folder. Default is EMPTY.</value>
+  </data>
+  <data name="ClearChapterMarkersTask_Name_Clear_Episode_Intros" xml:space="preserve">
+    <value>Clear Episode Intros</value>
+  </data>
+  <data name="ClearChapterMarkersTask_Description_Clears_behavior_based_intro_and_credits_markers" xml:space="preserve">
+    <value>Clears behavior-based intro and credits markers</value>
+  </data>
+  <data name="ExtractIntroFingerprintTask_Name_Extract_Intro_Fingerprint" xml:space="preserve">
+    <value>Extract Intro Fingerprint</value>
+  </data>
+  <data name="ExtractIntroFingerprintTask_Description_Extracts_intro_fingerprint_from_episodes" xml:space="preserve">
+    <value>Extracts intro fingerprint from episodes</value>
+  </data>
+  <data name="ExtractMediaInfoTask_Name_Extract_MediaInfo" xml:space="preserve">
+    <value>Extract MediaInfo</value>
+  </data>
+  <data name="ExtractMediaInfoTask_Description_Extracts_media_info_from_videos_and_audios" xml:space="preserve">
+    <value>Extracts media info from videos and audios, and image capture</value>
+  </data>
+  <data name="PersistMediaInfoTask_Name_Persist_MediaInfo" xml:space="preserve">
+    <value>Persist MediaInfo</value>
+  </data>
+  <data name="PersistMediaInfoTask_Description_Persists_media_info_to_json_file" xml:space="preserve">
+    <value>Export media info and chapter markers to JSON files</value>
+  </data>
+  <data name="RefreshPersonTask_Name_Refresh_Chinese_Actor" xml:space="preserve">
+    <value>Refresh Chinese Actor</value>
+  </data>
+  <data name="RefreshPersonTask_Description_Refreshes_and_repairs_Chinese_actors" xml:space="preserve">
+    <value>Refreshes and repairs Chinese actors</value>
+  </data>
+  <data name="ScanExternalSubtitleTask_Name_Scan_External_Subtitles" xml:space="preserve">
+    <value>Scan External Subtitles</value>
+  </data>
+  <data name="ScanExternalSubtitleTask_Description_Scans_external_subtitles_for_videos" xml:space="preserve">
+    <value>Scans external subtitles for videos</value>
+  </data>
+  <data name="UpdatePluginTask_Name_Update_Plugin" xml:space="preserve">
+    <value>Update Plugin</value>
+  </data>
+  <data name="UpdatePluginTask_Description_Updates_plugin_to_the_latest_version" xml:space="preserve">
+    <value>Updates plugin to the latest version</value>
+  </data>
+  <data name="Uninstall_Warning" xml:space="preserve">
+    <value>Warning: Emby won't work without turning off Chinese Search Enhanced properly.</value>
+  </data>
+  <data name="No_Update_Message" xml:space="preserve">
+    <value>No Update</value>
+  </data>
+  <data name="InvalidProxyServer" xml:space="preserve">
+    <value>Proxy Server is invalid. Format is http[s]://[&lt;username&gt;:&lt;password&gt;@]&lt;host&gt;:&lt;port&gt;</value>
+  </data>
+  <data name="ModOptions_ProxyServer_Proxy_Server" xml:space="preserve">
+    <value>Proxy Server</value>
+  </data>
+  <data name="ModOptions_ProxyServer_Enable_http_proxy_server__Blank_is_OFF_" xml:space="preserve">
+    <value>Support http(s) proxy server. Latency to Google must be less than 999 milliseconds. Disabled if unavailabe or leave blank. Restart if any changes.</value>
+  </data>
+  <data name="ProxyServer_Available" xml:space="preserve">
+    <value>Available</value>
+  </data>
+  <data name="ProxyServer_Unavailable" xml:space="preserve">
+    <value>Unavailable</value>
+  </data>
+  <data name="InvalidMarkerEnabledLibraryScope" xml:space="preserve">
+    <value>None of TV show libraries has intro detection enabled. Favorites is invalid.</value>
+  </data>
+  <data name="NetworkOptions_EditorTitle_Network" xml:space="preserve">
+    <value>Network</value>
+  </data>
+  <data name="NetworkOptions_EnableProxyServer_Enable_Proxy_Server" xml:space="preserve">
+    <value>Enable Proxy Server</value>
+  </data>
+  <data name="NetworkOptions_EnableProxyServer_Enable_Proxy_Server__Default_is_OFF_" xml:space="preserve">
+    <value>Enable proxy for server outgoing http requests. Default is OFF.</value>
+  </data>
+  <data name="ItemType_Season_Season" xml:space="preserve">
+    <value>Season</value>
+  </data>
+  <data name="MetadataEnhanceOptions_MovieDbEpisodeGroup_Support_MovieDb_Episode_Group" xml:space="preserve">
+    <value>Support MovieDb Episode Group</value>
+  </data>
+  <data name="MetadataEnhanceOptions_MovieDbEpisodeGroup_Support_MovieDb_episode_group_scrapping_for_TV_shows__Default_is_OFF_" xml:space="preserve">
+    <value>Scrape TV show by specified episode group. Support external source. Default is OFF.</value>
+  </data>
+  <data name="ExclusiveControl_IgnoreFileChange_IgnoreFileChange" xml:space="preserve">
+    <value>Ignore File Change</value>
+  </data>
+  <data name="ExclusiveControl_CatchAllBlock_CatchAllBlock" xml:space="preserve">
+    <value>Catch All Block</value>
+  </data>
+  <data name="ExclusiveControl_CatchAllAllow_CatchAllAllow" xml:space="preserve">
+    <value>Catch All Allow</value>
+  </data>
+  <data name="MediaInfoExtractOptions_ExclusiveExtractFeatureControl_Exclusive_Extract_Feature_Control" xml:space="preserve">
+    <value>Optional Exclusive Extract Feature Control</value>
+  </data>
+  <data name="MetadataEnhanceOptions_LocalEpisodeGroup_Store_or_load_episode_group_info_to_from_JSON_file__Default_is_OFF_" xml:space="preserve">
+    <value>Store or load episode group info to/from JSON file. Default is OFF.</value>
+  </data>
+  <data name="MetadataEnhanceOptions_LocalEpisodeGroup_Local_Episode_Group" xml:space="preserve">
+    <value>Enable Local Episode Group</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_EditorTitle_Experience_Enhance" xml:space="preserve">
+    <value>Experience Enhance</value>
+  </data>
+  <data name="CatchupTask_MediaInfo_MediaInfo" xml:space="preserve">
+    <value>MediaInfo Extract</value>
+  </data>
+  <data name="CatchupTask_IntroSkip_IntroSkip" xml:space="preserve">
+    <value>Behavior-based Marker Sync</value>
+  </data>
+  <data name="CatchupTask_Fingerprint_Fingerprint" xml:space="preserve">
+    <value>Built-in Intro Detection</value>
+  </data>
+  <data name="GeneralOptions_CatchupScope_Catchup_Scope" xml:space="preserve">
+    <value>Catchup Task Scope</value>
+  </data>
+  <data name="IntroSkipOptions_ClientScope_Client_Scope" xml:space="preserve">
+    <value>Allowed Clients</value>
+  </data>
+  <data name="IntroSkipOptions_ClientScope_Allowed_clients__Default_is_Emby_Infuse_SenPlayer" xml:space="preserve">
+    <value>Client name keywords separated by comma or semicolon. Detection via 3rd-party clients might not work properly. Default is Emby,Infuse,SenPlayer</value>
+  </data>
+  <data name="GeneralOptions_CooldownSeconds_Cooldown_Time__Seconds___Default_is_0" xml:space="preserve">
+    <value>Master Cooldown Duration (Seconds)</value>
+  </data>
+  <data name="InvalidShowSeasonIds" xml:space="preserve">
+    <value>TV show or season ID is invalid: {0}</value>
+  </data>
+  <data name="IntroSkipOptions_BlacklistShows_Optional_Blacklist_Shows" xml:space="preserve">
+    <value>Optional Blacklist</value>
+  </data>
+  <data name="GeneralOptions_Tier2MaxConcurrentCount_Tier_2_Max_Concurrent_Count" xml:space="preserve">
+    <value>Tier 2 Max Concurrent Thread Count</value>
+  </data>
+  <data name="GeneralOptions_Tier2MaxConcurrentCount_Refresh_metadata__subtitle__local_tasks__Default_is_1_" xml:space="preserve">
+    <value>Shared by refreshing persons, episodes, external subtitles, local processing tasks, etc. It must be between 1 to 20. Default is 1.</value>
+  </data>
+  <data name="GeneralOptions_CooldownDurationSeconds_Applicable_to_single_thread_mode__Default_is_0_" xml:space="preserve">
+    <value>Applicable to single thread mode. It must be between 0 and 60. Default is 0.</value>
+  </data>
+  <data name="IntroSkipOptions_IntroDetectionFingerprintMinutes_It_must_be_between_2_and_20__Default_is_10_" xml:space="preserve">
+    <value>Customize intro detection fingerprint length. It must be between 2 and 20. Default is 10.</value>
+  </data>
+  <data name="UIFunctionOptions_NoBoxsetsAutoCreation_Prevent_Boxsets_Auto_Creation" xml:space="preserve">
+    <value>Hide Collection Library</value>
+  </data>
+  <data name="UIFunctionOptions_NoBoxsetsAutoCreation_Prevent_automatic_boxset_library_creation__Default_is_OFF_" xml:space="preserve">
+    <value>Hide collection library from user views, if removed, prevent auto creation. Default is OFF.</value>
+  </data>
+  <data name="ServerPreferredMetadataLanguageIsNotZh" xml:space="preserve">
+    <value>Server Preferred Metadata Language is not set to Chinese. RefreshPerson Task Aborted.</value>
+  </data>
+  <data name="IntroDetectionEnhancedNotEnabled" xml:space="preserve">
+    <value>Built-in Intro Detection Enhanced is not enabled. IntroFingerprintExtract task aborted.</value>
+  </data>
+  <data name="ExclusiveControl_IgnoreExtSubChange_IgnoreExtSubChange" xml:space="preserve">
+    <value>Ignore External Subtitle Change</value>
+  </data>
+  <data name="ExclusiveControl_NoPersistIntegration_NoPersistIntegration" xml:space="preserve">
+    <value>No Persist Integration</value>
+  </data>
+  <data name="IntroSkipControl_ResetAndOverwrite_ResetAndOverwrite" xml:space="preserve">
+    <value>Reset operation overwrites intro markers added by built-in intro detection</value>
+  </data>
+  <data name="IntroSkipOptions_IntroSkipPreferences_IntroSkip_Preferences" xml:space="preserve">
+    <value>Optional Preferences</value>
+  </data>
+  <data name="InvalidFingerprintCatchup" xml:space="preserve">
+    <value>Fingerprint catchup is invalid because built-in intro detection enhanced is not enabled.</value>
+  </data>
+  <data name="ExclusiveControl_ExtractOnFileChange_ExtractOnFileChange" xml:space="preserve">
+    <value>Auto Extract on File Change</value>
+  </data>
+  <data name="ModOptions_ExcludeOriginalTitle_Exclude_Original_Title" xml:space="preserve">
+    <value>Exclude Original Title</value>
+  </data>
+  <data name="ModOptions_ExcludeOriginalTitle_Exclude_original_title_from_search__Default_is_OFF_" xml:space="preserve">
+    <value>Exclude original title from search. Default is OFF.</value>
+  </data>
+  <data name="IntroSkipPreference_NoDetectionButReset_NoDetectionButReset" xml:space="preserve">
+    <value>No detection but pause operation to set intro and/or credits markers</value>
+  </data>
+  <data name="PluginOptions_IsHarmonyModFailed_Harmony_Mod_Failed" xml:space="preserve">
+    <value>Mod failed. Please check log in debug mode after restart to troubleshoot.</value>
+  </data>
+  <data name="HidePersonOption_NoImage_NoImage" xml:space="preserve">
+    <value>No Image Person</value>
+  </data>
+  <data name="HidePersonOption_ActorOnly_ActorOnly" xml:space="preserve">
+    <value>Show Actor Only</value>
+  </data>
+  <data name="ExclusiveControl_NoIntroProtect_NoIntroProtect" xml:space="preserve">
+    <value>No Intro Marker Protect</value>
+  </data>
+  <data name="MediaInfoExtractOptions_ImageCaptureOffset_Image_Capture_Offset" xml:space="preserve">
+    <value>Customize Image Capture Position</value>
+  </data>
+  <data name="MediaInfoExtractOptions_ImageCaptureOffset_Image_capture_position_as_a_percentage_of_runtime__Default_is_10_" xml:space="preserve">
+    <value>Image capture offset as a percentage of runtime. It must be between 10 and 90. Default is 10.</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_EnhanceNotification_Enhance_Notification" xml:space="preserve">
+    <value>Notification Enhanced</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_EnhanceNotification_Show_episode_details_in_series_notification__Default_is_OFF_" xml:space="preserve">
+    <value>Show episode details in add/remove series group notification, provide deep delete notification. Default is OFF.</value>
+  </data>
+  <data name="MetadataEnhanceOptions_ChineseTvdb_Try_to_get_Chinese_or_Japanese_metadata_from_Tvdb__Default_is_OFF_" xml:space="preserve">
+    <value>Try to get Chinese or Japanese metadata from Tvdb. Default is OFF.</value>
+  </data>
+  <data name="MetadataEnhanceOptions_ChineseTvdb_Customize_Tvdb_Fallback_Language" xml:space="preserve">
+    <value>Customize Tvdb Fallback Language</value>
+  </data>
+  <data name="MetadataEnhanceOptions_BlockNonFallbackLanguage_Block_Non_Fallback_Language" xml:space="preserve">
+    <value>Block Non Fallback Language Overview</value>
+  </data>
+  <data name="MetadataEnhanceOptions_BlockNonFallbackLanguage_Block_English_such_non_fallback_language_in_overview__Default_is_OFF_" xml:space="preserve">
+    <value>Block English such non fallback language for movie, series, season and episode overview. Default is OFF.</value>
+  </data>
+  <data name="Operation_Success" xml:space="preserve">
+    <value>Operation completed successfully</value>
+  </data>
+  <data name="MergeScopeOption_LibraryScope_LibraryScope" xml:space="preserve">
+    <value>Library Scope</value>
+  </data>
+  <data name="MergeScopeOption_GlobalScope_GlobalScope" xml:space="preserve">
+    <value>Global Scope</value>
+  </data>
+  <data name="MergeMovieTask_Description_Merge_movies_per_library_or_across_libraries_per_preference" xml:space="preserve">
+    <value>Merge movies and series per library or across libraries, triggered post library scan</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_SplitMovieButton_Split_multi_version_movies_in_all_libraries" xml:space="preserve">
+    <value>Split multi-version movies in all libraries (scan library for TV Series split)</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_EnableDeepDelete_Enable_Deep_Delete" xml:space="preserve">
+    <value>Enable Deep Delete</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_EnableDeepDelete_Attempt_to_cascade_delete_the_underlying_file_of_strm_or_symlink__Default_is_OFF_" xml:space="preserve">
+    <value>Attempt to cascade delete the target file of strm or symlink, and the related files and emptry directory. Default is OFF.</value>
+  </data>
+  <data name="AreYouSureToContinue" xml:space="preserve">
+    <value>Are you sure you wish to continue?</value>
+  </data>
+  <data name="ExclusiveControl_ExtractAlternative_ExtractAlternative" xml:space="preserve">
+    <value>Extract Alternative Versions on Playback Stop</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_MergeMoviePreferences_Movie_Merge_Preference" xml:space="preserve">
+    <value>Movie Merge Preference</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_MergeSeriesPreferences_Series_Merge_Preference" xml:space="preserve">
+    <value>TV Series Merge Preference</value>
+  </data>
+  <data name="ExtractVideoThumbnailTask_Description_Extract_video_thumbnail_preview" xml:space="preserve">
+    <value>Extract video thumbnail preview and chatper images</value>
+  </data>
+  <data name="EpisodeRefreshTask_Description_Refresh_metadata_for_episodes_missing_overview" xml:space="preserve">
+    <value>Refresh missing metadata and images for episodes by preference</value>
+  </data>
+  <data name="CatchupTask_EpisodeRefresh_EpisodeRefresh" xml:space="preserve">
+    <value>Episode Refresh</value>
+  </data>
+  <data name="ItemType_Video_Video" xml:space="preserve">
+    <value>Video</value>
+  </data>
+  <data name="Update_Failed_Message" xml:space="preserve">
+    <value>Update failed. Check error details in admin dashboard.</value>
+  </data>
+  <data name="MediaInfoExtractOptions_MediaInfoRestoreMode_Only_restore_media_info__chapters__and_video_thumbnails_from_JSON_or_BIF__skipping_extraction__Default_is_OFF_" xml:space="preserve">
+    <value>Only restore media info, chapter markers, and video thumbnails from JSON or BIF, skipping extraction.</value>
+  </data>
+  <data name="MediaInfoExtractOptions_MediaInfoRestoreMode_MediaInfo_Restore_Mode" xml:space="preserve">
+    <value>MediaInfo Restore Mode</value>
+  </data>
+  <data name="DisclaimerButtonText" xml:space="preserve">
+    <value>Click to view the disclaimer. Do not send logs to the official team before uninstalling the plugin. Please remember this!</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_SuppressPluginUpdates_Plugin_names_separated_by_comma_or_semicolon_like_MovieDb_Tvdb__Default_is_BLANK_" xml:space="preserve">
+    <value>Plugin names separated by comma or semicolon like MovieDb,Tvdb. Default is BLANK.</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_SuppressPluginUpdates_Suppress_Auto_Plugin_Updates" xml:space="preserve">
+    <value>Suppress Plugin Auto Updates</value>
+  </data>
+  <data name="IntroSkipOptions_BlacklistShows_List_of_Series_Id_or_Season_Id_separated_by_comma_or_semicolon__Default_is_EMPTY" xml:space="preserve">
+    <value>List of Series Id or Season Id separated by comma or semicolon. Default is EMPTY.</value>
+  </data>
+  <data name="Notification_DeepDelete_EventName" xml:space="preserve">
+    <value>Media Deep Delete</value>
+  </data>
+  <data name="Notification_DeepDelete_EventDescription" xml:space="preserve">
+    <value>Item Name:\n{0}\n\nItem Path:\n{1}\n\nMount Paths:\n{2}</value>
+  </data>
+  <data name="DeletePersonTask_Description_Deletes_all_persons" xml:space="preserve">
+    <value>Deletes all persons</value>
+  </data>
+  <data name="PersistMediaInfoOption_None_None" xml:space="preserve">
+    <value>OFF</value>
+  </data>
+  <data name="Disclaimer" xml:space="preserve">
+    <value>Disclaimer</value>
+  </data>
+  <data name="OKButtonCaption" xml:space="preserve">
+    <value>Accept</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EpisodeRefreshScope_Episode_Metadata_Refresh_Scope" xml:space="preserve">
+    <value>Episode Refresh Scope</value>
+  </data>
+  <data name="EpisodeRefreshOption_NoOverview_No_Overview" xml:space="preserve">
+    <value>No Overview</value>
+  </data>
+  <data name="EpisodeRefreshOption_NoImage_No_Image" xml:space="preserve">
+    <value>No Image</value>
+  </data>
+  <data name="EpisodeRefreshOption_NonChineseOverview_Non_Chinese_Overview" xml:space="preserve">
+    <value>Non Chinese Overview</value>
+  </data>
+  <data name="EpisodeRefreshOption_DefaultEpisodeName_Default_Episode_Name" xml:space="preserve">
+    <value>Default Episode Name</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EpisodeRefreshScope_Episode_refresh_scope_for_scheduled_task_and_catch_up__Default_is_no_overview_and_no_image_" xml:space="preserve">
+    <value>Episode metadata refresh scope for scheduled task and catch-up across all TV show libraries. Default is No Overview and No Image.</value>
+  </data>
+  <data name="EpisodeRefreshOption_ReplaceCapturedImage_Replace_Captured_Image" xml:space="preserve">
+    <value>Replace Captured Image</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EpisodeRefreshLookBackDays_Episode_Refresh_Lookback_Days" xml:space="preserve">
+    <value>Episode Refresh Lookback Days</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EpisodeRefreshLookbackDays_Episode_metadata_refresh_lookback_days__Default_is_365_" xml:space="preserve">
+    <value>Episode metadata refresh lookback days for scheduled task. Default is 365 days.</value>
+  </data>
+  <data name="MergeScopeOption_FolderScope_FolderScope" xml:space="preserve">
+    <value>Folder Scope</value>
+  </data>
+  <data name="Wiki_Link" xml:space="preserve">
+    <value />
+  </data>
+  <data name="Repo_Link" xml:space="preserve">
+    <value>Repo_Link</value>
+  </data>
+  <data name="About_StrmAssistant_Pro" xml:space="preserve">
+    <value>About StrmAssistant Pro</value>
+  </data>
+</root>

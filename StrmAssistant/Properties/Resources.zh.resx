@@ -1,0 +1,780 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="PluginOptions_CatchupMode_Catch_up_Mode__Experimental_" xml:space="preserve">
+    <value>追更模式</value>
+  </data>
+  <data name="PluginOptions_CatchupMode_Catch_up_users_favorites__exclusive_to_Strm___Default_is_False_" xml:space="preserve">
+    <value>电影洗版或剧集有更新后实时提取媒体信息以及片头片尾标记探测或同步，默认关闭。</value>
+  </data>
+  <data name="PluginOptions_IncludeExtra_Include_Extra" xml:space="preserve">
+    <value>包含分集和附加内容</value>
+  </data>
+  <data name="PluginOptions_IncludeExtra_Include_media_extras_to_extract__Default_is_False_" xml:space="preserve">
+    <value>提取电影或剧集的分集和附加内容的媒体信息，默认关闭。</value>
+  </data>
+  <data name="PluginOptions_StrmOnly_Strm_Only" xml:space="preserve">
+    <value>仅支持 STRM</value>
+  </data>
+  <data name="PluginOptions_StrmOnly_Extract_media_info_of_Strm_only__Default_is_True_" xml:space="preserve">
+    <value>仅支持 STRM，关闭后支持所有，默认开启。</value>
+  </data>
+  <data name="PluginOptions_MaxConcurrentCount_Max_Concurrent_Count" xml:space="preserve">
+    <value>主最大并发线程数</value>
+  </data>
+  <data name="PluginOptions_MaxConcurrentCount_Max_Concurrent_Count_must_be_between_1_to_10__Default_is_1_" xml:space="preserve">
+    <value>媒体信息提取，视频截图，预览缩略图，声纹提取任务共享，必须在 1 至 20 之间，默认为 1。</value>
+  </data>
+  <data name="PluginOptions_EditorTitle_Strm_Extract" xml:space="preserve">
+    <value>媒体信息提取</value>
+  </data>
+  <data name="PluginOptions_LibraryScope_Library_Scope" xml:space="preserve">
+    <value>媒体库范围</value>
+  </data>
+  <data name="PluginOptions_LibraryScope_Library_scope_to_extract__Blank_includes_all_" xml:space="preserve">
+    <value>媒体库范围，留空包含所有。</value>
+  </data>
+  <data name="PluginOptions_EnableImageCapture_Enable_Image_Capture" xml:space="preserve">
+    <value>视频截图预览缩略图增强</value>
+  </data>
+  <data name="PluginOptions_EnableImageCapture_Perform_image_capture_for_videos_without_primary_image__Default_is_False_" xml:space="preserve">
+    <value>解锁 STRM 视频截图，预览缩略图 BIF，跳过内嵌封面，默认关闭。</value>
+  </data>
+  <data name="PluginOptions_EnableIntroSkip_Enable_Intro_Skip__Experimental_" xml:space="preserve">
+    <value>播放行为片头探测</value>
+  </data>
+  <data name="PluginOptions_EnableIntroSkip_Enable_intro_skip_and_credits_skip_for_episodes__Default_is_False_" xml:space="preserve">
+    <value>基于播放行为的剧集片头片尾探测，默认关闭。</value>
+  </data>
+  <data name="IntroSkipOptions_MaxIntroDurationSeconds" xml:space="preserve">
+    <value>最大片头时长 (秒)，默认为 150</value>
+  </data>
+  <data name="IntroSkipOptions_MaxCreditsDurationSeconds" xml:space="preserve">
+    <value>最大片尾时长 (秒)，默认为 360</value>
+  </data>
+  <data name="PluginOptions_IntroSkipOptions_Intro_Credits_Detection" xml:space="preserve">
+    <value>片头片尾探测</value>
+  </data>
+  <data name="IntroSkipOptions_LibraryScope_Library_Scope" xml:space="preserve">
+    <value>媒体库范围</value>
+  </data>
+  <data name="IntroSkipOptions_LibraryScope_TV_shows_library_scope_to_detect__Blank_includes_all_" xml:space="preserve">
+    <value>剧集媒体库范围，留空包含所有剧集媒体库。</value>
+  </data>
+  <data name="PluginOptions_EditorTitle_Strm_Assistant" xml:space="preserve">
+    <value>神医助手_less</value>
+  </data>
+  <data name="PluginOptions_IncompatibleMessage_Please_uninstall_the_conflict_plugin_Strm_Extract" xml:space="preserve">
+    <value>请卸载功能重复的插件 StrmExtract.dll 以及存在线程安全问题的插件 InfuseSync.dll，然后重启 Emby。</value>
+  </data>
+  <data name="Notification_CatchupUpdate_EventName" xml:space="preserve">
+    <value>最爱有更新</value>
+  </data>
+  <data name="Notification_IntroSkipUpdate_EventName" xml:space="preserve">
+    <value>片头片尾已更新</value>
+  </data>
+  <data name="Notification_CatchupUpdate_EventDescription" xml:space="preserve">
+    <value>追更模式更新 - {0}\n\n{1}的最爱</value>
+  </data>
+  <data name="Notification_IntroUpdate_Description" xml:space="preserve">
+    <value>{0} - {1} - 片头标记已更新\n\n片头开始: {2}\n片头结束: {3}\n\n由{4}更新</value>
+  </data>
+  <data name="Notification_CreditsUpdate_Description" xml:space="preserve">
+    <value>{0} - {1} - 片尾标记已更新\n\n片尾时长: {2}\n\n由{3}更新</value>
+  </data>
+  <data name="Notification_IntroUpdate_Message" xml:space="preserve">
+    <value>{0} - {1} - 片头标记已更新</value>
+  </data>
+  <data name="Notification_CreditsUpdate_Message" xml:space="preserve">
+    <value>{0} - {1} - 片尾标记已更新</value>
+  </data>
+  <data name="GeneralOptions_EditorTitle_General_Options" xml:space="preserve">
+    <value>通用</value>
+  </data>
+  <data name="GeneralOptions_MergeMultiVersion_Merge_Multiple_Versions" xml:space="preserve">
+    <value>自动合并多版本</value>
+  </data>
+  <data name="GeneralOptions_MergeMultiVersion_Auto_merge_multiple_versions_if_in_the_same_folder_" xml:space="preserve">
+    <value>扫库时自动合并电影和电视节目为多版本，不需符合官方严格的命名规范，默认关闭。</value>
+  </data>
+  <data name="PluginOptions_ModOptions_Mod_Features" xml:space="preserve">
+    <value>搜索</value>
+  </data>
+  <data name="ModOptions_ChineseMovieDb_Chinese_MovieDb" xml:space="preserve">
+    <value>自定义 TMDB 备选语言</value>
+  </data>
+  <data name="ModOptions_ChineseMovieDb_Optimize_MovieDb_for_Chinese_metadata__Default_is_OFF_" xml:space="preserve">
+    <value>尽可能从 TMDB 获取中文或日文元数据，默认关闭。</value>
+  </data>
+  <data name="ModOptions_FallbackLanguages_Fallback_Languages" xml:space="preserve">
+    <value>备选语言</value>
+  </data>
+  <data name="ModOptions_FallbackLanguages_Fallback_languages__Default_is_zh_SG_" xml:space="preserve">
+    <value>备选元数据语言，优先级为从左至右。</value>
+  </data>
+  <data name="Favorites" xml:space="preserve">
+    <value>❤️最爱</value>
+  </data>
+  <data name="ModOptions_ExclusiveExtract_Exclusive_Extract" xml:space="preserve">
+    <value>独占媒体信息提取</value>
+  </data>
+  <data name="ModOptions_ExclusiveExtract_Only_allow_this_plugin_to_extract_media_info__ffprobe__and_capture_image__ffmpeg___Default_is_OFF_" xml:space="preserve">
+    <value>接管媒体信息提取 (ffprobe) 以及视频截图 (ffmpeg)，全媒体库生效，默认关闭。</value>
+  </data>
+  <data name="About_Fork" xml:space="preserve">
+    <value>神医助手精简版(StrmAssistant_less)。能力有限，只保留了中文搜索增强和代理配置功能。</value>
+  </data>
+  <data name="Original_Repo_Link" xml:space="preserve">
+    <value>上游项目源码</value>
+  </data>
+  <data name="Blog_Url" xml:space="preserve">
+    <value>神医助手_less介绍以及更新途径</value>
+  </data>
+  <data name="AboutOptions_EditorTitle_About" xml:space="preserve">
+    <value>关于</value>
+  </data>
+  <data name="IntroSkipOptions_UserScope_User_Scope" xml:space="preserve">
+    <value>允许的用户</value>
+  </data>
+  <data name="IntroSkipOptions_UserScope_Users_allowed_to_detect__Blank_includes_all" xml:space="preserve">
+    <value>允许的用户范围，留空包含所有用户。</value>
+  </data>
+  <data name="ModOptions_OriginalPoster_Original_Poster" xml:space="preserve">
+    <value>原语言海报</value>
+  </data>
+  <data name="ModOptions_OriginalPoster_Show_original_poster_based_on_original_language__Default_is_OFF_" xml:space="preserve">
+    <value>优先使用原语言海报，支持 TMDB, TVDB, Fanart，默认关闭。</value>
+  </data>
+  <data name="IntroSkipOptions_UnlockIntroSkip_Built_in_Intro_Skip_Enhanced" xml:space="preserve">
+    <value>原生片头探测增强</value>
+  </data>
+  <data name="IntroSkipOptions_UnlockIntroSkip_Unlock_Strm_support_for_built_in_intro_skip_detection" xml:space="preserve">
+    <value>提供自定义选项，解锁支持 STRM，默认关闭。</value>
+  </data>
+  <data name="ModOptions_EnhanceChineseSearch_Enhance_Chinese_Search" xml:space="preserve">
+    <value>中文搜索增强</value>
+  </data>
+  <data name="ModOptions_EnhanceChineseSearch_Support_Chinese_fuzzy_search_and_Pinyin_search__Default_is_OFF_" xml:space="preserve">
+    <value>支持中文模糊搜索和拼音搜索，默认关闭。</value>
+  </data>
+  <data name="ItemType_Movie_Movie" xml:space="preserve">
+    <value>电影</value>
+  </data>
+  <data name="ItemType_Book_Book" xml:space="preserve">
+    <value>书籍</value>
+  </data>
+  <data name="ItemType_Collection_Collection" xml:space="preserve">
+    <value>合集</value>
+  </data>
+  <data name="ItemType_Episode_Episode" xml:space="preserve">
+    <value>集</value>
+  </data>
+  <data name="ItemType_Game_Game" xml:space="preserve">
+    <value>游戏</value>
+  </data>
+  <data name="ItemType_Genre_Genre" xml:space="preserve">
+    <value>流派</value>
+  </data>
+  <data name="ItemType_LiveTv_LiveTv" xml:space="preserve">
+    <value>电视直播</value>
+  </data>
+  <data name="ItemType_Music_Music" xml:space="preserve">
+    <value>音乐</value>
+  </data>
+  <data name="ItemType_MusicAlbum_MusicAlbum" xml:space="preserve">
+    <value>专辑</value>
+  </data>
+  <data name="ItemType_Person_Person" xml:space="preserve">
+    <value>人物</value>
+  </data>
+  <data name="ItemType_Photo_Photo" xml:space="preserve">
+    <value>照片</value>
+  </data>
+  <data name="ItemType_PhotoAlbum_PhotoAlbum" xml:space="preserve">
+    <value>相册</value>
+  </data>
+  <data name="ItemType_Playlist_Playlist" xml:space="preserve">
+    <value>播放列表</value>
+  </data>
+  <data name="ItemType_Series_Series" xml:space="preserve">
+    <value>电视节目</value>
+  </data>
+  <data name="ItemType_Studio_Studio" xml:space="preserve">
+    <value>工作室</value>
+  </data>
+  <data name="ItemType_Tag_Tag" xml:space="preserve">
+    <value>标签</value>
+  </data>
+  <data name="ItemType_Trailer_Trailer" xml:space="preserve">
+    <value>预告片</value>
+  </data>
+  <data name="ModOptions_SearchScope_Search_Scope" xml:space="preserve">
+    <value>搜索范围</value>
+  </data>
+  <data name="ModOptions_SearchScope_Include_item_types__Blank_includes_all_" xml:space="preserve">
+    <value>搜索包含的类型，默认为电影，合集，电视节目，留空包含所有。</value>
+  </data>
+  <data name="ModOptions_PinyinSortName_Pinyin_Sort_Title" xml:space="preserve">
+    <value>拼音首字母排序</value>
+  </data>
+  <data name="ModOptions_PinyinSortName_Auto_generate_pinyin_initials_as_sort_title" xml:space="preserve">
+    <value>自动把标题中的中文转换为拼音首字母作为排序标题，默认关闭。</value>
+  </data>
+  <data name="PluginOptions_MetadataEnhanceOptions_Metadata_Enhance" xml:space="preserve">
+    <value>元数据增强</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EnhanceNfoMetadata_Nfo_Metadata_Import_Enhanced" xml:space="preserve">
+    <value>NFO 元数据导入增强</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EnhanceNfoMetadata_Add_support_to_import_actor_image_url__Default_is_OFF_" xml:space="preserve">
+    <value>添加支持从 NFO 导入演员头像链接，默认关闭。</value>
+  </data>
+  <data name="ModOptions_HidePersonNoImage_Hide_Person_without_Image" xml:space="preserve">
+    <value>按偏好隐藏演职人员</value>
+  </data>
+  <data name="ModOptions_HidePersonNoImage_Hide_person_without_image__Default_is_OFF_" xml:space="preserve">
+    <value>按偏好隐藏电影剧集页面的演职人员，非删除，仍可搜索，默认关闭。</value>
+  </data>
+  <data name="ItemType_MusicArtist_MusicArtist" xml:space="preserve">
+    <value>艺术家</value>
+  </data>
+  <data name="UIFunctionOptions_EditorTitle_UI_Functions" xml:space="preserve">
+    <value>UI 功能</value>
+  </data>
+  <data name="UIFunctionOptions_BeautifyMissingMetadata_Beautify_Missing_Metadata" xml:space="preserve">
+    <value>美化标题显示</value>
+  </data>
+  <data name="UIFunctionOptions_BeautifyMissingMetadata_Beautify_missing_metadata_for_episode_display__Default_is_OFF_" xml:space="preserve">
+    <value>对于缺少元数据匹配的剧集集标题自动补全显示，美化分集标题显示，默认关闭。</value>
+  </data>
+  <data name="UIFunctionOptions_EnforceLibraryOrder_Enforce_Library_Order" xml:space="preserve">
+    <value>强制媒体库排序</value>
+  </data>
+  <data name="UIFunctionOptions_EnforceLibraryOrder_Enforce_library_order_per_the_first_admin__Default_if_OFF_" xml:space="preserve">
+    <value>首位管理员的自定义媒体库排序作用于所有用户，默认关闭。</value>
+  </data>
+  <data name="IntroSkipOptions_IntroDetectionFingerprintMinutes_Intro_Detection_Fingerprint_Minutes" xml:space="preserve">
+    <value>片头声纹探测时长 (分钟)</value>
+  </data>
+  <data name="IntroSkipOptions_MarkerEnabledLibraryScope_Library_Scope" xml:space="preserve">
+    <value>媒体库范围</value>
+  </data>
+  <data name="IntroSkipOptions_MarkerEnabledLibraryScope_Intro_detection_enabled_library_scope__Blank_includes_all_" xml:space="preserve">
+    <value>提取声纹的媒体库范围，留空包含所有启用原生片头探测的媒体库，最爱只可单选。</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EnableAltMovieDbUrl" xml:space="preserve">
+    <value>使用替代 TMDB 配置</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EnhanceMovieDbPerson_Enhance_MovieDb_Person" xml:space="preserve">
+    <value>演职人员增强 TMDB</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EnhanceMovieDbPerson_Import_season_cast_and_update_series_people__Default_is_OFF_" xml:space="preserve">
+    <value>计划任务刷新演员时提取别名，导入季的演职人员，更新节目系列的演职人员为各季合并，默认关闭。</value>
+  </data>
+  <data name="IntroSkipOptions_MinOpeningPlotDurationSeconds" xml:space="preserve">
+    <value>最小开头剧情时长 (秒)，默认为 60</value>
+  </data>
+  <data name="InvalidAltMovieDbApiUrl" xml:space="preserve">
+    <value>替代 TMDB API 地址无效</value>
+  </data>
+  <data name="InvalidAltMovieDbImageUrl" xml:space="preserve">
+    <value>替代 TMDB 图像地址无效</value>
+  </data>
+  <data name="MetadataEnhanceOptions_AltMovieDbApiUrl_Alternative_MovieDb_Api_Url" xml:space="preserve">
+    <value>替代 TMDB API 地址</value>
+  </data>
+  <data name="MetadataEnhanceOptions_AltMovieDbImageUrl_Alternative_MovieDb_Image_Url" xml:space="preserve">
+    <value>替代 TMDB 图像地址</value>
+  </data>
+  <data name="MetadataEnhanceOptions_AltMovieDbApiUrl_Default_alternative_is_https___api_tmdb_org" xml:space="preserve">
+    <value>默认替代地址为 https://api.tmdb.org 留空使用系统默认 https://api.themoviedb.org</value>
+  </data>
+  <data name="MetadataEnhanceOptions_AltMovieDbImageUrl_No_default_alternative__Provide_by_yourself_" xml:space="preserve">
+    <value>请自备替代地址，留空使用系统默认 https://image.tmdb.org</value>
+  </data>
+  <data name="MetadataEnhanceOptions_AltMovieDbApiKey_Alternative_MovieDb_Api_Key" xml:space="preserve">
+    <value>替代 TMDB API 密钥</value>
+  </data>
+  <data name="MetadataEnhanceOptions_AltMovieDbApiKey_Provide_your_own_MovieDb_Api_Key__Blank_uses_system_default_" xml:space="preserve">
+    <value>请自备 API 密钥，留空使用系统默认。</value>
+  </data>
+  <data name="InvalidAltMovieDbApiKey" xml:space="preserve">
+    <value>替代 TMDB API 密钥无效</value>
+  </data>
+  <data name="MediaInfoExtractOptions_PersistMediaInfo_Persist_MediaInfo" xml:space="preserve">
+    <value>媒体信息持久化</value>
+  </data>
+  <data name="MediaInfoExtractOptions_PersistMediaInfo_Persist_media_info_in_JSON_file__Default_is_OFF_" xml:space="preserve">
+    <value>保存或加载媒体信息和章节片头片尾标记至/自 JSON 文件，以及恢复预览缩略图 BIF。</value>
+  </data>
+  <data name="UIFunctionOptions_EnhanceMissingEpisodes_Missing_Episodes_Enhanced" xml:space="preserve">
+    <value>查看缺少的集增强</value>
+  </data>
+  <data name="UIFunctionOptions_EnhanceMissingEpisodes_Add_MovieDb_support_for_the_missing_episodes_function__Default_is_OFF_" xml:space="preserve">
+    <value>查看缺少的集支持 TMDB 以及剧集组，默认关闭。</value>
+  </data>
+  <data name="MediaInfoExtractOptions_MediaInfoJsonRootFolder_MediaInfo_Json_Root_Folder" xml:space="preserve">
+    <value>可选媒体信息 JSON 根目录</value>
+  </data>
+  <data name="MediaInfoExtractOptions_MediaInfoJsonRootFolder_Store_or_load_media_info_JSON_files_under_this_root_folder__Default_is_EMPTY_" xml:space="preserve">
+    <value>在此根文件夹下存储或加载媒体信息 JSON 文件，默认为空。</value>
+  </data>
+  <data name="ClearChapterMarkersTask_Name_Clear_Episode_Intros" xml:space="preserve">
+    <value>清除片头片尾标记</value>
+  </data>
+  <data name="ClearChapterMarkersTask_Description_Clears_behavior_based_intro_and_credits_markers" xml:space="preserve">
+    <value>清除由基于行为片头片尾探测产生的标记</value>
+  </data>
+  <data name="ExtractIntroFingerprintTask_Name_Extract_Intro_Fingerprint" xml:space="preserve">
+    <value>提取片头声纹</value>
+  </data>
+  <data name="ExtractIntroFingerprintTask_Description_Extracts_intro_fingerprint_from_episodes" xml:space="preserve">
+    <value>预提取剧集片头声纹供片头探测后处理</value>
+  </data>
+  <data name="ExtractMediaInfoTask_Name_Extract_MediaInfo" xml:space="preserve">
+    <value>提取媒体信息</value>
+  </data>
+  <data name="ExtractMediaInfoTask_Description_Extracts_media_info_from_videos_and_audios" xml:space="preserve">
+    <value>提取视频和音频的媒体信息，以及视频截图</value>
+  </data>
+  <data name="PersistMediaInfoTask_Name_Persist_MediaInfo" xml:space="preserve">
+    <value>持久化媒体信息</value>
+  </data>
+  <data name="PersistMediaInfoTask_Description_Persists_media_info_to_json_file" xml:space="preserve">
+    <value>导出媒体信息，章节片头片尾标记至 JSON 文件</value>
+  </data>
+  <data name="RefreshPersonTask_Name_Refresh_Chinese_Actor" xml:space="preserve">
+    <value>刷新演员信息</value>
+  </data>
+  <data name="RefreshPersonTask_Description_Refreshes_and_repairs_Chinese_actors" xml:space="preserve">
+    <value>刷新和修复演员信息，尽可能获取中文及头像</value>
+  </data>
+  <data name="ScanExternalSubtitleTask_Name_Scan_External_Subtitles" xml:space="preserve">
+    <value>扫描外挂字幕</value>
+  </data>
+  <data name="ScanExternalSubtitleTask_Description_Scans_external_subtitles_for_videos" xml:space="preserve">
+    <value>单独扫描视频的外挂字幕更新至媒体信息</value>
+  </data>
+  <data name="UpdatePluginTask_Name_Update_Plugin" xml:space="preserve">
+    <value>更新本插件</value>
+  </data>
+  <data name="UpdatePluginTask_Description_Updates_plugin_to_the_latest_version" xml:space="preserve">
+    <value>更新本插件至最新版</value>
+  </data>
+  <data name="Uninstall_Warning" xml:space="preserve">
+    <value>警告：中文搜索增强未正常关闭，Emby 将无法工作。</value>
+  </data>
+  <data name="No_Update_Message" xml:space="preserve">
+    <value>无更新</value>
+  </data>
+  <data name="InvalidProxyServer" xml:space="preserve">
+    <value>代理服务器无效，格式为 http[s]://[&lt;username&gt;:&lt;password&gt;@]&lt;host&gt;:&lt;port&gt;</value>
+  </data>
+  <data name="ModOptions_ProxyServer_Proxy_Server" xml:space="preserve">
+    <value>代理服务器</value>
+  </data>
+  <data name="ModOptions_ProxyServer_Enable_http_proxy_server__Blank_is_OFF_" xml:space="preserve">
+    <value>支持 HTTP(S) 代理服务器，至 Google 的延迟必须小于 999 毫秒，测试失败或留空则禁用，设置变更后须重启生效。</value>
+  </data>
+  <data name="ProxyServer_Available" xml:space="preserve">
+    <value>可用</value>
+  </data>
+  <data name="ProxyServer_Unavailable" xml:space="preserve">
+    <value>不可用</value>
+  </data>
+  <data name="InvalidMarkerEnabledLibraryScope" xml:space="preserve">
+    <value>没有任何剧集媒体库开启了生成片头标记，最爱无效</value>
+  </data>
+  <data name="NetworkOptions_EditorTitle_Network" xml:space="preserve">
+    <value>网络</value>
+  </data>
+  <data name="NetworkOptions_EnableProxyServer_Enable_Proxy_Server" xml:space="preserve">
+    <value>启用代理服务器</value>
+  </data>
+  <data name="NetworkOptions_EnableProxyServer_Enable_Proxy_Server__Default_is_OFF_" xml:space="preserve">
+    <value>服务器对外 HTTP 请求使用代理，默认关闭。</value>
+  </data>
+  <data name="ItemType_Season_Season" xml:space="preserve">
+    <value>季</value>
+  </data>
+  <data name="MetadataEnhanceOptions_MovieDbEpisodeGroup_Support_MovieDb_Episode_Group" xml:space="preserve">
+    <value>支持剧集组刮削 TMDB</value>
+  </data>
+  <data name="MetadataEnhanceOptions_MovieDbEpisodeGroup_Support_MovieDb_episode_group_scrapping_for_TV_shows__Default_is_OFF_" xml:space="preserve">
+    <value>用指定的剧集组刮削剧集，支持外部源，默认关闭。</value>
+  </data>
+  <data name="ExclusiveControl_IgnoreFileChange_IgnoreFileChange" xml:space="preserve">
+    <value>忽略文件变更</value>
+  </data>
+  <data name="ExclusiveControl_CatchAllBlock_CatchAllBlock" xml:space="preserve">
+    <value>尽可能全阻止</value>
+  </data>
+  <data name="ExclusiveControl_CatchAllAllow_CatchAllAllow" xml:space="preserve">
+    <value>尽可能全放行</value>
+  </data>
+  <data name="MediaInfoExtractOptions_ExclusiveExtractFeatureControl_Exclusive_Extract_Feature_Control" xml:space="preserve">
+    <value>可选独占模式功能控制</value>
+  </data>
+  <data name="MetadataEnhanceOptions_LocalEpisodeGroup_Store_or_load_episode_group_info_to_from_JSON_file__Default_is_OFF_" xml:space="preserve">
+    <value>保存或加载剧集组至/自 JSON 文件，默认关闭。</value>
+  </data>
+  <data name="MetadataEnhanceOptions_LocalEpisodeGroup_Local_Episode_Group" xml:space="preserve">
+    <value>启用本地剧集组 TMDB</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_EditorTitle_Experience_Enhance" xml:space="preserve">
+    <value>体验增强</value>
+  </data>
+  <data name="CatchupTask_MediaInfo_MediaInfo" xml:space="preserve">
+    <value>媒体信息提取</value>
+  </data>
+  <data name="CatchupTask_IntroSkip_IntroSkip" xml:space="preserve">
+    <value>行为探测标记同步</value>
+  </data>
+  <data name="CatchupTask_Fingerprint_Fingerprint" xml:space="preserve">
+    <value>原生片头探测</value>
+  </data>
+  <data name="GeneralOptions_CatchupScope_Catchup_Scope" xml:space="preserve">
+    <value>追更任务范围</value>
+  </data>
+  <data name="IntroSkipOptions_ClientScope_Client_Scope" xml:space="preserve">
+    <value>允许的客户端</value>
+  </data>
+  <data name="IntroSkipOptions_ClientScope_Allowed_clients__Default_is_Emby_Infuse_SenPlayer" xml:space="preserve">
+    <value>客户端名关键字以逗号或分号隔开，通过第三方客户端探测可能不准，默认值为 Emby,Infuse,SenPlayer</value>
+  </data>
+  <data name="GeneralOptions_CooldownSeconds_Cooldown_Time__Seconds___Default_is_0" xml:space="preserve">
+    <value>主线程冷却时间 (秒)</value>
+  </data>
+  <data name="InvalidShowSeasonIds" xml:space="preserve">
+    <value>电视节目或播出季 ID 无效: {0}</value>
+  </data>
+  <data name="IntroSkipOptions_BlacklistShows_Optional_Blacklist_Shows" xml:space="preserve">
+    <value>可选黑名单</value>
+  </data>
+  <data name="GeneralOptions_Tier2MaxConcurrentCount_Tier_2_Max_Concurrent_Count" xml:space="preserve">
+    <value>次最大并发线程数</value>
+  </data>
+  <data name="GeneralOptions_Tier2MaxConcurrentCount_Refresh_metadata__subtitle__local_tasks__Default_is_1_" xml:space="preserve">
+    <value>刷新演员，剧集，扫外挂字幕，处理本地任务等共享，必须在 1 至 20 之间，默认为 1。</value>
+  </data>
+  <data name="GeneralOptions_CooldownDurationSeconds_Applicable_to_single_thread_mode__Default_is_0_" xml:space="preserve">
+    <value>单线程模式有效，必须在 0 至 60 之间，默认为 0。</value>
+  </data>
+  <data name="IntroSkipOptions_IntroDetectionFingerprintMinutes_It_must_be_between_2_and_20__Default_is_10_" xml:space="preserve">
+    <value>自定义片头声纹探测时长，必须在 2 至 20 之间，默认为 10。</value>
+  </data>
+  <data name="UIFunctionOptions_NoBoxsetsAutoCreation_Prevent_Boxsets_Auto_Creation" xml:space="preserve">
+    <value>隐藏合集媒体库</value>
+  </data>
+  <data name="UIFunctionOptions_NoBoxsetsAutoCreation_Prevent_automatic_boxset_library_creation__Default_is_OFF_" xml:space="preserve">
+    <value>用户界面隐藏合集媒体库，若删除可避免扫库时自动创建，默认关闭。</value>
+  </data>
+  <data name="ServerPreferredMetadataLanguageIsNotZh" xml:space="preserve">
+    <value>服务器首选元数据语言未设置为中文，刷新演员任务已中止。</value>
+  </data>
+  <data name="IntroDetectionEnhancedNotEnabled" xml:space="preserve">
+    <value>原生片头探测增强未启用，提取声纹任务已中止。</value>
+  </data>
+  <data name="ExclusiveControl_IgnoreExtSubChange_IgnoreExtSubChange" xml:space="preserve">
+    <value>忽略外挂字幕变更</value>
+  </data>
+  <data name="ExclusiveControl_NoPersistIntegration_NoPersistIntegration" xml:space="preserve">
+    <value>无持久化整合</value>
+  </data>
+  <data name="IntroSkipControl_ResetAndOverwrite_ResetAndOverwrite" xml:space="preserve">
+    <value>重置操作覆盖后续各集原生片头标记</value>
+  </data>
+  <data name="IntroSkipOptions_IntroSkipPreferences_IntroSkip_Preferences" xml:space="preserve">
+    <value>可选偏好设置</value>
+  </data>
+  <data name="InvalidFingerprintCatchup" xml:space="preserve">
+    <value>原生片头探测增强未启用，设置追更无效</value>
+  </data>
+  <data name="ExclusiveControl_ExtractOnFileChange_ExtractOnFileChange" xml:space="preserve">
+    <value>变更后自动提取</value>
+  </data>
+  <data name="ModOptions_ExcludeOriginalTitle_Exclude_Original_Title" xml:space="preserve">
+    <value>排除原语言标题</value>
+  </data>
+  <data name="ModOptions_ExcludeOriginalTitle_Exclude_original_title_from_search__Default_is_OFF_" xml:space="preserve">
+    <value>排除原语言标题搜索，默认关闭。</value>
+  </data>
+  <data name="IntroSkipPreference_NoDetectionButReset_NoDetectionButReset" xml:space="preserve">
+    <value>无自动探测仅暂停操作设置片头片尾标记</value>
+  </data>
+  <data name="PluginOptions_IsHarmonyModFailed_Harmony_Mod_Failed" xml:space="preserve">
+    <value>魔改失败，请启用调试模式日志，重启后查看日志排查问题。</value>
+  </data>
+  <data name="HidePersonOption_NoImage_NoImage" xml:space="preserve">
+    <value>无头像人员</value>
+  </data>
+  <data name="HidePersonOption_ActorOnly_ActorOnly" xml:space="preserve">
+    <value>仅显示演员</value>
+  </data>
+  <data name="ExclusiveControl_NoIntroProtect_NoIntroProtect" xml:space="preserve">
+    <value>无片头标记保护</value>
+  </data>
+  <data name="MediaInfoExtractOptions_ImageCaptureOffset_Image_Capture_Offset" xml:space="preserve">
+    <value>自定义视频截图位置</value>
+  </data>
+  <data name="MediaInfoExtractOptions_ImageCaptureOffset_Image_capture_position_as_a_percentage_of_runtime__Default_is_10_" xml:space="preserve">
+    <value>视频截图的偏移位置，基于时长的百分比，必须在 10 至 90 之间，默认为 10。</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_EnhanceNotification_Enhance_Notification" xml:space="preserve">
+    <value>通知系统增强</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_EnhanceNotification_Show_episode_details_in_series_notification__Default_is_OFF_" xml:space="preserve">
+    <value>按电视节目分组的新增和删除通知中添加集信息，提供媒体深度删除通知，默认关闭。</value>
+  </data>
+  <data name="MetadataEnhanceOptions_ChineseTvdb_Try_to_get_Chinese_or_Japanese_metadata_from_Tvdb__Default_is_OFF_" xml:space="preserve">
+    <value>尽可能从 TVDB 获取中文或日文元数据，默认关闭。</value>
+  </data>
+  <data name="MetadataEnhanceOptions_ChineseTvdb_Customize_Tvdb_Fallback_Language" xml:space="preserve">
+    <value>自定义 TVDB 备选语言</value>
+  </data>
+  <data name="MetadataEnhanceOptions_BlockNonFallbackLanguage_Block_Non_Fallback_Language" xml:space="preserve">
+    <value>屏蔽非备选语言简介</value>
+  </data>
+  <data name="MetadataEnhanceOptions_BlockNonFallbackLanguage_Block_English_such_non_fallback_language_in_overview__Default_is_OFF_" xml:space="preserve">
+    <value>为电影，节目和剧集的简介屏蔽英文等非备选语言，支持 TMDB, TVDB，默认关闭。</value>
+  </data>
+  <data name="Operation_Success" xml:space="preserve">
+    <value>操作已成功完成</value>
+  </data>
+  <data name="MergeScopeOption_LibraryScope_LibraryScope" xml:space="preserve">
+    <value>各媒体库内合并</value>
+  </data>
+  <data name="MergeScopeOption_GlobalScope_GlobalScope" xml:space="preserve">
+    <value>跨媒体库合并</value>
+  </data>
+  <data name="MergeMovieTask_Description_Merge_movies_per_library_or_across_libraries_per_preference" xml:space="preserve">
+    <value>按偏好库内或跨库合并电影和电视节目，扫库后自动运行</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_SplitMovieButton_Split_multi_version_movies_in_all_libraries" xml:space="preserve">
+    <value>在所有库中拆分多版本电影（电视节目请扫库）</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_EnableDeepDelete_Enable_Deep_Delete" xml:space="preserve">
+    <value>启用深度删除</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_EnableDeepDelete_Attempt_to_cascade_delete_the_underlying_file_of_strm_or_symlink__Default_is_OFF_" xml:space="preserve">
+    <value>删除媒体时，尝试级联删除 STRM 或软链接的目标文件以及相关文件和空目录，默认关闭。</value>
+  </data>
+  <data name="AreYouSureToContinue" xml:space="preserve">
+    <value>您确定要继续吗？</value>
+  </data>
+  <data name="ExclusiveControl_ExtractAlternative_ExtractAlternative" xml:space="preserve">
+    <value>播放停止后提取其他版本</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_MergeMoviePreferences_Movie_Merge_Preference" xml:space="preserve">
+    <value>电影合并偏好</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_MergeSeriesPreferences_Series_Merge_Preference" xml:space="preserve">
+    <value>电视节目合并偏好</value>
+  </data>
+  <data name="ExtractVideoThumbnailTask_Description_Extract_video_thumbnail_preview" xml:space="preserve">
+    <value>提取视频预览缩略图和章节图</value>
+  </data>
+  <data name="EpisodeRefreshTask_Description_Refresh_metadata_for_episodes_missing_overview" xml:space="preserve">
+    <value>按偏好刷新剧集缺失的元数据和图片</value>
+  </data>
+  <data name="CatchupTask_EpisodeRefresh_EpisodeRefresh" xml:space="preserve">
+    <value>剧集元数据刷新</value>
+  </data>
+  <data name="ItemType_Video_Video" xml:space="preserve">
+    <value>视频</value>
+  </data>
+  <data name="Update_Failed_Message" xml:space="preserve">
+    <value>更新失败，请至控制台查看详细错误信息。</value>
+  </data>
+  <data name="MediaInfoExtractOptions_MediaInfoRestoreMode_Only_restore_media_info__chapters__and_video_thumbnails_from_JSON_or_BIF__skipping_extraction__Default_is_OFF_" xml:space="preserve">
+    <value>仅从 JSON 或 BIF 恢复媒体信息，章节片头片尾标记，预览缩略图，跳过实际提取。</value>
+  </data>
+  <data name="MediaInfoExtractOptions_MediaInfoRestoreMode_MediaInfo_Restore_Mode" xml:space="preserve">
+    <value>媒体信息恢复模式</value>
+  </data>
+  <data name="DisclaimerButtonText" xml:space="preserve">
+    <value>点击查看免责声明。未删除插件前，请勿发送日志至官方。请务必牢记！</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_SuppressPluginUpdates_Plugin_names_separated_by_comma_or_semicolon_like_MovieDb_Tvdb__Default_is_BLANK_" xml:space="preserve">
+    <value>插件名以逗号或分号隔开，比如 MovieDb,Tvdb，默认为空。</value>
+  </data>
+  <data name="ExperienceEnhanceOptions_SuppressPluginUpdates_Suppress_Auto_Plugin_Updates" xml:space="preserve">
+    <value>阻止插件自动更新</value>
+  </data>
+  <data name="IntroSkipOptions_BlacklistShows_List_of_Series_Id_or_Season_Id_separated_by_comma_or_semicolon__Default_is_EMPTY" xml:space="preserve">
+    <value>电视节目或播出季的 ID 列表，逗号或分号分隔，默认为空。</value>
+  </data>
+  <data name="Notification_DeepDelete_EventName" xml:space="preserve">
+    <value>媒体深度删除</value>
+  </data>
+  <data name="Notification_DeepDelete_EventDescription" xml:space="preserve">
+    <value>Item Name:\n{0}\n\nItem Path:\n{1}\n\nMount Paths:\n{2}</value>
+  </data>
+  <data name="DeletePersonTask_Description_Deletes_all_persons" xml:space="preserve">
+    <value>清除所有人员数据</value>
+  </data>
+  <data name="PersistMediaInfoOption_None_None" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="Disclaimer" xml:space="preserve">
+    <value>免责声明</value>
+  </data>
+  <data name="OKButtonCaption" xml:space="preserve">
+    <value>接受</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EpisodeRefreshScope_Episode_Metadata_Refresh_Scope" xml:space="preserve">
+    <value>剧集刷新范围</value>
+  </data>
+  <data name="EpisodeRefreshOption_NoOverview_No_Overview" xml:space="preserve">
+    <value>无简介</value>
+  </data>
+  <data name="EpisodeRefreshOption_NoImage_No_Image" xml:space="preserve">
+    <value>无图</value>
+  </data>
+  <data name="EpisodeRefreshOption_NonChineseOverview_Non_Chinese_Overview" xml:space="preserve">
+    <value>非中文简介</value>
+  </data>
+  <data name="EpisodeRefreshOption_DefaultEpisodeName_Default_Episode_Name" xml:space="preserve">
+    <value>默认集标题</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EpisodeRefreshScope_Episode_refresh_scope_for_scheduled_task_and_catch_up__Default_is_no_overview_and_no_image_" xml:space="preserve">
+    <value>计划任务和追更模式剧集元数据刷新的范围，涵盖所有剧集媒体库，默认为无图无简介。</value>
+  </data>
+  <data name="EpisodeRefreshOption_ReplaceCapturedImage_Replace_Captured_Image" xml:space="preserve">
+    <value>替换视频截图</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EpisodeRefreshLookBackDays_Episode_Refresh_Lookback_Days" xml:space="preserve">
+    <value>剧集刷新回溯天数</value>
+  </data>
+  <data name="MetadataEnhanceOptions_EpisodeRefreshLookbackDays_Episode_metadata_refresh_lookback_days__Default_is_365_" xml:space="preserve">
+    <value>计划任务剧集元数据刷新的回溯天数，默认为365天。</value>
+  </data>
+  <data name="MergeScopeOption_FolderScope_FolderScope" xml:space="preserve">
+    <value>同目录合并</value>
+  </data>
+  <data name="Wiki_Link" xml:space="preserve">
+    <value>功能介绍</value>
+  </data>
+  <data name="Repo_Link" xml:space="preserve">
+    <value>项目源码</value>
+  </data>
+  <data name="About_StrmAssistant_Pro" xml:space="preserve">
+    <value>如有能力，请积极支持神医助手Pro版，功能更多，更新更快，点击了解！</value>
+  </data>
+</root>

@@ -1,0 +1,27 @@
+.vs
+*.suo
+*.user
+*.sln.docstates
+
+[Dd]ebug/
+[Rr]elease/
+x64/
+build/
+[Bb]in/
+[Oo]bj/
+/system
+/StrmAssistant/Properties/launchSettings.json
+
+# Build output
+StrmAssistant/bin/
+StrmAssistant/obj/
+StrmAssistant/Properties/launchSettings.json
+libs/
+
+# ILRepack output
+StrmAssistant/bin/output/
+libs/
+StrmAssistant/bin/
+StrmAssistant/obj/
+StrmAssistant/bin/output/
+StrmAssistant/Properties/launchSettings.json
