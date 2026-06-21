@@ -45,18 +45,18 @@ docker cp emby:/system/MediaBrowser.Common.dll libs/publicized/
 docker cp emby:/system/MediaBrowser.Model.dll libs/publicized/
 
 # 2. 构建
-dotnet restore StrmAssistant.sln
-dotnet build StrmAssistant.sln
+dotnet restore EmbyChineseSearch.sln
+dotnet build EmbyChineseSearch.sln
 
 # 3. 合并依赖到单 DLL（可选）
 #    Linux 下需要 mono-complete
 mono ~/.nuget/packages/ilrepack/2.0.44/tools/ILRepack.exe \
   /out:EmbyChineseSearch.dll \
-  StrmAssistant/bin/Debug/net6.0/StrmAssistant.dll \
-  StrmAssistant/bin/Debug/net6.0/0Harmony.dll \
-  StrmAssistant/bin/Debug/net6.0/ChineseConverter.dll \
-  StrmAssistant/bin/Debug/net6.0/TinyPinyin.dll \
-  /lib:StrmAssistant/bin/Debug/net6.0/
+  EmbyChineseSearch/bin/Debug/net6.0/EmbyChineseSearch.dll \
+  EmbyChineseSearch/bin/Debug/net6.0/0Harmony.dll \
+  EmbyChineseSearch/bin/Debug/net6.0/ChineseConverter.dll \
+  EmbyChineseSearch/bin/Debug/net6.0/TinyPinyin.dll \
+  /lib:EmbyChineseSearch/bin/Debug/net6.0/
 ```
 
 ## 卸载
