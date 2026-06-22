@@ -5,6 +5,7 @@ using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Controller.Plugins;
+using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Drawing;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Logging;
@@ -12,6 +13,8 @@ using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Plugins.UI;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.Tasks;
+using EmbyChineseSearch.Common;
+using EmbyChineseSearch.IntroSkip;
 using EmbyChineseSearch.Mod;
 using EmbyChineseSearch.Options.Store;
 using EmbyChineseSearch.Options.View;
@@ -46,12 +49,18 @@ namespace EmbyChineseSearch
         private readonly ITaskManager _taskManager;
         private readonly IXmlSerializer _xmlSerializer;
         private readonly IItemRepository _itemRepository;
+        private readonly ISessionManager _sessionManager;
+
+        // ── IntroSkip ──
+        public static ChapterMarkerApi ChapterMarkerApi { get; private set; }
+        public static PlaySessionMonitor PlaySessionMonitor { get; private set; }
 
         public bool DebugMode;
 
         public Plugin(IApplicationHost applicationHost, IApplicationPaths applicationPaths, ILogManager logManager,
             IFileSystem fileSystem, IServerConfigurationManager configurationManager, ITaskManager taskManager,
-            ILibraryManager libraryManager, IXmlSerializer xmlSerializer, IItemRepository itemRepository)
+            ILibraryManager libraryManager, IXmlSerializer xmlSerializer, IItemRepository itemRepository,
+            ISessionManager sessionManager)
             : base(applicationPaths, xmlSerializer)
         {
             Instance = this;
@@ -68,11 +77,16 @@ namespace EmbyChineseSearch
             _taskManager = taskManager;
             _xmlSerializer = xmlSerializer;
             _itemRepository = itemRepository;
+            _sessionManager = sessionManager;
 
             DefaultUICulture = new CultureInfo(configurationManager.Configuration.UICulture);
             DebugMode = true;
             Logger.Info("AppVer={0}, VerTarget={1}, IsMatch={2}", AppVer, VerTarget, AppVer == VerTarget);
             Logger.Info("IsModSupported={0}", IsModSupported);
+
+            // ── Initialise IntroSkip components ──
+            ChapterMarkerApi = new ChapterMarkerApi(libraryManager, itemRepository, Logger);
+            PlaySessionMonitor = new PlaySessionMonitor(libraryManager, sessionManager, Logger);
         }
 
         public static bool IsModSupported
@@ -92,7 +106,10 @@ namespace EmbyChineseSearch
         }
 
         public void Run() => Initialize();
-        public void Dispose() { }
+        public void Dispose()
+        {
+            PlaySessionMonitor?.Dispose();
+        }
 
         private void Initialize()
         {
@@ -111,7 +128,7 @@ namespace EmbyChineseSearch
                     }
                     catch (Exception ex)
                     {
-                        Logger.Error("��ʼ�� EnhanceChineseSearch ʧ��", ex);
+                        Logger.Error("初始化 EnhanceChineseSearch 失败", ex);
                         if (options.EnhanceChineseSearch)
                         {
                             options.EnhanceChineseSearch = false;
@@ -122,11 +139,25 @@ namespace EmbyChineseSearch
             }
             else
             {
-                Logger.Warn("��ǰƽ̨/�ܹ���֧����ǿ����: " +
+                Logger.Warn("当前平台/架构不支持增强模式: " +
                     $"OS={RuntimeInformation.OSDescription}, " +
                     $"Arch={RuntimeInformation.ProcessArchitecture}");
             }
 
+            // ── Start IntroSkip (if enabled in config) ──
+            var config = Configuration as PluginConfiguration ?? new PluginConfiguration();
+            if (config.EnableIntroSkip)
+            {
+                Logger.Info("[IntroSkip] Starting PlaySessionMonitor...");
+                PlaySessionMonitor.MaxIntroDurationTicks = TimeSpan.FromSeconds(config.MaxIntroDurationSeconds).Ticks;
+                PlaySessionMonitor.MinOpeningPlotDurationTicks = TimeSpan.FromSeconds(config.MinOpeningPlotDurationSeconds).Ticks;
+                PlaySessionMonitor.MaxCreditsDurationTicks = TimeSpan.FromSeconds(config.MaxCreditsDurationSeconds).Ticks;
+                PlaySessionMonitor.Start();
+            }
+            else
+            {
+                Logger.Info("[IntroSkip] Disabled by configuration");
+            }
         }
 
         public override void OnUninstalling()
@@ -150,7 +181,7 @@ namespace EmbyChineseSearch
         }
 
         public ImageFormat ThumbImageFormat => ImageFormat.Png;
-        public override string Description => "Emby中文搜索增强 — 拼音搜索、模糊搜索、SQLite FTS5 simple分词器";
+        public override string Description => "Emby中文搜索增强 — 拼音搜索、模糊搜索、SQLite FTS5 simple分词器 + IntroSkip";
         public override Guid Id => _id;
         public sealed override string Name => "Emby中文搜索增强";
         public static Version CurrentVersion => Assembly.GetExecutingAssembly().GetName().Version;
@@ -186,5 +217,11 @@ namespace EmbyChineseSearch
         public string StrmBackupPath { get; set; } = string.Empty;
         public bool AutoExtractMediaInfo { get; set; } = true;
         public bool EnableStrmBackup { get; set; } = false;
+
+        // ── IntroSkip configuration ──
+        public bool EnableIntroSkip { get; set; } = false;
+        public int MaxIntroDurationSeconds { get; set; } = 150;
+        public int MaxCreditsDurationSeconds { get; set; } = 360;
+        public int MinOpeningPlotDurationSeconds { get; set; } = 60;
     }
 }
