@@ -65,7 +65,7 @@ namespace EmbyChineseSearch
         {
             Instance = this;
             Logger = logManager.GetLogger(Name);
-            Logger.Info("Emby Chinese Search Start");
+            Logger.Info("观影助手 Start");
             ApplicationHost = applicationHost;
             ApplicationPaths = applicationPaths;
             ConfigurationManager = configurationManager;
@@ -181,9 +181,9 @@ namespace EmbyChineseSearch
         }
 
         public ImageFormat ThumbImageFormat => ImageFormat.Png;
-        public override string Description => "Emby中文搜索增强 — 拼音搜索、模糊搜索、SQLite FTS5 simple分词器 + IntroSkip";
+        public override string Description => "观影助手 — 拼音搜索、模糊搜索、SQLite FTS5 + 片头片尾跳过";
         public override Guid Id => _id;
-        public sealed override string Name => "Emby中文搜索增强";
+        public sealed override string Name => "观影助手";
         public static Version CurrentVersion => Assembly.GetExecutingAssembly().GetName().Version;
         public CultureInfo DefaultUICulture { get; private set; }
         public Stream GetThumbImage()

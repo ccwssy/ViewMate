@@ -1,23 +1,32 @@
-# Emby Chinese Search
+# 观影助手
 
-Emby 中文搜索增强插件。用 SQLite FTS5 `simple` 分词器替换默认 `unicode61`，实现中文模糊搜索和拼音搜索。
+Emby 播放体验增强插件 — **中文搜索增强** + **片头片尾自动跳过**。
 
 适配 Emby **4.9.5.0**（构建时从运行容器提取 DLL 做引用，保证 API 兼容）。
 
-> Forked from [xinjiawei/StrmAssistant_less](https://github.com/xinjiawei/StrmAssistant_less)，仅保留中文搜索增强，去掉代理配置等无关模块。
+> Forked from [xinjiawei/StrmAssistant_less](https://github.com/xinjiawei/StrmAssistant_less)，原仅保留中文搜索增强。`dev` 分支追加 IntroSkip 功能。
 
-## 原理
+## 功能
+
+### 1. 中文搜索增强
 
 Emby 的搜索依赖 SQLite FTS5（全文索引，表 `fts_search9`）。默认分词器 `unicode61` 只做 Unicode 字符切分，不支持中文词汇边界和拼音。
 
-本插件通过 **Harmony 运行时打补丁**的方式，在 Emby 启动时动态注入 `simple` 分词器（内嵌结巴分词 + 拼音索引），重建全文索引。不修改 Emby 本体 DLL，关闭后重启即可恢复。
-
-### 支持的功能
+通过 **Harmony 运行时打补丁**的方式，在 Emby 启动时动态注入 `simple` 分词器（内嵌结巴分词 + 拼音索引），重建全文索引。不修改 Emby 本体 DLL，关闭后重启即可恢复。
 
 - ✅ 中文**模糊搜索**——搜"功"匹配"功夫"
 - ✅ **拼音搜索**——搜 `gongfu` 匹配"功夫"
 - ✅ 可配置搜索范围（电影/剧集/合集/演员等）
 - ✅ 不修改 Emby DLL，安全可逆
+
+### 2. 片头片尾跳过（dev 分支）
+
+通过监控用户播放行为，自动检测并写入 Emby 标准 Chapter 标记（`IntroStart`/`IntroEnd`/`CreditsStart`），支持所有标准 Emby 客户端（含 Yamby、Infuse、SenPlayer 等）。
+
+- ✅ **用户行为检测** — 识别手动拖进度条跳过片头的模式
+- ✅ **教学式标记** — NoDetectionButReset 模式（暂停-恢复确定边界）
+- ✅ **同季回填** — 检测到一集片头后自动标记同季其他集
+- ✅ 纯服务器端工作，不修改客户端
 
 ## 架构支持
 
