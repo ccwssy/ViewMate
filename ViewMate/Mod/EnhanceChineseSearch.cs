@@ -1,5 +1,6 @@
 using HarmonyLib;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Persistence;
 using SQLitePCL.pretty;
 using System;
 using System.Collections.Generic;
@@ -259,15 +260,15 @@ namespace ViewMate.Mod
 
         private static bool CreateConnectionPostfixPlatform()
         {
+            Plugin.Instance.Logger.Info("CreateConnectionPostfixPlatform: OS={0} Arch={1} _cc={2} approach={3}",
+                RuntimeInformation.OSDescription, RuntimeInformation.ProcessArchitecture,
+                _createConnection != null, Instance?.PatchTracker?.FallbackPatchApproach);
+
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && Environment.Is64BitProcess)
             {
-                return PatchUnpatch(
-                    Instance.PatchTracker,
-                    true,
-                    _createConnection,
+                return PatchUnpatch(Instance.PatchTracker, true, _createConnection,
                     prefix: nameof(CreateNewConnectionPrefix),
-                    postfix: nameof(CreateConnectionPostfixWin)
-                    );
+                    postfix: nameof(CreateConnectionPostfixWin));
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
@@ -301,13 +302,49 @@ namespace ViewMate.Mod
 
         private static void PatchPhase1()
         {
-            if (EnsureTokenizerExists() && CreateConnectionPostfixPlatform()) return;
-
-            if (Plugin.Instance.DebugMode)
+            if (EnsureTokenizerExists())
             {
-                Plugin.Instance.Logger.Debug("EnhanceChineseSearch - PatchPhase1 Failed");
+                if (CreateConnectionPostfixPlatform()) return;
+                Plugin.Instance.Logger.Info(
+                    "EnhanceChineseSearch - Harmony patch skipped, trying ForceInitializeOnConnection...");
+
+                // Fallback: load tokenizer directly on the current library connection
+                try
+                {
+                    var asm = Assembly.Load("Emby.Server.Implementations");
+                    var repoType = asm.GetType("Emby.Server.Implementations.Data.SqliteItemRepository");
+                    if (repoType != null)
+                    {
+                        FieldInfo connField = null;
+                        foreach (var f in new[] { "_connection", "connection", "_db", "db" })
+                        {
+                            connField = repoType.GetField(f, BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public | BindingFlags.Instance);
+                            if (connField != null && typeof(IDatabaseConnection).IsAssignableFrom(connField.FieldType))
+                                break;
+                        }
+                        if (connField != null)
+                        {
+                            var itemRepo = Plugin.Instance.ApplicationHost.Resolve<IItemRepository>();
+                            if (itemRepo != null)
+                            {
+                                var connection = connField.GetValue(itemRepo) as IDatabaseConnection;
+                                if (connection != null)
+                                {
+                                    var result = ForceInitializeOnConnection(connection);
+                                    Plugin.Instance.Logger.Info("EnhanceChineseSearch - ForceInitializeOnConnection result: {0}", result);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Instance.Logger.Info("EnhanceChineseSearch - ForceInitialize fallback failed: " + ex.Message);
+                }
+                return; // Don't ResetOptions
             }
 
+            Plugin.Instance.Logger.Info("EnhanceChineseSearch - Tokenizer missing, PatchPhase1 failed");
             ResetOptions();
         }
 
@@ -873,9 +910,23 @@ namespace ViewMate.Mod
                 }
 
                 var searchTerm = query.SearchTerm;
-                if (query.IncludeItemTypes.Length == 0 && !string.IsNullOrEmpty(searchTerm))
+                if (!string.IsNullOrEmpty(searchTerm))
                 {
-                    query.IncludeItemTypes = GetSearchScope();
+                    var scope = GetSearchScope();
+                    if (scope.Length > 0)
+                    {
+                        if (query.IncludeItemTypes.Length > 0)
+                        {
+                            // Intersect: respect user's scope, strip out Person etc.
+                            query.IncludeItemTypes = query.IncludeItemTypes
+                                .Intersect(scope, StringComparer.OrdinalIgnoreCase)
+                                .ToArray();
+                        }
+                        else
+                        {
+                            query.IncludeItemTypes = scope;
+                        }
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(searchTerm))

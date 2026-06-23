@@ -25,7 +25,11 @@ namespace ViewMate.IntroSkip
 
         public long MaxIntroDurationTicks { get; set; } = TimeSpan.FromSeconds(150).Ticks;
         public long MaxCreditsDurationTicks { get; set; } = TimeSpan.FromSeconds(360).Ticks;
-        public long MinOpeningPlotDurationTicks { get; set; } = TimeSpan.FromSeconds(60).Ticks;
+        public long MinOpeningPlotDurationTicks { get; set; } = TimeSpan.FromSeconds(30).Ticks;
+
+        /// <summary>Last significant forward jump (≥10s) regardless of elapsed time.</summary>
+        public long? LastBigJumpSourceTicks { get; set; }
+        public long? LastBigJumpTargetTicks { get; set; }
 
         public DateTime? LastPauseEventTime { get; set; }
         public DateTime? LastPlaybackRateChangeEventTime { get; set; }

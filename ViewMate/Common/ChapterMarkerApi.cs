@@ -163,18 +163,9 @@ namespace ViewMate.Common
                 MediaTypes = new[] { MediaType.Video }
             }).Items.OfType<Episode>().OrderBy(e => e.IndexNumber ?? 0).ToList();
 
-            return allEpisodes
-                .Where(e => e.IndexNumber <= item.IndexNumber)
-                .Where(e =>
-                {
-                    var chapters = GetChapters(e);
-                    return !chapters.Any(c =>
-                        (c.MarkerType == MarkerType.IntroStart
-                         || c.MarkerType == MarkerType.IntroEnd
-                         || c.MarkerType == MarkerType.CreditsStart)
-                        && IsMarkerOurs(c));
-                })
-                .ToList();
+            // Apply intro positions to ALL episodes in the same season — batch auto-complete.
+            // Episodes with existing #ECS markers are overwritten (auto-healing).
+            return allEpisodes.ToList();
         }
     }
 }

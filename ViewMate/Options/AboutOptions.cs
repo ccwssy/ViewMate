@@ -52,10 +52,10 @@ namespace ViewMate.Options
             VersionInfoList.Add(
                 new GenericListItem
                 {
-                    PrimaryText = "Emby中文搜索增强",
+                    PrimaryText = "观影助手",
                     Icon = IconNames.title,
                     IconMode = ItemListIconMode.SmallRegular,
-                    HyperLink = "https://github.com/ccwssy/emby-chinese-search",
+                    HyperLink = "https://github.com/ccwssy/ViewMate",
                 });
 
             VersionInfoList.Add(
@@ -71,7 +71,7 @@ namespace ViewMate.Options
                     PrimaryText = "GitHub 仓库",
                     Icon = IconNames.code,
                     IconMode = ItemListIconMode.SmallRegular,
-                    HyperLink = "https://github.com/ccwssy/emby-chinese-search",
+                    HyperLink = "https://github.com/ccwssy/ViewMate",
                 });
 
             VersionInfoList.Add(

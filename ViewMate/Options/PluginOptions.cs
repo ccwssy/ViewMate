@@ -36,6 +36,9 @@ namespace ViewMate.Options
         [Browsable(false)]
         public NetworkOptions NetworkOptions { get; set; } = new NetworkOptions();
 
+        [DisplayName("片头片尾跳过")]
+        public IntroSkipOptions IntroSkipOptions { get; set; } = new IntroSkipOptions();
+
         [DisplayNameL("AboutOptions_EditorTitle_About", typeof(Resources))]
         public AboutOptions AboutOptions { get; set; } = new AboutOptions();
 

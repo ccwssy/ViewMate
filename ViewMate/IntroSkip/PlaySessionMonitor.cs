@@ -33,7 +33,7 @@ namespace ViewMate.IntroSkip
 
         // ── config overrides (could be moved to PluginOptions) ──
         public long MaxIntroDurationTicks { get; set; } = TimeSpan.FromSeconds(150).Ticks;
-        public long MinOpeningPlotDurationTicks { get; set; } = TimeSpan.FromSeconds(60).Ticks;
+        public long MinOpeningPlotDurationTicks { get; set; } = TimeSpan.FromSeconds(30).Ticks;
         public long MaxCreditsDurationTicks { get; set; } = TimeSpan.FromSeconds(360).Ticks;
 
         /// <summary>When true, all TV libraries are in scope.</summary>
@@ -109,7 +109,10 @@ namespace ViewMate.IntroSkip
             var episode = (Episode)e.Item;
 
             // ── detect seek-jump (manual skip forward) ──
-            if (e.EventName == ProgressEvent.TimeUpdate && !data.IntroEnd.HasValue && !data.NoDetectionButReset)
+            // Include Pause for mobile tap-to-seek (mobile Emby Web sends Pause, not TimeUpdate)
+            // Always track jumps regardless of existing markers, enabling auto-healing
+            if ((e.EventName == ProgressEvent.TimeUpdate || e.EventName == ProgressEvent.Unpause || e.EventName == ProgressEvent.Pause)
+                && !data.NoDetectionButReset)
             {
                 DetectJump(episode, e.Session, data, currentTicks, now);
             }
@@ -148,20 +151,78 @@ namespace ViewMate.IntroSkip
             if (e.EventName == ProgressEvent.PlaybackRateChange)
                 data.LastPlaybackRateChangeEventTime = now;
 
+            // ── track manual forward jumps (≥20s to avoid normal ~10s progress) ──
+            var timeElapsed = (now - data.PreviousEventTime).TotalSeconds;
+            var posDelta = TimeSpan.FromTicks(currentTicks - data.PreviousPositionTicks).TotalSeconds;
+            if (posDelta >= 20 && !data.NoDetectionButReset)
+            {
+                data.LastBigJumpSourceTicks = data.PreviousPositionTicks;
+                data.LastBigJumpTargetTicks = currentTicks;
+                _logger.Info("[IntroSkip] Big jump tracked: {0:F0}s → {1:F0}s (elapsed={2:F1}s)",
+                    TimeSpan.FromTicks(data.PreviousPositionTicks).TotalSeconds,
+                    TimeSpan.FromTicks(currentTicks).TotalSeconds,
+                    timeElapsed);
+            }
+
             data.PreviousPositionTicks = currentTicks;
             data.PreviousEventTime = now;
         }
 
         private void OnPlaybackStopped(object sender, PlaybackStopEventArgs e)
         {
-            if (!(e.Item is Episode episode) || !e.PlaybackPositionTicks.HasValue || !episode.RunTimeTicks.HasValue)
+            if (!(e.Item is Episode episode) || !e.PlaybackPositionTicks.HasValue)
+            {
+                _logger.Info("[IntroSkip] OnPlaybackStopped skipped: type={0} pos={1} session={2}",
+                    e.Item?.GetType().Name, e.PlaybackPositionTicks, e.PlaySessionId);
                 return;
+            }
 
             if (!_sessions.TryRemove(e.PlaySessionId, out var data))
+            {
+                _logger.Info("[IntroSkip] OnPlaybackStopped session {0} not found (sessions count={1})",
+                    e.PlaySessionId, _sessions.Count);
                 return;
+            }
 
-            // Detect credits from stop position (user stopped near end → credits already passed)
-            if (!data.CreditsStart.HasValue && !data.NoDetectionButReset)
+            var currentTicks = e.PlaybackPositionTicks.Value;
+            var prevTicks = data.PreviousPositionTicks;
+            var jumpForward = TimeSpan.FromTicks(currentTicks - prevTicks).TotalSeconds;
+            var curSec = TimeSpan.FromTicks(currentTicks).TotalSeconds;
+            var prevSec = TimeSpan.FromTicks(prevTicks).TotalSeconds;
+            var maxIntroSec = TimeSpan.FromTicks(MaxIntroDurationTicks).TotalSeconds;
+            var minOpeningSec = TimeSpan.FromTicks(MinOpeningPlotDurationTicks).TotalSeconds;
+
+            _logger.Info("[IntroSkip] OnPlaybackStopped: pos={0:F0}s prev={1:F0}s jump={2:F0}s maxIntro={3:F0}s minOpen={4:F0}s",
+                curSec, prevSec, jumpForward, maxIntroSec, minOpeningSec);
+
+            // Detect intro from tracked big jump (covers mobile seek-then-resume scenarios)
+            // Always run even with existing markers → enables auto-healing of wrong markers
+            if (!data.NoDetectionButReset
+                && data.LastBigJumpSourceTicks.HasValue && data.LastBigJumpTargetTicks.HasValue)
+            {
+                var jumpSrc = data.LastBigJumpSourceTicks.Value;
+                var jumpTgt = data.LastBigJumpTargetTicks.Value;
+                var jumpSrcSec = TimeSpan.FromTicks(jumpSrc).TotalSeconds;
+                var jumpTgtSec = TimeSpan.FromTicks(jumpTgt).TotalSeconds;
+                if (jumpSrcSec <= maxIntroSec)
+                {
+                    Plugin.ChapterMarkerApi.UpdateIntro(episode, jumpSrc, jumpTgt);
+                    _logger.Info("[IntroSkip] Intro detected (from tracked jump): {0:F0}s → {1:F0}s (src={2:F0}s)",
+                        jumpSrcSec, jumpTgtSec, jumpSrcSec);
+                }
+                else
+                {
+                    _logger.Info("[IntroSkip] Tracked jump ignored: src={0:F0}s exceeds maxIntro={1:F0}s",
+                        jumpSrcSec, maxIntroSec);
+                }
+            }
+            else if (!data.IntroEnd.HasValue)
+            {
+                _logger.Info("[IntroSkip] OnPlaybackStopped: no tracked jump available");
+            }
+
+            // Detect credits from stop position (requires RunTimeTicks)
+            if (episode.RunTimeTicks.HasValue && !data.CreditsStart.HasValue && !data.NoDetectionButReset)
             {
                 var nearEnd = episode.RunTimeTicks.Value - MaxCreditsDurationTicks;
                 if (e.PlaybackPositionTicks.Value > nearEnd)
@@ -180,49 +241,56 @@ namespace ViewMate.IntroSkip
         private void DetectJump(Episode episode, SessionInfo session, PlaySessionData data,
             long currentTicks, DateTime now)
         {
-            var elapsed = (now - data.PreviousEventTime).TotalSeconds;
-            var moved = TimeSpan.FromTicks(currentTicks - data.PreviousPositionTicks).TotalSeconds;
+            var currentSeconds = TimeSpan.FromTicks(currentTicks).TotalSeconds;
+            var previousSeconds = TimeSpan.FromTicks(data.PreviousPositionTicks).TotalSeconds;
+            var elapsedSeconds = (now - data.PreviousEventTime).TotalSeconds;
 
-            // Must be a forward jump (not normal playback)
-            if (moved <= 0) return;
+            // Seek detection: position jumped forward ≥10 seconds in ≤3 real seconds
+            // (3s threshold for mobile tap-to-seek; Web clients report every ~10s)
+            var jumpForward = currentSeconds - previousSeconds;
+            var isSeek = jumpForward >= 10 && elapsedSeconds >= 0.1 && elapsedSeconds <= 3.0;
 
-            // Calculate playback-speed-adjusted expected movement
-            var normalPlayRate = Math.Abs(data.PreviousPositionTicks - data.PlaybackStartTicks)
-                / Math.Max(1, (now - data.PreviousEventTime.AddSeconds(-1)).TotalSeconds);
-
-            // A jump is when movement exceeds 3x normal playback rate with short elapsed time
-            if (elapsed > 0 && moved / Math.Max(1, elapsed) > normalPlayRate * 3 && moved > 5)
+            if (!isSeek)
             {
-                if (!data.FirstJumpPositionTicks.HasValue)
+                // Reset jump tracking if user pauses for too long (not a seek)
+                if (elapsedSeconds > 10)
                 {
-                    data.FirstJumpPositionTicks = data.PreviousPositionTicks;
+                    data.FirstJumpPositionTicks = null;
+                    data.LastJumpPositionTicks = null;
                 }
-                data.LastJumpPositionTicks = currentTicks;
+                return;
             }
 
-            // Analyse jump pair to determine intro boundaries
+            // Track the first and last seek positions
+            if (!data.FirstJumpPositionTicks.HasValue || data.LastJumpPositionTicks.HasValue)
+            {
+                // New jump sequence
+                data.FirstJumpPositionTicks = data.PreviousPositionTicks;
+            }
+            data.LastJumpPositionTicks = currentTicks;
+
+            _logger.Debug("[IntroSkip] Seek detected: {0} → {1} (jump={2}s elapsed={3:F1}s)",
+                new TimeSpan(data.PreviousPositionTicks).ToString(@"hh\:mm\:ss"),
+                new TimeSpan(currentTicks).ToString(@"hh\:mm\:ss"),
+                jumpForward, elapsedSeconds);
+
+            // Analyse: if end of jump within MaxIntro → it's the intro
             if (data.FirstJumpPositionTicks.HasValue && data.LastJumpPositionTicks.HasValue)
             {
                 var introStart = data.FirstJumpPositionTicks.Value;
                 var introEnd = data.LastJumpPositionTicks.Value;
-                var introDuration = TimeSpan.FromTicks(introEnd - introStart).TotalSeconds;
+                var introDurationSeconds = TimeSpan.FromTicks(introEnd - introStart).TotalSeconds;
 
-                // Validate: intro should be within limits and near start of episode
-                if (introDuration > 0
-                    && introEnd <= MaxIntroDurationTicks
-                    && introStart >= MinOpeningPlotDurationTicks)
+                if (introDurationSeconds > 5
+                    && TimeSpan.FromTicks(introStart).TotalSeconds <= TimeSpan.FromTicks(MaxIntroDurationTicks).TotalSeconds)
                 {
                     Plugin.ChapterMarkerApi.UpdateIntro(episode, introStart, introEnd);
                     data.IntroStart = Plugin.ChapterMarkerApi.GetIntroStart(episode);
                     data.IntroEnd = Plugin.ChapterMarkerApi.GetIntroEnd(episode);
-                    _logger.Info("[IntroSkip] Intro detected: {0} – {1} (dur={2}s)",
+                    _logger.Info("[IntroSkip] Intro detected: {0} – {1} (dur={2:F0}s)",
                         new TimeSpan(introStart).ToString(@"hh\:mm\:ss\.fff"),
                         new TimeSpan(introEnd).ToString(@"hh\:mm\:ss\.fff"),
-                        introDuration);
-
-                    // Reset jump tracking for potential credits detection later
-                    data.FirstJumpPositionTicks = null;
-                    data.LastJumpPositionTicks = null;
+                        introDurationSeconds);
                 }
             }
         }

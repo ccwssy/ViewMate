@@ -181,7 +181,7 @@ namespace ViewMate
         }
 
         public ImageFormat ThumbImageFormat => ImageFormat.Png;
-        public override string Description => "观影助手 — 拼音搜索、模糊搜索、SQLite FTS5 + 片头片尾跳过";
+        public override string Description => "观影助手 v1.0.0.1 — 拼音搜索、模糊搜索、SQLite FTS5 + 片头片尾跳过";
         public override Guid Id => _id;
         public sealed override string Name => "观影助手";
         public static Version CurrentVersion => Assembly.GetExecutingAssembly().GetName().Version;
@@ -222,6 +222,6 @@ namespace ViewMate
         public bool EnableIntroSkip { get; set; } = false;
         public int MaxIntroDurationSeconds { get; set; } = 150;
         public int MaxCreditsDurationSeconds { get; set; } = 360;
-        public int MinOpeningPlotDurationSeconds { get; set; } = 60;
+        public int MinOpeningPlotDurationSeconds { get; set; } = 30;
     }
 }

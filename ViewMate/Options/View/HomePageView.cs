@@ -19,10 +19,16 @@ namespace ViewMate.Options.View
             ContentData = store.GetOptions();
 
             PluginOptions.Initialize();
-            //PluginOptions.GeneralOptions.Initialize();
             PluginOptions.ModOptions.Initialize();
             PluginOptions.NetworkOptions.Initialize();
             PluginOptions.AboutOptions.Initialize();
+            PluginOptions.IntroSkipOptions.Initialize();
+
+            // Load IntroSkip values from PluginConfiguration
+            var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
+            PluginOptions.IntroSkipOptions.EnableIntroSkip = config.EnableIntroSkip;
+            PluginOptions.IntroSkipOptions.MaxIntroDurationSeconds = config.MaxIntroDurationSeconds;
+            PluginOptions.IntroSkipOptions.MaxCreditsDurationSeconds = config.MaxCreditsDurationSeconds;
         }
 
         public PluginOptions PluginOptions => ContentData as PluginOptions;
@@ -48,6 +54,14 @@ namespace ViewMate.Options.View
             }
 
             _store.SetOptions(PluginOptions);
+
+            // Sync IntroSkip values to PluginConfiguration
+            var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
+            config.EnableIntroSkip = PluginOptions.IntroSkipOptions.EnableIntroSkip;
+            config.MaxIntroDurationSeconds = PluginOptions.IntroSkipOptions.MaxIntroDurationSeconds;
+            config.MaxCreditsDurationSeconds = PluginOptions.IntroSkipOptions.MaxCreditsDurationSeconds;
+            Plugin.Instance.UpdateConfiguration(config);
+
             return base.OnSaveCommand(itemId, commandId, data);
         }
     }
