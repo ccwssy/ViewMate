@@ -262,9 +262,9 @@ namespace ViewMate.IntroSkip
             }
 
             // Track the first and last seek positions
-            if (!data.FirstJumpPositionTicks.HasValue || data.LastJumpPositionTicks.HasValue)
+            if (!data.FirstJumpPositionTicks.HasValue)
             {
-                // New jump sequence
+                // New jump sequence — keep the original source position
                 data.FirstJumpPositionTicks = data.PreviousPositionTicks;
             }
             data.LastJumpPositionTicks = currentTicks;
