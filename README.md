@@ -117,6 +117,26 @@ docker restart emby
 DELETE FROM Chapters3 WHERE MarkerType IN (1, 2) AND Name LIKE '%#ECS%';
 ```
 
+## 配套脚本
+
+仓库 `scripts/` 目录提供两个独立脚本：
+
+| 脚本 | 功能 | 运行方式 |
+|:--|:--|:--|
+| `emby-pinyin-sync.sh` | 扫描新入库媒体，自动注入拼音到 FTS5 索引 | cron 每 30 分静默执行 |
+| `emby-intro-fix.sh` | 检测无 Intro 标记的剧集，从同季已打标集复制补打 | 按需或 cron |
+
+```bash
+# 拼音同步
+./scripts/emby-pinyin-sync.sh emby-test   # 测试服
+./scripts/emby-pinyin-sync.sh emby        # 主服
+
+# 补打 Intro 标记
+./scripts/emby-intro-fix.sh emby-test     # 停容器 → 补写 → 重启
+```
+
+> 拼音依赖宿主机 `python3`（pypinyin）。Intro 补打依赖宿主机 `python3`（sqlite3）。
+
 ## 版本
 
 | 版本 | 日期 | 说明 |
