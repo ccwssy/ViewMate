@@ -38,11 +38,12 @@ namespace ViewMate.Options
             if (informationalVersion != null)
             {
                 var parts = informationalVersion.Split('+');
-                var shortCommitHash = parts.Length > 1 ? parts[1].Substring(0, 7) : "n/a";
-                return $"{fullVersion}+{shortCommitHash}";
+                if (parts.Length > 1)
+                    return $"{fullVersion}+{parts[1].Substring(0, 7)}";
+                return fullVersion ?? informationalVersion;
             }
 
-            return fullVersion;
+            return fullVersion ?? "unknown";
         }
 
         public void Initialize()
