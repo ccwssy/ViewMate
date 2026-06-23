@@ -2,7 +2,7 @@
 
 Emby 播放体验增强插件 — **拼音搜索** + **片头片尾跳过** + **漏集补打**。
 
-适配 Emby **4.9.5.0**（.NET 6.0 / SDK 10 跨编译）。单 DLL 部署，零外部依赖，2.5MB。
+适配 Emby **4.9.5.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll + TinyPinyin.dll），~183KB。
 
 ## 功能
 
@@ -45,9 +45,12 @@ Emby 播放体验增强插件 — **拼音搜索** + **片头片尾跳过** + **
 # 1. 下载
 curl -L -o ViewMate.dll \
   "https://github.com/ccwssy/ViewMate/releases/latest/download/ViewMate.dll"
+curl -L -o TinyPinyin.dll \
+  "https://github.com/ccwssy/ViewMate/releases/latest/download/TinyPinyin.dll"
 
 # 2. 复制到 Emby 插件目录
 docker cp ViewMate.dll emby:/config/plugins/ViewMate.dll
+docker cp TinyPinyin.dll emby:/config/plugins/TinyPinyin.dll
 
 # 3. 重启 Emby
 docker restart emby
@@ -71,7 +74,7 @@ Entry point completed: ViewMate.Plugin
 ### 卸载
 
 ```bash
-docker exec emby rm -f /config/plugins/ViewMate.dll
+docker exec emby rm -f /config/plugins/ViewMate.dll /config/plugins/TinyPinyin.dll
 docker restart emby
 ```
 
