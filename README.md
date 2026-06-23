@@ -44,7 +44,7 @@ Emby 播放体验增强插件 — **拼音搜索** + **片头片尾跳过** + **
 ```bash
 # 1. 下载
 curl -L -o ViewMate.dll \
-  "https://github.com/ccwssy/ViewMate/releases/download/v1.2.3.0/ViewMate.dll"
+  "https://github.com/ccwssy/ViewMate/releases/download/v1.2.4.0/ViewMate.dll"
 
 # 2. 复制到 Emby 插件目录
 docker cp ViewMate.dll emby:/config/plugins/ViewMate.dll
@@ -52,11 +52,11 @@ docker cp ViewMate.dll emby:/config/plugins/ViewMate.dll
 # 3. （可选）安装中文语言包
 # 简体中文
 docker exec emby mkdir -p /config/plugins/zh
-curl -L "https://github.com/ccwssy/ViewMate/releases/download/v1.2.3.0/zh.resources.dll" \
+curl -L "https://github.com/ccwssy/ViewMate/releases/download/v1.2.4.0/zh.resources.dll" \
   | docker exec -i emby sh -c 'cat > /config/plugins/zh/ViewMate.resources.dll'
 # 繁体中文
 docker exec emby mkdir -p /config/plugins/zh-hant
-curl -L "https://github.com/ccwssy/ViewMate/releases/download/v1.2.3.0/zh-hant.resources.dll" \
+curl -L "https://github.com/ccwssy/ViewMate/releases/download/v1.2.4.0/zh-hant.resources.dll" \
   | docker exec -i emby sh -c 'cat > /config/plugins/zh-hant/ViewMate.resources.dll'
 
 # 4. 重启 Emby
@@ -72,7 +72,7 @@ docker exec emby grep "ViewMate" /config/logs/embyserver.txt
 预期输出：
 
 ```
-Loading ViewMate, Version=1.2.3.0... from /config/plugins/ViewMate.dll
+Loading ViewMate, Version=1.2.4.0... from /config/plugins/ViewMate.dll
 Entry point completed: ViewMate.Plugin
 ```
 
