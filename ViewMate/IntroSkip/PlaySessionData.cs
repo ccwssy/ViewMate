@@ -24,7 +24,7 @@ namespace ViewMate.IntroSkip
         public long? LastJumpPositionTicks { get; set; }
 
         public long MaxIntroDurationTicks { get; set; } = TimeSpan.FromSeconds(150).Ticks;
-        public long MaxCreditsDurationTicks { get; set; } = TimeSpan.FromSeconds(360).Ticks;
+        public long MaxCreditsDurationTicks { get; set; } = TimeSpan.FromSeconds(180).Ticks;
 
         /// <summary>Last significant forward jump (≥10s) regardless of elapsed time.</summary>
         public long? LastBigJumpSourceTicks { get; set; }

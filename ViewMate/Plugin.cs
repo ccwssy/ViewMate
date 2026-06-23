@@ -169,7 +169,7 @@ namespace ViewMate
         // ── IntroSkip configuration ──
         public bool EnableIntroSkip { get; set; } = false;
         public int MaxIntroDurationSeconds { get; set; } = 150;
-        public int MaxCreditsDurationSeconds { get; set; } = 360;
+        public int MaxCreditsDurationSeconds { get; set; } = 180;
 
         // ── PinyinSearch configuration ──
         public bool EnablePinyinSearch { get; set; } = true;

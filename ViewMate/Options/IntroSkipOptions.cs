@@ -20,9 +20,9 @@ namespace ViewMate.Options
         public int MaxIntroDurationSeconds { get; set; } = 150;
 
         [DisplayName("最长片尾时长 (秒)")]
-        [Description("默认 360")]
+        [Description("默认 180")]
         [Required, MinValue(30), MaxValue(1200)]
-        public int MaxCreditsDurationSeconds { get; set; } = 360;
+        public int MaxCreditsDurationSeconds { get; set; } = 180;
 
         [DisplayName("漏集补打")]
         [Description("启动时自动检测缺少片头片尾标记的剧集，从同季已有标记的集复制补打。需要启用片头跳过检测才有数据源")]

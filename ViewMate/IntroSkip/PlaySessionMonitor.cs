@@ -33,7 +33,7 @@ namespace ViewMate.IntroSkip
 
         // ── config overrides (could be moved to PluginOptions) ──
         public long MaxIntroDurationTicks { get; set; } = TimeSpan.FromSeconds(150).Ticks;
-        public long MaxCreditsDurationTicks { get; set; } = TimeSpan.FromSeconds(360).Ticks;
+        public long MaxCreditsDurationTicks { get; set; } = TimeSpan.FromSeconds(180).Ticks;
 
         /// <summary>When true, all TV libraries are in scope.</summary>
         public bool AllLibrariesEnabled { get; set; } = true;
