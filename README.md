@@ -42,13 +42,50 @@ Emby 播放体验增强插件 — **拼音搜索** + **片头片尾跳过** + **
 ### 从 Release 安装
 
 ```bash
-# 下载
-curl -L -o ViewMate.dll "https://github.com/ccwssy/ViewMate/releases/download/v1.2.2.0/ViewMate.dll"
+# 1. 下载
+curl -L -o ViewMate.dll \
+  "https://github.com/ccwssy/ViewMate/releases/download/v1.2.3.0/ViewMate.dll"
 
-# 部署
+# 2. 复制到 Emby 插件目录
 docker cp ViewMate.dll emby:/config/plugins/ViewMate.dll
+
+# 3. （可选）安装中文语言包
+# 简体中文
+docker exec emby mkdir -p /config/plugins/zh
+curl -L "https://github.com/ccwssy/ViewMate/releases/download/v1.2.3.0/zh.resources.dll" \
+  | docker exec -i emby sh -c 'cat > /config/plugins/zh/ViewMate.resources.dll'
+# 繁体中文
+docker exec emby mkdir -p /config/plugins/zh-hant
+curl -L "https://github.com/ccwssy/ViewMate/releases/download/v1.2.3.0/zh-hant.resources.dll" \
+  | docker exec -i emby sh -c 'cat > /config/plugins/zh-hant/ViewMate.resources.dll'
+
+# 4. 重启 Emby
 docker restart emby
 ```
+
+### 验证安装
+
+```bash
+docker exec emby grep "ViewMate" /config/logs/embyserver.txt
+```
+
+预期输出：
+
+```
+Loading ViewMate, Version=1.2.3.0... from /config/plugins/ViewMate.dll
+Entry point completed: ViewMate.Plugin
+```
+
+然后在 Emby Web → 插件 → 观影助手 看到配置页面即成功。
+
+### 卸载
+
+```bash
+docker exec emby rm -f /config/plugins/ViewMate.dll
+docker restart emby
+```
+
+已写入的拼音数据保留在 `fts_search9_content` 和 `MediaItems.Name` 中；`Chapters3` 标记保留在 DB 中。
 
 ### 手动构建
 
