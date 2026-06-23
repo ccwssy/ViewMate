@@ -21,15 +21,15 @@ namespace ViewMate.Options.View
             PluginOptions.Initialize();
             PluginOptions.IntroSkipOptions.Initialize();
             PluginOptions.PinyinOptions.Initialize();
-            PluginOptions.IntroSkipOptions.BackfillOptions.Initialize();
+            PluginOptions.AboutOptions.Initialize();
 
             // Load values from PluginConfiguration
             var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
-            PluginOptions.IntroSkipOptions.EnableIntroSkip = config.EnableIntroSkip;
+            PluginOptions.EnableIntroSkip = config.EnableIntroSkip;
             PluginOptions.IntroSkipOptions.MaxIntroDurationSeconds = config.MaxIntroDurationSeconds;
             PluginOptions.IntroSkipOptions.MaxCreditsDurationSeconds = config.MaxCreditsDurationSeconds;
             PluginOptions.PinyinOptions.EnablePinyinSearch = config.EnablePinyinSearch;
-            PluginOptions.IntroSkipOptions.BackfillOptions.EnableIntroBackfill = config.EnableIntroBackfill;
+            PluginOptions.IntroSkipOptions.EnableIntroBackfill = config.EnableIntroBackfill;
         }
 
         public PluginOptions PluginOptions => ContentData as PluginOptions;
@@ -45,11 +45,11 @@ namespace ViewMate.Options.View
 
             // Sync values to PluginConfiguration
             var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
-            config.EnableIntroSkip = PluginOptions.IntroSkipOptions.EnableIntroSkip;
+            config.EnableIntroSkip = PluginOptions.EnableIntroSkip;
             config.MaxIntroDurationSeconds = PluginOptions.IntroSkipOptions.MaxIntroDurationSeconds;
             config.MaxCreditsDurationSeconds = PluginOptions.IntroSkipOptions.MaxCreditsDurationSeconds;
             config.EnablePinyinSearch = PluginOptions.PinyinOptions.EnablePinyinSearch;
-            config.EnableIntroBackfill = PluginOptions.IntroSkipOptions.BackfillOptions.EnableIntroBackfill;
+            config.EnableIntroBackfill = PluginOptions.IntroSkipOptions.EnableIntroBackfill;
             Plugin.Instance.UpdateConfiguration(config);
 
             return base.OnSaveCommand(itemId, commandId, data);
