@@ -3,7 +3,6 @@ using MediaBrowser.Model.Logging;
 using SQLitePCL.pretty;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using ViewMate.Common;
 
 namespace ViewMate.IntroSkip
@@ -172,21 +171,8 @@ namespace ViewMate.IntroSkip
 
         private IDatabaseConnection GetDbConnection()
         {
-            try
-            {
-                var itemRepo = Plugin.Instance.ApplicationHost.Resolve<IItemRepository>();
-                if (itemRepo == null) return null;
-                var repoType = itemRepo.GetType();
-                var connField = repoType.GetField("_connection", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (connField == null)
-                    connField = repoType.GetField("Connection", BindingFlags.NonPublic | BindingFlags.Instance);
-                return connField?.GetValue(itemRepo) as IDatabaseConnection;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error("[IntroBackfill] GetDbConnection failed", ex);
-                return null;
-            }
+            var itemRepo = Plugin.Instance.ApplicationHost.Resolve<IItemRepository>();
+            return DbConnectionHelper.GetConnection(itemRepo, _logger, "IntroBackfill");
         }
     }
 }
