@@ -21,7 +21,7 @@ namespace ViewMate.Options.View
             PluginOptions.Initialize();
             PluginOptions.IntroSkipOptions.Initialize();
             PluginOptions.PinyinOptions.Initialize();
-            PluginOptions.IntroBackfillOptions.Initialize();
+            PluginOptions.IntroSkipOptions.BackfillOptions.Initialize();
 
             // Load values from PluginConfiguration
             var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
@@ -29,7 +29,7 @@ namespace ViewMate.Options.View
             PluginOptions.IntroSkipOptions.MaxIntroDurationSeconds = config.MaxIntroDurationSeconds;
             PluginOptions.IntroSkipOptions.MaxCreditsDurationSeconds = config.MaxCreditsDurationSeconds;
             PluginOptions.PinyinOptions.EnablePinyinSearch = config.EnablePinyinSearch;
-            PluginOptions.IntroBackfillOptions.EnableIntroBackfill = config.EnableIntroBackfill;
+            PluginOptions.IntroSkipOptions.BackfillOptions.EnableIntroBackfill = config.EnableIntroBackfill;
         }
 
         public PluginOptions PluginOptions => ContentData as PluginOptions;
@@ -49,7 +49,7 @@ namespace ViewMate.Options.View
             config.MaxIntroDurationSeconds = PluginOptions.IntroSkipOptions.MaxIntroDurationSeconds;
             config.MaxCreditsDurationSeconds = PluginOptions.IntroSkipOptions.MaxCreditsDurationSeconds;
             config.EnablePinyinSearch = PluginOptions.PinyinOptions.EnablePinyinSearch;
-            config.EnableIntroBackfill = PluginOptions.IntroBackfillOptions.EnableIntroBackfill;
+            config.EnableIntroBackfill = PluginOptions.IntroSkipOptions.BackfillOptions.EnableIntroBackfill;
             Plugin.Instance.UpdateConfiguration(config);
 
             return base.OnSaveCommand(itemId, commandId, data);

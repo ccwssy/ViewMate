@@ -387,9 +387,6 @@
   <data name="MetadataEnhanceOptions_EnhanceMovieDbPerson_Import_season_cast_and_update_series_people__Default_is_OFF_" xml:space="preserve">
     <value>規劃任務刷新演員時提取別名，導入季的演職人員，更新節目系列的演職人員為各季合併，預設為關閉。</value>
   </data>
-  <data name="IntroSkipOptions_MinOpeningPlotDurationSeconds" xml:space="preserve">
-    <value>最小開頭劇情時長 (秒)，預設為 60</value>
-  </data>
   <data name="InvalidAltMovieDbApiUrl" xml:space="preserve">
     <value>替代 TMDB API 位址無效</value>
   </data>

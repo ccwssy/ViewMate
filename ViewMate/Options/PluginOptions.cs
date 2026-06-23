@@ -16,9 +16,6 @@ namespace ViewMate.Options
         [DisplayName("拼音搜索")]
         public Pinyin.PinyinOptions PinyinOptions { get; set; } = new Pinyin.PinyinOptions();
 
-        [DisplayName("漏集补打")]
-        public IntroSkip.IntroBackfillOptions IntroBackfillOptions { get; set; } = new IntroSkip.IntroBackfillOptions();
-
         [DisplayName("关于")]
         public AboutOptions AboutOptions { get; set; } = new AboutOptions();
 

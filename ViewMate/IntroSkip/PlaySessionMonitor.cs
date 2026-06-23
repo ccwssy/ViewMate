@@ -33,7 +33,6 @@ namespace ViewMate.IntroSkip
 
         // ── config overrides (could be moved to PluginOptions) ──
         public long MaxIntroDurationTicks { get; set; } = TimeSpan.FromSeconds(150).Ticks;
-        public long MinOpeningPlotDurationTicks { get; set; } = TimeSpan.FromSeconds(30).Ticks;
         public long MaxCreditsDurationTicks { get; set; } = TimeSpan.FromSeconds(360).Ticks;
 
         /// <summary>When true, all TV libraries are in scope.</summary>
@@ -88,7 +87,6 @@ namespace ViewMate.IntroSkip
                 PreviousEventTime = DateTime.UtcNow,
                 MaxIntroDurationTicks = MaxIntroDurationTicks,
                 MaxCreditsDurationTicks = MaxCreditsDurationTicks,
-                MinOpeningPlotDurationTicks = MinOpeningPlotDurationTicks,
             };
             _sessions[e.PlaySessionId] = data;
 
@@ -190,10 +188,9 @@ namespace ViewMate.IntroSkip
             var curSec = TimeSpan.FromTicks(currentTicks).TotalSeconds;
             var prevSec = TimeSpan.FromTicks(prevTicks).TotalSeconds;
             var maxIntroSec = TimeSpan.FromTicks(MaxIntroDurationTicks).TotalSeconds;
-            var minOpeningSec = TimeSpan.FromTicks(MinOpeningPlotDurationTicks).TotalSeconds;
 
-            _logger.Info("[IntroSkip] OnPlaybackStopped: pos={0:F0}s prev={1:F0}s jump={2:F0}s maxIntro={3:F0}s minOpen={4:F0}s",
-                curSec, prevSec, jumpForward, maxIntroSec, minOpeningSec);
+            _logger.Info("[IntroSkip] OnPlaybackStopped: pos={0:F0}s prev={1:F0}s jump={2:F0}s maxIntro={3:F0}s",
+                curSec, prevSec, jumpForward, maxIntroSec);
 
             // Detect intro from tracked big jump (covers mobile seek-then-resume scenarios)
             // Always run even with existing markers → enables auto-healing of wrong markers

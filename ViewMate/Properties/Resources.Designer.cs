@@ -695,15 +695,6 @@ namespace ViewMate.Properties {
         }
         
         /// <summary>
-        ///   查找类似 Min Opening Plot Duration (Seconds), Default is 60 的本地化字符串。
-        /// </summary>
-        public static string IntroSkipOptions_MinOpeningPlotDurationSeconds {
-            get {
-                return ResourceManager.GetString("IntroSkipOptions_MinOpeningPlotDurationSeconds", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   查找类似 Built-in Intro Detection Enhanced 的本地化字符串。
         /// </summary>
         public static string IntroSkipOptions_UnlockIntroSkip_Built_in_Intro_Skip_Enhanced {

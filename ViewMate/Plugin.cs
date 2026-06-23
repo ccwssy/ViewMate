@@ -93,7 +93,6 @@ namespace ViewMate
             {
                 Logger.Info("[IntroSkip] Starting PlaySessionMonitor...");
                 PlaySessionMonitor.MaxIntroDurationTicks = TimeSpan.FromSeconds(config.MaxIntroDurationSeconds).Ticks;
-                PlaySessionMonitor.MinOpeningPlotDurationTicks = TimeSpan.FromSeconds(config.MinOpeningPlotDurationSeconds).Ticks;
                 PlaySessionMonitor.MaxCreditsDurationTicks = TimeSpan.FromSeconds(config.MaxCreditsDurationSeconds).Ticks;
                 PlaySessionMonitor.Start();
             }
@@ -137,7 +136,7 @@ namespace ViewMate
         }
 
         public ImageFormat ThumbImageFormat => ImageFormat.Png;
-        public override string Description => "观影助手 v1.2.4.0 — 拼音搜索、FTS5 拼音注入、片头片尾跳过、漏集补打";
+        public override string Description => "观影助手 v1.2.5.0 — 拼音搜索、FTS5 拼音注入、片头片尾跳过、漏集补打";
         public override Guid Id => _id;
         public sealed override string Name => "观影助手";
         public static Version CurrentVersion => Assembly.GetExecutingAssembly().GetName().Version;
@@ -171,7 +170,6 @@ namespace ViewMate
         public bool EnableIntroSkip { get; set; } = false;
         public int MaxIntroDurationSeconds { get; set; } = 150;
         public int MaxCreditsDurationSeconds { get; set; } = 360;
-        public int MinOpeningPlotDurationSeconds { get; set; } = 30;
 
         // ── PinyinSearch configuration ──
         public bool EnablePinyinSearch { get; set; } = true;

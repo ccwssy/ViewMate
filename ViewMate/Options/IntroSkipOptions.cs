@@ -1,6 +1,7 @@
 using Emby.Web.GenericEdit;
 using MediaBrowser.Model.Attributes;
 using System.ComponentModel;
+using ViewMate.IntroSkip;
 
 namespace ViewMate.Options
 {
@@ -14,7 +15,7 @@ namespace ViewMate.Options
         public bool EnableIntroSkip { get; set; } = false;
 
         [DisplayName("最长片头时长 (秒)")]
-        [Description("跳转终点超过此秒数则忽略，默认 150")]
+        [Description("跳转起点在此秒数之内才识别为片头跳过，默认 150")]
         [Required, MinValue(30), MaxValue(600)]
         public int MaxIntroDurationSeconds { get; set; } = 150;
 
@@ -22,6 +23,10 @@ namespace ViewMate.Options
         [Description("默认 360")]
         [Required, MinValue(30), MaxValue(1200)]
         public int MaxCreditsDurationSeconds { get; set; } = 360;
+
+        [DisplayName("漏集补打")]
+        [Description("启动时自动检测缺少片头片尾标记的剧集，从同季已有标记的集复制补打。需要启用片头跳过检测才有数据源")]
+        public IntroBackfillOptions BackfillOptions { get; set; } = new IntroBackfillOptions();
 
         public void Initialize()
         {
