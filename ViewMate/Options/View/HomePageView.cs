@@ -19,47 +19,37 @@ namespace ViewMate.Options.View
             ContentData = store.GetOptions();
 
             PluginOptions.Initialize();
-            PluginOptions.ModOptions.Initialize();
-            PluginOptions.NetworkOptions.Initialize();
-            PluginOptions.AboutOptions.Initialize();
             PluginOptions.IntroSkipOptions.Initialize();
+            PluginOptions.PinyinOptions.Initialize();
+            PluginOptions.IntroBackfillOptions.Initialize();
 
-            // Load IntroSkip values from PluginConfiguration
+            // Load values from PluginConfiguration
             var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
             PluginOptions.IntroSkipOptions.EnableIntroSkip = config.EnableIntroSkip;
             PluginOptions.IntroSkipOptions.MaxIntroDurationSeconds = config.MaxIntroDurationSeconds;
             PluginOptions.IntroSkipOptions.MaxCreditsDurationSeconds = config.MaxCreditsDurationSeconds;
+            PluginOptions.PinyinOptions.EnablePinyinSearch = config.EnablePinyinSearch;
+            PluginOptions.IntroBackfillOptions.EnableIntroBackfill = config.EnableIntroBackfill;
         }
 
         public PluginOptions PluginOptions => ContentData as PluginOptions;
 
         public override Task<IPluginUIView> RunCommand(string itemId, string commandId, string data)
         {
-            switch (commandId)
-            {
-                case "DisclaimerDialog":
-                    var disclaimerDialog = new DisclaimerDialogView(_pluginInfo);
-                    return Task.FromResult<IPluginUIView>(disclaimerDialog);
-            }
-
             return base.RunCommand(itemId, commandId, data);
         }
 
         public override Task<IPluginUIView> OnSaveCommand(string itemId, string commandId, string data)
         {
-            if (ContentData is PluginOptions options)
-            {
-                //options.GeneralOptions.ValidateOrThrow();
-                options.NetworkOptions.ValidateOrThrow();
-            }
-
             _store.SetOptions(PluginOptions);
 
-            // Sync IntroSkip values to PluginConfiguration
+            // Sync values to PluginConfiguration
             var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
             config.EnableIntroSkip = PluginOptions.IntroSkipOptions.EnableIntroSkip;
             config.MaxIntroDurationSeconds = PluginOptions.IntroSkipOptions.MaxIntroDurationSeconds;
             config.MaxCreditsDurationSeconds = PluginOptions.IntroSkipOptions.MaxCreditsDurationSeconds;
+            config.EnablePinyinSearch = PluginOptions.PinyinOptions.EnablePinyinSearch;
+            config.EnableIntroBackfill = PluginOptions.IntroBackfillOptions.EnableIntroBackfill;
             Plugin.Instance.UpdateConfiguration(config);
 
             return base.OnSaveCommand(itemId, commandId, data);

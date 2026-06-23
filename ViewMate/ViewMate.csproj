@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net6.0</TargetFrameworks>
-	  <Version>1.0.0.1</Version>
+	  <Version>1.2.2.0</Version>
 	  <AssemblyVersion>$(Version)</AssemblyVersion>
 	  <FileVersion>$(Version)</FileVersion>
     <CopyLocalLockFileAssemblies>True</CopyLocalLockFileAssemblies>
@@ -23,27 +23,10 @@
   </PropertyGroup>
 
 	<ItemGroup>
-		<None Remove="Tokenizer\win_x64\libsimple.so" />
-		<None Remove="Tokenizer\linux_x64\libsimple.so" />
-		<None Remove="Tokenizer\linux_arm64\libsimple.so" />
-		<None Remove="Tokenizer\osx_universal\libsimple.so" />
-		<None Remove="Web\Resources\strmassistant.js" />
-	</ItemGroup>
-	<ItemGroup>
 		<EmbeddedResource Include="Properties\thumb.png" />
-		<EmbeddedResource Include="Tokenizer\win_x64\libsimple.so" />
-		<EmbeddedResource Include="Tokenizer\linux_x64\libsimple.so" />
-		<EmbeddedResource Include="Tokenizer\linux_arm64\libsimple.so" />
-		<EmbeddedResource Include="Tokenizer\osx_universal\libsimple.so" />
-		<EmbeddedResource Include="Web\Resources\strmassistant.js" />
 	</ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="CHTCHSConv" Version="1.0.0" />
-    <PackageReference Include="ILRepack" Version="2.0.44">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <PackageReference Include="Lib.Harmony" Version="2.4.2" />
     <PackageReference Include="mediabrowser.server.core" Version="4.9.1.90" />
     <PackageReference Include="SQLitePCL.pretty.core" Version="1.2.2" />
@@ -70,5 +53,4 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
-  <!-- PostBuild disabled for Linux cross-compilation -->
 </Project>

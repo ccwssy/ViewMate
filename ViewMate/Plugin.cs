@@ -7,7 +7,6 @@ using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Controller.Plugins;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Drawing;
-using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Plugins.UI;
@@ -15,18 +14,14 @@ using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.Tasks;
 using ViewMate.Common;
 using ViewMate.IntroSkip;
-using ViewMate.Mod;
 using ViewMate.Options.Store;
 using ViewMate.Options.View;
-using ViewMate.Web.Helper;
+using ViewMate.Pinyin;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using static ViewMate.Options.Utility;
 
 #nullable disable
 namespace ViewMate
@@ -36,29 +31,28 @@ namespace ViewMate
         private List<IPluginUIPageController> _pages;
         public readonly PluginOptionsStore MainOptionsStore;
         public static Plugin Instance { get; private set; }
-        private bool _isDelayedRestoreTaskExecuted = false;
 
         private readonly Guid _id = new Guid("63c322b7-a371-41a3-b11f-04f8418b37d8");
-        public string StrmToolConfigDirectoryPath { get; }
         public readonly ILogger Logger;
         public readonly IApplicationHost ApplicationHost;
         public new readonly IApplicationPaths ApplicationPaths;
         public readonly IServerConfigurationManager ConfigurationManager;
         public readonly ILibraryManager LibraryManager;
-        private readonly IFileSystem _fileSystem;
-        private readonly ITaskManager _taskManager;
         private readonly IXmlSerializer _xmlSerializer;
         private readonly IItemRepository _itemRepository;
-        private readonly ISessionManager _sessionManager;
 
         // ── IntroSkip ──
         public static ChapterMarkerApi ChapterMarkerApi { get; private set; }
         public static PlaySessionMonitor PlaySessionMonitor { get; private set; }
 
-        public bool DebugMode;
+        // ── PinyinSearch ──
+        public static PinyinSearchService PinyinSearch { get; private set; }
+
+        // ── IntroBackfill ──
+        public static IntroBackfillService IntroBackfill { get; private set; }
 
         public Plugin(IApplicationHost applicationHost, IApplicationPaths applicationPaths, ILogManager logManager,
-            IFileSystem fileSystem, IServerConfigurationManager configurationManager, ITaskManager taskManager,
+            IServerConfigurationManager configurationManager, ITaskManager taskManager,
             ILibraryManager libraryManager, IXmlSerializer xmlSerializer, IItemRepository itemRepository,
             ISessionManager sessionManager)
             : base(applicationPaths, xmlSerializer)
@@ -73,79 +67,28 @@ namespace ViewMate
             MainOptionsStore = new PluginOptionsStore(applicationHost, Logger, Name);
 
             LibraryManager = libraryManager;
-            _fileSystem = fileSystem;
-            _taskManager = taskManager;
             _xmlSerializer = xmlSerializer;
             _itemRepository = itemRepository;
-            _sessionManager = sessionManager;
 
             DefaultUICulture = new CultureInfo(configurationManager.Configuration.UICulture);
-            DebugMode = true;
-            Logger.Info("AppVer={0}, VerTarget={1}, IsMatch={2}", AppVer, VerTarget, AppVer == VerTarget);
-            Logger.Info("IsModSupported={0}", IsModSupported);
 
             // ── Initialise IntroSkip components ──
             ChapterMarkerApi = new ChapterMarkerApi(libraryManager, itemRepository, Logger);
             PlaySessionMonitor = new PlaySessionMonitor(libraryManager, sessionManager, Logger);
         }
 
-        public static bool IsModSupported
-        {
-            get
-            {
-                var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-                var isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
-                var isOsx = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
-                var arch = RuntimeInformation.ProcessArchitecture;
-
-                if (arch == Architecture.X64) return true;
-                if (isLinux && arch == Architecture.Arm64) return true;
-                if (isOsx) return true;
-                return false;
-            }
-        }
-
         public void Run() => Initialize();
         public void Dispose()
         {
             PlaySessionMonitor?.Dispose();
+            PinyinSearch?.Dispose();
         }
 
         private void Initialize()
         {
-            ShortcutMenuHelper.Initialize();
-
-            if (IsModSupported)
-            {
-                PatchManager.Initialize();
-
-                var options = MainOptionsStore.GetOptions().ModOptions;
-                if (options.EnhanceChineseSearch || options.EnhanceChineseSearchRestore)
-                {
-                    try
-                    {
-                        new EnhanceChineseSearch();
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error("初始化 EnhanceChineseSearch 失败", ex);
-                        if (options.EnhanceChineseSearch)
-                        {
-                            options.EnhanceChineseSearch = false;
-                            MainOptionsStore.SavePluginOptionsSuppress();
-                        }
-                    }
-                }
-            }
-            else
-            {
-                Logger.Warn("当前平台/架构不支持增强模式: " +
-                    $"OS={RuntimeInformation.OSDescription}, " +
-                    $"Arch={RuntimeInformation.ProcessArchitecture}");
-            }
+            var config = Configuration as PluginConfiguration ?? new PluginConfiguration();
 
             // ── Start IntroSkip (if enabled in config) ──
-            var config = Configuration as PluginConfiguration ?? new PluginConfiguration();
             if (config.EnableIntroSkip)
             {
                 Logger.Info("[IntroSkip] Starting PlaySessionMonitor...");
@@ -158,30 +101,43 @@ namespace ViewMate
             {
                 Logger.Info("[IntroSkip] Disabled by configuration");
             }
+
+            // ── Start PinyinSearch (if enabled) ──
+            if (config.EnablePinyinSearch)
+            {
+                Logger.Info("[PinyinSearch] Starting PinyinSearchService...");
+                PinyinSearch = new PinyinSearchService(LibraryManager, Logger);
+                try { PinyinSearch.ProcessAllPending(); }
+                catch (Exception ex) { Logger.Error("[PinyinSearch] Initial scan failed", ex); }
+            }
+            else
+            {
+                Logger.Info("[PinyinSearch] Disabled by configuration");
+                PinyinSearch = null;
+            }
+
+            // ── Start IntroBackfill (if enabled) ──
+            if (config.EnableIntroBackfill)
+            {
+                Logger.Info("[IntroBackfill] Starting IntroBackfillService...");
+                IntroBackfill = new IntroBackfillService(ChapterMarkerApi, Logger);
+                try { IntroBackfill.BackfillMissing(); }
+                catch (Exception ex) { Logger.Error("[IntroBackfill] Initial scan failed", ex); }
+            }
+            else
+            {
+                Logger.Info("[IntroBackfill] Disabled by configuration");
+                IntroBackfill = null;
+            }
         }
 
         public override void OnUninstalling()
         {
-            if (MainOptionsStore.GetOptions().ModOptions.EnhanceChineseSearch)
-            {
-            }
-            try
-            {
-                if (Directory.Exists(StrmToolConfigDirectoryPath) && Directory.GetFiles(StrmToolConfigDirectoryPath).Length == 0)
-                {
-                    Directory.Delete(StrmToolConfigDirectoryPath);
-                    Logger.Info("StrmTool - Empty configuration directory deleted");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn("StrmTool - Failed to delete configuration directory", ex);
-            }
             base.OnUninstalling();
         }
 
         public ImageFormat ThumbImageFormat => ImageFormat.Png;
-        public override string Description => "观影助手 v1.0.0.1 — 拼音搜索、模糊搜索、SQLite FTS5 + 片头片尾跳过";
+        public override string Description => "观影助手 v1.2.2.0 — 拼音搜索、FTS5 拼音注入、片头片尾跳过、漏集补打";
         public override Guid Id => _id;
         public sealed override string Name => "观影助手";
         public static Version CurrentVersion => Assembly.GetExecutingAssembly().GetName().Version;
@@ -191,8 +147,6 @@ namespace ViewMate
             var assembly = typeof(Plugin).Assembly;
             return assembly.GetManifestResourceStream("ViewMate.Properties.thumb.png");
         }
-
-
 
         public IReadOnlyCollection<IPluginUIPageController> UIPageControllers
         {
@@ -209,19 +163,20 @@ namespace ViewMate
                 return _pages.AsReadOnly();
             }
         }
-
     }
 
     public class PluginConfiguration : BasePluginConfiguration
     {
-        public string StrmBackupPath { get; set; } = string.Empty;
-        public bool AutoExtractMediaInfo { get; set; } = true;
-        public bool EnableStrmBackup { get; set; } = false;
-
         // ── IntroSkip configuration ──
         public bool EnableIntroSkip { get; set; } = false;
         public int MaxIntroDurationSeconds { get; set; } = 150;
         public int MaxCreditsDurationSeconds { get; set; } = 360;
         public int MinOpeningPlotDurationSeconds { get; set; } = 30;
+
+        // ── PinyinSearch configuration ──
+        public bool EnablePinyinSearch { get; set; } = true;
+
+        // ── IntroBackfill configuration ──
+        public bool EnableIntroBackfill { get; set; } = false;
     }
 }
