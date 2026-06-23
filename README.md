@@ -49,17 +49,7 @@ curl -L -o ViewMate.dll \
 # 2. 复制到 Emby 插件目录
 docker cp ViewMate.dll emby:/config/plugins/ViewMate.dll
 
-# 3. （可选）安装中文语言包
-# 简体中文
-docker exec emby mkdir -p /config/plugins/zh
-curl -L "https://github.com/ccwssy/ViewMate/releases/latest/download/zh.resources.dll" \
-  | docker exec -i emby sh -c 'cat > /config/plugins/zh/ViewMate.resources.dll'
-# 繁体中文
-docker exec emby mkdir -p /config/plugins/zh-hant
-curl -L "https://github.com/ccwssy/ViewMate/releases/latest/download/zh-hant.resources.dll" \
-  | docker exec -i emby sh -c 'cat > /config/plugins/zh-hant/ViewMate.resources.dll'
-
-# 4. 重启 Emby
+# 3. 重启 Emby
 docker restart emby
 ```
 
@@ -72,7 +62,7 @@ docker exec emby grep "ViewMate" /config/logs/embyserver.txt
 预期输出：
 
 ```
-Loading ViewMate, Version=1.2.4.0... from /config/plugins/ViewMate.dll
+Loading ViewMate, Version=1.2.9.1... from /config/plugins/ViewMate.dll
 Entry point completed: ViewMate.Plugin
 ```
 
@@ -133,9 +123,17 @@ docker restart emby
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| v1.2.9.1 | 2026-06-23 | 修复 GetDbConnection() 反射 — Emby 4.8 PooledDatabaseConnectionManager |
+| v1.2.9.0 | 2026-06-23 | 清理死代码 — 删 Lib.Harmony、scripts/、ITaskManager |
+| v1.2.8.0 | 2026-06-23 | IntroSkip 字段回到子 Section，VisibleCondition 隐藏子字段 |
+| v1.2.7.0 | 2026-06-23 | 平铺 IntroSkip 字段到 PluginOptions |
+| v1.2.6.0 | 2026-06-23 | 主开关 EnableIntroSkip 提到 PluginOptions 顶层 |
+| v1.2.5.0 | 2026-06-23 | 修复关于页版本号显示 1.0.0.0+n/a |
+| v1.2.4.0 | 2026-06-23 | 拼音搜索不再改 MediaItems.Name + 防抖重建 FTS |
+| v1.2.3.0 | 2026-06-23 | 修复累积检测 bug，遥控器连按也可触发 |
 | v1.2.2.0 | 2026-06-23 | 清理屎山：删除 Mod/Web/Tokenizer，DLL 从 6.7MB 降到 2.5MB |
 | v1.2.1.0 | 2026-06-23 | 精简配置页，隐藏无用模块 |
-| v1.2.0.0 | 2026-06-23 | 合并脚本功能：PinyinSearch + IntroBackfill 进 DLL，升 TinyPinyin |
+| v1.2.0.0 | 2026-06-23 | 合并脚本功能：PinyinSearch + IntroBackfill 进 DLL |
 | v1.1.1.0 | 2026-06-23 | 新增 PersonFilter、写 MediaItems.Name |
 | v1.0.0.1 | 2026-06-23 | 更新图标、清理重复插件 |
 | v1.0.0 | 2026-06-21 | 首次发布（仅 IntroSkip + EnhanceChineseSearch） |
