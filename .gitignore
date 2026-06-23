@@ -25,3 +25,4 @@ StrmAssistant/bin/
 StrmAssistant/obj/
 StrmAssistant/bin/output/
 StrmAssistant/Properties/launchSettings.json
+out/
