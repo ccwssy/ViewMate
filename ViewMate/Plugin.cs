@@ -137,7 +137,7 @@ namespace ViewMate
         }
 
         public ImageFormat ThumbImageFormat => ImageFormat.Png;
-        public override string Description => "观影助手 v1.2.3.0 — 拼音搜索、FTS5 拼音注入、片头片尾跳过、漏集补打";
+        public override string Description => "观影助手 v1.2.4.0 — 拼音搜索、FTS5 拼音注入、片头片尾跳过、漏集补打";
         public override Guid Id => _id;
         public sealed override string Name => "观影助手";
         public static Version CurrentVersion => Assembly.GetExecutingAssembly().GetName().Version;
