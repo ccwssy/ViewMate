@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using TinyPinyin;
 
 #nullable disable
@@ -22,6 +23,54 @@ namespace ViewMate.Pinyin
 
         private static readonly Regex ChineseRegex = new Regex(@"[\u4e00-\u9fff]", RegexOptions.Compiled);
         private const string FtsTableName = "fts_search9";
+        private const int RebuildDebounceMs = 10000;
+
+        // ── debounced rebuild ──
+        private Timer _rebuildTimer;
+        private readonly object _rebuildLock = new object();
+
+        private void ScheduleRebuild()
+        {
+            lock (_rebuildLock)
+            {
+                if (_rebuildTimer == null)
+                {
+                    _rebuildTimer = new Timer(_ =>
+                    {
+                        DoRebuild();
+                    }, null, RebuildDebounceMs, Timeout.Infinite);
+                }
+                else
+                {
+                    _rebuildTimer.Change(RebuildDebounceMs, Timeout.Infinite);
+                }
+            }
+        }
+
+        private void DoRebuild()
+        {
+            lock (_rebuildLock)
+            {
+                try
+                {
+                    var connection = GetDbConnection();
+                    if (connection != null)
+                    {
+                        connection.Execute($"INSERT INTO {FtsTableName}({FtsTableName}) VALUES('rebuild')");
+                        _logger.Debug("[PinyinSearch] Deferred FTS rebuild done");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn("[PinyinSearch] Deferred FTS rebuild failed", ex);
+                }
+                finally
+                {
+                    _rebuildTimer?.Dispose();
+                    _rebuildTimer = null;
+                }
+            }
+        }
 
         public PinyinSearchService(ILibraryManager libraryManager, ILogger logger)
         {
@@ -89,8 +138,6 @@ namespace ViewMate.Pinyin
                             string c = connected.Replace("'", "''");
                             connection.Execute(
                                 $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c}' WHERE id = {id}");
-                            connection.Execute(
-                                $"UPDATE MediaItems SET Name = '{esc} {s} {c}' WHERE RowId = {id}");
                             processed++;
                         }
                         catch (Exception ex)
@@ -138,9 +185,7 @@ namespace ViewMate.Pinyin
                 string c = connected.Replace("'", "''");
                 connection.Execute(
                     $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c}' WHERE id = {item.Id}");
-                connection.Execute(
-                    $"UPDATE MediaItems SET Name = '{esc} {s} {c}' WHERE RowId = {item.Id}");
-                connection.Execute($"INSERT INTO {FtsTableName}({FtsTableName}) VALUES('rebuild')");
+                ScheduleRebuild();
                 _logger.Info("[PinyinSearch] Injected '{0}'", name);
                 return true;
             }
@@ -221,6 +266,11 @@ namespace ViewMate.Pinyin
         public void Dispose()
         {
             _disposed = true;
+            lock (_rebuildLock)
+            {
+                _rebuildTimer?.Dispose();
+                _rebuildTimer = null;
+            }
             if (_libraryManager != null)
             {
                 _libraryManager.ItemAdded -= OnItemAdded;
