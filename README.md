@@ -145,7 +145,7 @@ docker restart emby
 
 ### 卡点：SQLite ≥ 3.45 无 simple tokenizer
 
-旧版 EnhanceChineseSearch 依赖 `libsimple.so` 替换 FTS tokenizer。ccwssy/embyserver 使用 SQLite 3.49.2，`simple` 分词器已从 FTS5 内置列表中移除。即使在当前连接加载成功，其他连接的 FTS5 查询全部崩溃（`no such tokenizer: simple`）。  
+旧版 EnhanceChineseSearch 依赖 `libsimple.so` 替换 FTS tokenizer。Emby 官方镜像使用 SQLite 3.49.2，`simple` 分词器已从 FTS5 内置列表中移除。即使在当前连接加载成功，其他连接的 FTS5 查询全部崩溃（`no such tokenizer: simple`）。  
 
 **v1.2.0.0+ 已完全移除该方案**，改用 TinyPinyin C# 直接写入 FTS 内容表 + Name 字段。
 
