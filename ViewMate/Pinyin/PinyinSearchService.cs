@@ -178,7 +178,7 @@ namespace ViewMate.Pinyin
             FROM {FtsTableName}_content c
             JOIN MediaItems mi ON c.id = mi.RowId
             WHERE c.c0 NOT GLOB '*[a-zA-Z]*'
-              AND c.c0 GLOB '*[\\u4e00-\\u9fa5]*'
+              AND c.c0 GLOB '*[一-龥]*'
               AND mi.Name NOT GLOB '*Season*'
               AND mi.Name NOT GLOB '*Episode*'
               AND mi.Name NOT GLOB '*Media Folder*'";
@@ -188,7 +188,7 @@ namespace ViewMate.Pinyin
             FROM {FtsTableName}_content c
             JOIN MediaItems mi ON c.id = mi.RowId
             WHERE c.c0 NOT GLOB '*[a-zA-Z]*'
-              AND c.c0 GLOB '*[\\u4e00-\\u9fa5]*'
+              AND c.c0 GLOB '*[一-龥]*'
               AND mi.Name NOT GLOB '*Season*'
               AND mi.Name NOT GLOB '*Episode*'
               AND mi.Name NOT GLOB '*Media Folder*'";
