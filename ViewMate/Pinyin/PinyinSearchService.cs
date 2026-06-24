@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Reflection;
 using System.Threading;
 using System.IO;
+using System.Threading.Tasks;
 using ViewMate.Common;
 
 #nullable disable
@@ -22,7 +23,51 @@ namespace ViewMate.Pinyin
         private readonly ILibraryManager _libraryManager;
         private bool _disposed = false;
 
-        private static readonly Regex ChineseRegex = new Regex(@"[\u4e00-\u9fff]", RegexOptions.Compiled);
+        private static readonly Regex ChineseRegex = new Regex(@"[\\u4e00-\\u9fff]", RegexOptions.Compiled);
+
+        // ── 词组级多音字校正表（外部 JSON，DLL 外维护）──
+        // 路径：/config/plugins/pinyin-overrides.json
+        // 修改此文件后重启 Emby 生效，无需重新编译 DLL
+        private static Dictionary<string, string> _phraseOverrides;
+        private static readonly object _phraseLock = new object();
+
+        private static Dictionary<string, string> GetPhraseOverrides()
+        {
+            if (_phraseOverrides != null) return _phraseOverrides;
+            lock (_phraseLock)
+            {
+                if (_phraseOverrides != null) return _phraseOverrides;
+
+                var dict = new Dictionary<string, string>();
+                string[] probePaths =
+                {
+                    "/config/plugins/pinyin-overrides.json",
+                    "plugins/pinyin-overrides.json",
+                    "../plugins/pinyin-overrides.json",
+                };
+
+                foreach (var path in probePaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        try
+                        {
+                            var text = File.ReadAllText(path);
+                            var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(text);
+                            if (parsed != null)
+                            {
+                                dict = parsed;
+                                break;
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                _phraseOverrides = dict;
+                return _phraseOverrides;
+            }
+        }
 
         // ── TinyPinyin reflection cache ──
         private static Func<char, string> _getPinyin;
@@ -65,6 +110,10 @@ namespace ViewMate.Pinyin
         }
         private const string FtsTableName = "fts_search9";
         private const int RebuildDebounceMs = 10000;
+
+        // ── Batch processing constants ──
+        private const int BatchSize = 200;
+        private const int MaxPendingTotal = 5000;
 
         // ── debounced rebuild ──
         private Timer _rebuildTimer;
@@ -122,53 +171,168 @@ namespace ViewMate.Pinyin
             _libraryManager.ItemUpdated += OnItemUpdated;
         }
 
-        public int ProcessAllPending()
+        // ── Pending-Item Query Builder ──
+
+        private static string PendingQuery() => $@"
+            SELECT c.id, mi.Name
+            FROM {FtsTableName}_content c
+            JOIN MediaItems mi ON c.id = mi.RowId
+            WHERE c.c0 NOT GLOB '*[a-zA-Z]*'
+              AND c.c0 GLOB '*[\\u4e00-\\u9fa5]*'
+              AND mi.Name NOT GLOB '*Season*'
+              AND mi.Name NOT GLOB '*Episode*'
+              AND mi.Name NOT GLOB '*Media Folder*'";
+
+        private static string PendingCountQuery() => $@"
+            SELECT COUNT(*)
+            FROM {FtsTableName}_content c
+            JOIN MediaItems mi ON c.id = mi.RowId
+            WHERE c.c0 NOT GLOB '*[a-zA-Z]*'
+              AND c.c0 GLOB '*[\\u4e00-\\u9fa5]*'
+              AND mi.Name NOT GLOB '*Season*'
+              AND mi.Name NOT GLOB '*Episode*'
+              AND mi.Name NOT GLOB '*Media Folder*'";
+
+        // ── Deferred background scan (non-blocking for plugin startup) ──
+
+        /// <summary>
+        /// Fire-and-forget background scan.  Emby's HTTP server starts immediately
+        /// while we process items in small batches, releasing the SQLite lock between
+        /// each batch.  Prevents "卡死" on slow ARM hardware.
+        /// </summary>
+        public void ProcessAllPendingDeferred()
         {
             if (!Plugin.Instance.Configuration.EnablePinyinSearch)
             {
                 _logger.Info("[PinyinSearch] Disabled by config");
+                return;
+            }
+
+            _logger.Info("[PinyinSearch] Deferring initial scan to background thread...");
+            Task.Run(() =>
+            {
+                try
+                {
+                    int total = ProcessAllPendingBatched();
+                    _logger.Info("[PinyinSearch] Background scan complete: {0} items processed", total);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("[PinyinSearch] Background scan failed", ex);
+                }
+            });
+        }
+
+        // ── Batched processing (kept public for backward compat / manual triggers) ──
+
+        public int ProcessAllPending()
+        {
+            // Calling this synchronously is still discouraged on slow hardware.
+            // Delegate to the batched implementation.
+            return ProcessAllPendingBatched();
+        }
+
+        private bool TryGetPendingCount(out long count)
+        {
+            count = 0;
+            try
+            {
+                var conn = GetDbConnection();
+                if (conn == null) return false;
+
+                using (var stmt = conn.PrepareStatement(PendingCountQuery()))
+                {
+                    stmt.MoveNext();
+                    count = stmt.Current.GetInt64(0);
+                }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private int ProcessAllPendingBatched()
+        {
+            if (!TryGetPendingCount(out long totalPending) || totalPending == 0)
+            {
+                _logger.Info("[PinyinSearch] No pending items");
                 return 0;
             }
 
-            _logger.Info("[PinyinSearch] Scanning for pending items...");
-            var connection = GetDbConnection();
-            if (connection == null) return 0;
+            long actualTotal = Math.Min(totalPending, MaxPendingTotal);
+            _logger.Info("[PinyinSearch] {0} pending items, processing in batches of {1}...",
+                actualTotal, BatchSize);
 
-            int processed = 0;
+            int totalProcessed = 0;
+            long offset = 0;
+
+            while (offset < actualTotal)
+            {
+                int batch = ProcessBatch(offset, BatchSize);
+                totalProcessed += batch;
+                offset += BatchSize;
+
+                if (_disposed) break;
+            }
+
+            // Single FTS rebuild after all batches
+            if (!_disposed)
+            {
+                try
+                {
+                    var conn = GetDbConnection();
+                    if (conn != null)
+                    {
+                        conn.Execute($"INSERT INTO {FtsTableName}({FtsTableName}) VALUES('rebuild')");
+                        _logger.Info("[PinyinSearch] Final FTS rebuild done");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn("[PinyinSearch] Final FTS rebuild failed: {0}", ex.Message);
+                }
+            }
+
+            return totalProcessed;
+        }
+
+        /// <summary>
+        /// Process one batch of <paramref name="limit"/> items starting at
+        /// <paramref name="offset"/>.  Opens a fresh connection, holds a
+        /// short-lived deferred transaction, then releases — allowing Emby's
+        /// HTTP layer to access the database between batches.
+        /// </summary>
+        private int ProcessBatch(long offset, int limit)
+        {
+            var conn = GetDbConnection();
+            if (conn == null) return 0;
+
             try
             {
-                var query = $@"
-                    SELECT c.id, mi.Name
-                    FROM {FtsTableName}_content c
-                    JOIN MediaItems mi ON c.id = mi.RowId
-                    WHERE c.c0 NOT GLOB '*[a-zA-Z]*'
-                      AND c.c0 GLOB '*[\u4e00-\u9fa5]*'
-                      AND mi.Name NOT GLOB '*Season*'
-                      AND mi.Name NOT GLOB '*Episode*'
-                      AND mi.Name NOT GLOB '*Media Folder*'
-                    LIMIT 5000";
-
+                // Fetch batch rows
                 var rows = new List<Tuple<long, string>>();
-                using (var stmt = connection.PrepareStatement(query))
+                var query = PendingQuery() + $" LIMIT {limit} OFFSET {offset}";
+                using (var stmt = conn.PrepareStatement(query))
                 {
                     while (stmt.MoveNext())
                         rows.Add(Tuple.Create(stmt.Current.GetInt64(0), stmt.Current.GetString(1)));
                 }
 
-                if (rows.Count == 0)
-                {
-                    _logger.Info("[PinyinSearch] No pending items");
-                    return 0;
-                }
+                if (rows.Count == 0) return 0;
 
-                _logger.Info("[PinyinSearch] Found {0} items", rows.Count);
-                connection.BeginTransaction(TransactionMode.Immediate);
+                // Process in a short transaction
+                conn.BeginTransaction(TransactionMode.Deferred);
+                int processed = 0;
                 try
                 {
                     foreach (var row in rows)
                     {
                         try
                         {
+                            if (_disposed) break;
+
                             long id = row.Item1;
                             string name = row.Item2;
                             var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
@@ -180,7 +344,7 @@ namespace ViewMate.Pinyin
                             string b = bigrams.Replace("'", "''");
                             string sc = singleChars.Replace("'", "''");
                             string cb = cjkBigrams.Replace("'", "''");
-                            connection.Execute(
+                            conn.Execute(
                                 $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c} {b} {sc} {cb}' WHERE id = {id}");
                             processed++;
                         }
@@ -190,22 +354,22 @@ namespace ViewMate.Pinyin
                         }
                     }
 
-                    connection.CommitTransaction();
-                    connection.Execute($"INSERT INTO {FtsTableName}({FtsTableName}) VALUES('rebuild')");
-                    _logger.Info("[PinyinSearch] Complete: {0} items injected, FTS rebuilt", processed);
+                    conn.CommitTransaction();
+                    _logger.Debug("[PinyinSearch] Batch offset={0}: {1} items", offset, processed);
                 }
                 catch (Exception ex)
                 {
-                    connection.RollbackTransaction();
-                    _logger.Error("[PinyinSearch] Batch failed, rolled back", ex);
+                    conn.RollbackTransaction();
+                    _logger.Error("[PinyinSearch] Batch offset={0} failed, rolled back: {1}", offset, ex.Message);
                 }
+
+                return processed;
             }
             catch (Exception ex)
             {
-                _logger.Error("[PinyinSearch] Scan failed", ex);
+                _logger.Error("[PinyinSearch] Batch query failed at offset={0}: {1}", offset, ex.Message);
+                return 0;
             }
-
-            return processed;
         }
 
         public bool ProcessItem(BaseItem item)
@@ -253,10 +417,48 @@ namespace ViewMate.Pinyin
             var cjkChars = new List<char>();
             bool hasChinese = false;
 
-            foreach (char ch in text)
+            // Index-based iteration to support phrase skipping
+            for (int i = 0; i < text.Length; )
             {
+                char ch = text[i];
                 if (ch >= 0x4e00 && ch <= 0x9fff)
                 {
+                    // Check if a known phrase starts at this position (longest match wins)
+                    string matchedPhrase = null;
+                    int matchLen = 0;
+                    var overrides = GetPhraseOverrides();
+                    foreach (var kvp in overrides)
+                    {
+                        if (i + kvp.Key.Length <= text.Length &&
+                            text.Substring(i, kvp.Key.Length) == kvp.Key &&
+                            kvp.Key.Length > matchLen)
+                        {
+                            matchedPhrase = kvp.Key;
+                            matchLen = kvp.Key.Length;
+                        }
+                    }
+
+                    if (matchedPhrase != null)
+                    {
+                        // Use override pinyin for the entire phrase
+                        var overrideSegs = overrides[matchedPhrase].Split(' ');
+                        foreach (var seg in overrideSegs)
+                        {
+                            sbSpaced.Append(seg);
+                            sbSpaced.Append(' ');
+                            sbConnected.Append(seg);
+                            syllables.Add(seg);
+                        }
+                        foreach (char pc in matchedPhrase)
+                        {
+                            cjkChars.Add(pc);
+                        }
+                        i += matchLen;
+                        hasChinese = true;
+                        continue;
+                    }
+
+                    // Fall back to per-character TinyPinyin
                     try
                     {
                         var p = GetPinyinFunc()(ch);
@@ -272,6 +474,7 @@ namespace ViewMate.Pinyin
                     }
                     catch { }
                 }
+                i++;
             }
 
             if (!hasChinese) return (null, null, null, null, null);

@@ -105,8 +105,9 @@ namespace ViewMate
             {
                 Logger.Info("[PinyinSearch] Starting PinyinSearchService...");
                 PinyinSearch = new PinyinSearchService(LibraryManager, Logger);
-                try { PinyinSearch.ProcessAllPending(); }
-                catch (Exception ex) { Logger.Error("[PinyinSearch] Initial scan failed", ex); }
+                // Deferred background scan — non-blocking, batched.
+                // Prevents SQLite write-lock congestion on slow ARM hardware.
+                PinyinSearch.ProcessAllPendingDeferred();
             }
             else
             {
@@ -135,15 +136,24 @@ namespace ViewMate
         }
 
         public ImageFormat ThumbImageFormat => ImageFormat.Png;
-        public override string Description => "观影助手 v1.2.11.0 — 拼音搜索、FTS5 拼音注入、中文子串搜索、片头片尾跳过、漏集补打";
+        public override string Description => "观影助手 v1.2.13.0-dev — 拼音搜索、中文子串搜索、词组级多音字校正、片头片尾跳过、漏集补打";
         public override Guid Id => _id;
         public sealed override string Name => "观影助手";
         public static Version CurrentVersion => Assembly.GetExecutingAssembly().GetName().Version;
         public CultureInfo DefaultUICulture { get; private set; }
         public Stream GetThumbImage()
         {
-            var assembly = typeof(Plugin).Assembly;
-            return assembly.GetManifestResourceStream("ViewMate.Properties.thumb.png");
+            var type = typeof(Plugin);
+            // Try the new property name first, then fallbacks
+            var assembly = type.Assembly;
+            // Search common resource names
+            var names = assembly.GetManifestResourceNames();
+            foreach (var n in names)
+            {
+                if (n.EndsWith("thumb.png", StringComparison.OrdinalIgnoreCase))
+                    return assembly.GetManifestResourceStream(n);
+            }
+            return null;
         }
 
         public IReadOnlyCollection<IPluginUIPageController> UIPageControllers
