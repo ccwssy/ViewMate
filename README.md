@@ -23,7 +23,7 @@ Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头
 - c0 格式：`原名称 空格拼音 连写拼音 拼音bigram 单CJK字 CJK双字bigram`
 - 单 CJK 字 token（如 `变 形 金 刚`）支持单字搜索
 - CJK 双字 bigram token（如 `变形 形金 金刚`）支持中文子串搜索
-- SQL 查询用 `c.c0 NOT GLOB '*[a-zA-Z]*'` 避开了 UTF-8 GLOB 多字节范围不匹配 bug
+- SQL 查询用 `c.c0 NOT GLOB '*[a-zA-Z]*'` + `c.c0 GLOB '*[一-龥]*'` 双筛中文（#15 v1.2.13.1 修复 GLOB 使用实际汉字，非 `\\u` 文本字面量）
 - 监听 `ItemAdded`/`ItemUpdated` 事件，新入库即时处理
 - 默认开启
 - **词组级多音字校正**：通过外部 JSON 文件 `pinyin-overrides.json` 配置，无需重新编译 DLL
@@ -73,7 +73,7 @@ docker restart emby
 如果你不想用命令行，可以通过浏览器手工操作：
 
 1. 打开 [Releases 页面](https://github.com/ccwssy/ViewMate/releases)
-2. 找到最新的 **v1.2.13.0**，展开 Assets
+2. 找到最新的 **v1.2.13.1**，展开 Assets
 3. 分别点击下载 **ViewMate.dll** 和 **TinyPinyin.dll**
 
 **Docker Emby 用户：**
@@ -117,7 +117,7 @@ docker exec emby grep "ViewMate" /config/logs/embyserver.txt
 预期输出：
 
 ```
-Loading ViewMate, Version=1.2.13.0... from /config/plugins/ViewMate.dll
+ViewMate, Version=1.2.13.1... from /config/plugins/ViewMate.dll
 Entry point completed: ViewMate.Plugin
 ```
 
@@ -181,7 +181,8 @@ dotnet build -c Release -o build ViewMate/ViewMate.csproj
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
-| **v1.2.13.0** | 2026-06-24 | **修复 ARM64 Synology DSM 卡死** — ProcessAllPending 改为后台分批执行，每批 200 条释放写锁，首页秒开；新增词组级多音字校正（pinyin-overrides.json） |
+|| **v1.2.13.1** | 2026-06-24 | **修复 SQL GLOB `\\u4e00` 文本字面量问题（#15）** — C# verbatim 字符串中 `\\u4e00` 被 SQLite 当 6 ASCII 字符处理，只命中 4 项。改回实际汉字 `[一-龥]`，正确匹配 31+ 项。统一线上线下源。 |
+|| **v1.2.13.0** | 2026-06-24 | **修复 ARM64 Synology DSM 卡死** — ProcessAllPending 改为后台分批执行，每批 200 条释放写锁，首页秒开；新增词组级多音字校正（pinyin-overrides.json） |
 | v1.2.12.0 | 2026-06-24 | 词组级多音字校正：外部 JSON 配置，支持词组跳过 TinyPinyin |
 | v1.2.11.0 | 2026-06-24 | 新增中文子串搜索：FTS c0 中注入单 CJK 字 + CJK 双字 bigram token，搜"金刚"能找到"变形金刚" |
 | v1.2.10.0 | 2026-06-24 | 修复 TinyPinyin 加载（反射替代编译引用）；修复 SQL GLOB 中文字符范围 bug |
