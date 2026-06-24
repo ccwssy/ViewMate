@@ -24,12 +24,49 @@ namespace ViewMate.Pinyin
 
         private static readonly Regex ChineseRegex = new Regex(@"[\\u4e00-\\u9fff]", RegexOptions.Compiled);
 
-        // ── 影视专用词组级多音字校正表（词组优先，单字兜底）──
-        // TinyPinyin 默认映射可能对影视名不准确，遇实际搜索不到时补充
-        private static readonly Dictionary<string, string> PhraseOverrides = new Dictionary<string, string>()
+        // ── 词组级多音字校正表（外部 JSON，DLL 外维护）──
+        // 路径：/config/plugins/pinyin-overrides.json
+        // 修改此文件后重启 Emby 生效，无需重新编译 DLL
+        private static Dictionary<string, string> _phraseOverrides;
+        private static readonly object _phraseLock = new object();
+
+        private static Dictionary<string, string> GetPhraseOverrides()
         {
-            { "重庆", "chong qing" },
-        };
+            if (_phraseOverrides != null) return _phraseOverrides;
+            lock (_phraseLock)
+            {
+                if (_phraseOverrides != null) return _phraseOverrides;
+
+                var dict = new Dictionary<string, string>();
+                string[] probePaths =
+                {
+                    "/config/plugins/pinyin-overrides.json",
+                    "plugins/pinyin-overrides.json",
+                    "../plugins/pinyin-overrides.json",
+                };
+
+                foreach (var path in probePaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        try
+                        {
+                            var text = File.ReadAllText(path);
+                            var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(text);
+                            if (parsed != null)
+                            {
+                                dict = parsed;
+                                break;
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                _phraseOverrides = dict;
+                return _phraseOverrides;
+            }
+        }
 
         // ── TinyPinyin reflection cache ──
         private static Func<char, string> _getPinyin;
@@ -269,7 +306,8 @@ namespace ViewMate.Pinyin
                     // Check if a known phrase starts at this position (longest match wins)
                     string matchedPhrase = null;
                     int matchLen = 0;
-                    foreach (var kvp in PhraseOverrides)
+                    var overrides = GetPhraseOverrides();
+                    foreach (var kvp in overrides)
                     {
                         if (i + kvp.Key.Length <= text.Length &&
                             text.Substring(i, kvp.Key.Length) == kvp.Key &&
@@ -283,7 +321,7 @@ namespace ViewMate.Pinyin
                     if (matchedPhrase != null)
                     {
                         // Use override pinyin for the entire phrase
-                        var overrideSegs = PhraseOverrides[matchedPhrase].Split(' ');
+                        var overrideSegs = overrides[matchedPhrase].Split(' ');
                         foreach (var seg in overrideSegs)
                         {
                             sbSpaced.Append(seg);
