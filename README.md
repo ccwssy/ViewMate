@@ -181,8 +181,8 @@ dotnet build -c Release -o build ViewMate/ViewMate.csproj
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
-|| **v1.2.13.1** | 2026-06-24 | **修复 SQL GLOB `\\u4e00` 文本字面量问题（#15）** — C# verbatim 字符串中 `\\u4e00` 被 SQLite 当 6 ASCII 字符处理，只命中 4 项。改回实际汉字 `[一-龥]`，正确匹配 31+ 项。统一线上线下源。 |
-|| **v1.2.13.0** | 2026-06-24 | **修复 ARM64 Synology DSM 卡死** — ProcessAllPending 改为后台分批执行，每批 200 条释放写锁，首页秒开；新增词组级多音字校正（pinyin-overrides.json） |
+| **v1.2.13.1** | 2026-06-24 | **修复 SQL GLOB `\\u4e00` 文本字面量问题（#15）** — C# verbatim 字符串中 `\\u4e00` 被 SQLite 当 6 ASCII 字符处理，只命中 4 项。改回实际汉字 `[一-龥]`，正确匹配 31+ 项。统一线上线下源。 |
+| **v1.2.13.0** | 2026-06-24 | **修复 ARM64 Synology DSM 卡死** — ProcessAllPending 改为后台分批执行，每批 200 条释放写锁，首页秒开；新增词组级多音字校正（pinyin-overrides.json） |
 | v1.2.12.0 | 2026-06-24 | 词组级多音字校正：外部 JSON 配置，支持词组跳过 TinyPinyin |
 | v1.2.11.0 | 2026-06-24 | 新增中文子串搜索：FTS c0 中注入单 CJK 字 + CJK 双字 bigram token，搜"金刚"能找到"变形金刚" |
 | v1.2.10.0 | 2026-06-24 | 修复 TinyPinyin 加载（反射替代编译引用）；修复 SQL GLOB 中文字符范围 bug |
