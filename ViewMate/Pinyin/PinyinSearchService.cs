@@ -287,6 +287,10 @@ namespace ViewMate.Pinyin
                     {
                         conn.Execute($"INSERT INTO {FtsTableName}({FtsTableName}) VALUES('rebuild')");
                         _logger.Info("[PinyinSearch] Final FTS rebuild done");
+
+                        // Force SQLite WAL checkpoint to prevent WAL growth
+                        // from causing slow reads on subsequent searches.
+                        conn.Execute("PRAGMA wal_checkpoint(TRUNCATE)");
                     }
                 }
                 catch (Exception ex)
