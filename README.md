@@ -8,7 +8,11 @@ Emby 播放体验增强插件 — **拼音搜索** + **片头片尾跳过** + **
 
 ### 1. 拼音搜索
 
+<<<<<<< HEAD
 通过 **FTS5 内容表注入**拼音，无需修改 tokenizer、不加载 libsimple.so：
+=======
+通过 **FTS5 内容表注入拼音**，无需修改 tokenizer、不加载 libsimple.so：
+>>>>>>> 3b67a09 (v1.2.10.0: fix TinyPinyin ALC isolation + SQL GLOB UTF-8 bug)
 
 ```
 用户搜 "gongfu"
@@ -16,10 +20,18 @@ Emby 播放体验增强插件 — **拼音搜索** + **片头片尾跳过** + **
   → （v1.2.4.0+ 不再写 MediaItems.Name，LIKE 回退不适用）
 ```
 
+<<<<<<< HEAD
 - 使用 TinyPinyin C# 库，启动时自动扫描新入库的中文媒体注入拼音
 - 写入 `fts_search9_content.c0`，格式：`原名称 空格拼音 连写拼音`
 - 监听 `ItemAdded`/`ItemUpdated` 事件，新入库即时处理
 - 默认开启，无外部依赖
+=======
+- 使用 TinyPinyin C# 库，**反射加载**（绕过 Emby 插件 ALC 隔离，不在编译时生成 AssemblyRef）
+- 启动时自动扫描新入库的中文媒体注入拼音，写入 `fts_search9_content.c0`
+- SQL 查询用 `c.c0 NOT GLOB '*[a-zA-Z]*'` 避开了 UTF-8 GLOB 多字节范围不匹配 bug
+- 监听 `ItemAdded`/`ItemUpdated` 事件，新入库即时处理
+- 默认开启
+>>>>>>> 3b67a09 (v1.2.10.0: fix TinyPinyin ALC isolation + SQL GLOB UTF-8 bug)
 
 ### 2. 片头片尾跳过（IntroSkip）
 
@@ -37,7 +49,6 @@ Emby 播放体验增强插件 — **拼音搜索** + **片头片尾跳过** + **
 
 ### 要求
 - Emby 4.9.3.0+（.NET 6 容器）
-- 从 Release 安装无需 SDK
 
 ### 从 Release 安装
 
@@ -65,7 +76,11 @@ docker exec emby grep "ViewMate" /config/logs/embyserver.txt
 预期输出：
 
 ```
+<<<<<<< HEAD
 Loading ViewMate, Version=1.2.9.1... from /config/plugins/ViewMate.dll
+=======
+Loading ViewMate, Version=1.2.10.0... from /config/plugins/ViewMate.dll
+>>>>>>> 3b67a09 (v1.2.10.0: fix TinyPinyin ALC isolation + SQL GLOB UTF-8 bug)
 Entry point completed: ViewMate.Plugin
 ```
 
@@ -78,28 +93,19 @@ docker exec emby rm -f /config/plugins/ViewMate.dll /config/plugins/TinyPinyin.d
 docker restart emby
 ```
 
+<<<<<<< HEAD
 已写入的拼音数据保留在 `fts_search9_content`（FTS 内容表）中；`Chapters3` 标记保留在 DB 中。
+=======
+已写入的拼音数据保留在 `fts_search9_content` 中；`Chapters3` 标记保留在 DB 中。
+>>>>>>> 3b67a09 (v1.2.10.0: fix TinyPinyin ALC isolation + SQL GLOB UTF-8 bug)
 
 ### 手动构建
 
 ```bash
-# 需要 .NET SDK 10 + dotnet-ilrepack global tool
+# 需要 .NET SDK 10
 cd ViewMate
-
-# 1. 构建
-dotnet clean -c Release
 dotnet build -c Release
-
-# 2. ILRepack 合并依赖
-export PATH="$HOME/.dotnet/tools:$PATH"
-BCL_DIR=$(find /usr -path "*/shared/Microsoft.NETCore.App/*" -type d | sort -V | tail -1)
-cd bin/Release/net6.0
-ilrepack /target:library /lib:. /lib:"$BCL_DIR" /out:ViewMate_merged.dll \
-  ViewMate.dll 0Harmony.dll TinyPinyin.dll
-
-# 3. 部署
-cp ViewMate_merged.dll /path/to/emby/plugins/ViewMate.dll
-docker restart emby
+# 产物: bin/Release/net6.0/ViewMate.dll + TinyPinyin.dll
 ```
 
 > ⚠️ Linux 上 ILRepack 需要 `/lib:` 指向 .NET BCL 目录。不含 TinyPinyin 合并则拼音搜索无法工作。
@@ -118,14 +124,15 @@ docker restart emby
 
 ## 卸载
 
-1. 删除 `/config/plugins/ViewMate.dll`
+1. 删除 `/config/plugins/ViewMate.dll` 和 `/config/plugins/TinyPinyin.dll`
 2. `docker restart emby`
-3. 已写入的拼音数据保留在 `fts_search9_content` 和 `MediaItems.Name` 中；`Chapters3` 标记保留在 DB 中
+3. 已写入的拼音数据保留在 `fts_search9_content` 中；`Chapters3` 标记保留在 DB 中
 
 ## 版本
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+<<<<<<< HEAD
 | v1.2.9.1 | 2026-06-23 | 修复 GetDbConnection() 反射 — Emby 4.8 PooledDatabaseConnectionManager |
 | v1.2.9.0 | 2026-06-23 | 清理死代码 — 删 Lib.Harmony、scripts/、ITaskManager |
 | v1.2.8.0 | 2026-06-23 | IntroSkip 字段回到子 Section，VisibleCondition 隐藏子字段 |
@@ -134,6 +141,10 @@ docker restart emby
 | v1.2.5.0 | 2026-06-23 | 修复关于页版本号显示 1.0.0.0+n/a |
 | v1.2.4.0 | 2026-06-23 | 拼音搜索不再改 MediaItems.Name + 防抖重建 FTS |
 | v1.2.3.0 | 2026-06-23 | 修复累积检测 bug，遥控器连按也可触发 |
+=======
+| v1.2.10.0 | 2026-06-24 | 修复 TinyPinyin 加载（反射替代编译引用）；修复 SQL GLOB 中文字符范围 bug |
+| v1.2.9.1 | 2026-06-23 | 修复 GetDbConnection（适配 Emby 4.8 PooledDatabaseConnectionManager） |
+>>>>>>> 3b67a09 (v1.2.10.0: fix TinyPinyin ALC isolation + SQL GLOB UTF-8 bug)
 | v1.2.2.0 | 2026-06-23 | 清理屎山：删除 Mod/Web/Tokenizer，DLL 从 6.7MB 降到 2.5MB |
 | v1.2.1.0 | 2026-06-23 | 精简配置页，隐藏无用模块 |
 | v1.2.0.0 | 2026-06-23 | 合并脚本功能：PinyinSearch + IntroBackfill 进 DLL |
@@ -145,9 +156,14 @@ docker restart emby
 
 ### 卡点：SQLite ≥ 3.45 无 simple tokenizer
 
+<<<<<<< HEAD
 旧版 EnhanceChineseSearch 依赖 `libsimple.so` 替换 FTS tokenizer。Emby 官方镜像使用 SQLite 3.49.2，`simple` 分词器已从 FTS5 内置列表中移除。即使在当前连接加载成功，其他连接的 FTS5 查询全部崩溃（`no such tokenizer: simple`）。  
 
 **v1.2.0.0+ 已完全移除该方案**，改用 TinyPinyin C# 直接写入 FTS 内容表 + Name 字段。
+=======
+旧版 EnhanceChineseSearch 依赖 `libsimple.so` 替换 FTS tokenizer。ccwssy/embyserver 使用 SQLite 3.49.2，`simple` 分词器已从 FTS5 内置列表中移除。即使在当前连接加载成功，其他连接的 FTS5 查询全部崩溃（`no such tokenizer: simple`）。
+**v1.2.0.0+ 已完全移除该方案**，改用 TinyPinyin C# 直接写入 FTS 内容表。
+>>>>>>> 3b67a09 (v1.2.10.0: fix TinyPinyin ALC isolation + SQL GLOB UTF-8 bug)
 
 ### 卡点：Type=3(Season) 媒体无法拼音搜索
 
