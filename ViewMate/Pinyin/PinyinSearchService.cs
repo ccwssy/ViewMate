@@ -22,7 +22,14 @@ namespace ViewMate.Pinyin
         private readonly ILibraryManager _libraryManager;
         private bool _disposed = false;
 
-        private static readonly Regex ChineseRegex = new Regex(@"[\u4e00-\u9fff]", RegexOptions.Compiled);
+        private static readonly Regex ChineseRegex = new Regex(@"[\\u4e00-\\u9fff]", RegexOptions.Compiled);
+
+        // ── 影视专用词组级多音字校正表（词组优先，单字兜底）──
+        // TinyPinyin 默认映射可能对影视名不准确，遇实际搜索不到时补充
+        private static readonly Dictionary<string, string> PhraseOverrides = new Dictionary<string, string>()
+        {
+            { "重庆", "chong qing" },
+        };
 
         // ── TinyPinyin reflection cache ──
         private static Func<char, string> _getPinyin;
@@ -253,10 +260,47 @@ namespace ViewMate.Pinyin
             var cjkChars = new List<char>();
             bool hasChinese = false;
 
-            foreach (char ch in text)
+            // Index-based iteration to support phrase skipping
+            for (int i = 0; i < text.Length; )
             {
+                char ch = text[i];
                 if (ch >= 0x4e00 && ch <= 0x9fff)
                 {
+                    // Check if a known phrase starts at this position (longest match wins)
+                    string matchedPhrase = null;
+                    int matchLen = 0;
+                    foreach (var kvp in PhraseOverrides)
+                    {
+                        if (i + kvp.Key.Length <= text.Length &&
+                            text.Substring(i, kvp.Key.Length) == kvp.Key &&
+                            kvp.Key.Length > matchLen)
+                        {
+                            matchedPhrase = kvp.Key;
+                            matchLen = kvp.Key.Length;
+                        }
+                    }
+
+                    if (matchedPhrase != null)
+                    {
+                        // Use override pinyin for the entire phrase
+                        var overrideSegs = PhraseOverrides[matchedPhrase].Split(' ');
+                        foreach (var seg in overrideSegs)
+                        {
+                            sbSpaced.Append(seg);
+                            sbSpaced.Append(' ');
+                            sbConnected.Append(seg);
+                            syllables.Add(seg);
+                        }
+                        foreach (char pc in matchedPhrase)
+                        {
+                            cjkChars.Add(pc);
+                        }
+                        i += matchLen;
+                        hasChinese = true;
+                        continue;
+                    }
+
+                    // Fall back to per-character TinyPinyin
                     try
                     {
                         var p = GetPinyinFunc()(ch);
@@ -272,6 +316,7 @@ namespace ViewMate.Pinyin
                     }
                     catch { }
                 }
+                i++;
             }
 
             if (!hasChinese) return (null, null, null, null, null);
