@@ -2,7 +2,7 @@
 
 Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头片尾跳过** + **漏集补打**。
 
-适配 Emby **4.9.5.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll + TinyPinyin.dll），~190KB。
+适配 Emby **4.9.5.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll + TinyPinyin.dll），~1.9MB。
 
 ## 功能
 
@@ -19,13 +19,14 @@ Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头
 ```
 
 - 使用 TinyPinyin C# 库，**反射加载**（绕过 Emby 插件 ALC 隔离，不在编译时生成 AssemblyRef）
-- 启动时自动扫描新入库的中文媒体注入拼音，写入 `fts_search9_content.c0`
+- 启动时后台分批处理自动扫描新入库的中文媒体注入拼音（不阻塞首页加载），写入 `fts_search9_content.c0`
 - c0 格式：`原名称 空格拼音 连写拼音 拼音bigram 单CJK字 CJK双字bigram`
 - 单 CJK 字 token（如 `变 形 金 刚`）支持单字搜索
 - CJK 双字 bigram token（如 `变形 形金 金刚`）支持中文子串搜索
 - SQL 查询用 `c.c0 NOT GLOB '*[a-zA-Z]*'` 避开了 UTF-8 GLOB 多字节范围不匹配 bug
 - 监听 `ItemAdded`/`ItemUpdated` 事件，新入库即时处理
 - 默认开启
+- **词组级多音字校正**：通过外部 JSON 文件 `pinyin-overrides.json` 配置，无需重新编译 DLL
 
 ### 2. 片头片尾跳过（IntroSkip）
 
@@ -72,7 +73,7 @@ docker restart emby
 如果你不想用命令行，可以通过浏览器手工操作：
 
 1. 打开 [Releases 页面](https://github.com/ccwssy/ViewMate/releases)
-2. 找到最新的 **v1.2.11.0**，展开 Assets
+2. 找到最新的 **v1.2.13.0**，展开 Assets
 3. 分别点击下载 **ViewMate.dll** 和 **TinyPinyin.dll**
 
 **Docker Emby 用户：**
@@ -86,7 +87,7 @@ docker restart emby
 
 > ⚠️ **重要**：全新安装时**必须 Stop 容器/服务，不要用 Restart**。Restart 触发的序列化会覆盖新配置缓存。正确顺序：**停止 → 删 `plugins/configurations/观影助手.json`（如有）→ 替换文件 → 启动**。
 
-首次启动后，PinyinSearch 会自动扫描中文条目注入拼音。稍等 10-30 秒后，搜索中文名或其拼音即可直达。
+首次启动后，PinyinSearch 会在后台自动扫描中文条目注入拼音。首页秒开，后台 30~55 秒跑完。搜索中文名或其拼音即可直达。
 
 ### 从 Release 安装（命令行）
 
@@ -116,7 +117,7 @@ docker exec emby grep "ViewMate" /config/logs/embyserver.txt
 预期输出：
 
 ```
-Loading ViewMate, Version=1.2.11.0... from /config/plugins/ViewMate.dll
+Loading ViewMate, Version=1.2.13.0... from /config/plugins/ViewMate.dll
 Entry point completed: ViewMate.Plugin
 ```
 
@@ -136,11 +137,27 @@ docker restart emby
 ```bash
 # 需要 .NET SDK 10
 cd ViewMate
-dotnet build -c Release
-# 产物: bin/Release/net6.0/ViewMate.dll + TinyPinyin.dll
+dotnet restore
+dotnet build -c Release -o build ViewMate/ViewMate.csproj
+# 产物: build/ViewMate.dll + build/TinyPinyin.dll
 ```
 
-> ⚠️ Linux 上 ILRepack 需要 `/lib:` 指向 .NET BCL 目录。不含 TinyPinyin 合并则拼音搜索无法工作。
+> ⚠️ ILRepack 合并后 ViewMate.dll ~1.8MB。不含 TinyPinyin 则拼音搜索无法工作。部署时需要两个 DLL。
+
+### pinyin-overrides.json（多音字校正）
+
+部署可选的词组级多音字校正文件到 `/config/plugins/pinyin-overrides.json`：
+
+```json
+{
+  "行": "xing",
+  "银行": "yin hang",
+  "行长": "hang zhang",
+  "还": "hai"
+}
+```
+
+文件格式：`{"词组": "拼音1 拼音2 ..."}`，支持多词组覆盖。无需重启即可生效，下次扫描时自动加载。
 
 ## 配置
 
@@ -164,6 +181,8 @@ dotnet build -c Release
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| **v1.2.13.0** | 2026-06-24 | **修复 ARM64 Synology DSM 卡死** — ProcessAllPending 改为后台分批执行，每批 200 条释放写锁，首页秒开；新增词组级多音字校正（pinyin-overrides.json） |
+| v1.2.12.0 | 2026-06-24 | 词组级多音字校正：外部 JSON 配置，支持词组跳过 TinyPinyin |
 | v1.2.11.0 | 2026-06-24 | 新增中文子串搜索：FTS c0 中注入单 CJK 字 + CJK 双字 bigram token，搜"金刚"能找到"变形金刚" |
 | v1.2.10.0 | 2026-06-24 | 修复 TinyPinyin 加载（反射替代编译引用）；修复 SQL GLOB 中文字符范围 bug |
 | v1.2.9.1 | 2026-06-23 | 修复 GetDbConnection（适配 Emby 4.8 PooledDatabaseConnectionManager） |
@@ -183,9 +202,13 @@ dotnet build -c Release
 
 ## 注意事项
 
+### ARM64 Synology DSM 卡死（v1.2.12.0 及之前）
+
+**已修复**（v1.2.13.0）。根因：`ProcessAllPending()` 在 `Plugin.Run()` 中同步执行，使用 `TransactionMode.Immediate` 抢占 SQLite 写锁后一次性处理最多 5000 条并做 FTS rebuild。在 ARM64 慢 CPU 上锁持续 30~55 秒，阻塞 Emby HTTP → Web UI 卡死。修复后后台分批处理，每批 200 条提交释放锁，首页秒开。
+
 ### 卡点：SQLite ≥ 3.45 无 simple tokenizer
 
-旧版 EnhanceChineseSearch 依赖 `libsimple.so` 替换 FTS tokenizer。Emby 官方镜像使用 SQLite 3.49.2，`simple` 分词器已从 FTS5 内置列表中移除。即使在当前连接加载成功，其他连接的 FTS5 查询全部崩溃（`no such tokenizer: simple`）。  
+旧版 EnhanceChineseSearch 依赖 `libsimple.so` 替换 FTS tokenizer。Emby 官方镜像使用 SQLite 3.49.2，`simple` 分词器已从 FTS5 内置列表中移除。即使在当前连接加载成功，其他连接的 FTS5 查询全部崩溃（`no such tokenizer: simple`）。
 
 **v1.2.0.0+ 已完全移除该方案**，改用 TinyPinyin C# 直接写入 FTS 内容表 + Name 字段。
 
