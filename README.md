@@ -1,23 +1,28 @@
 # 观影助手 (ViewMate)
 
-Emby 播放体验增强插件 — **拼音搜索** + **片头片尾跳过** + **漏集补打**。
+Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头片尾跳过** + **漏集补打**。
 
-适配 Emby **4.9.5.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll + TinyPinyin.dll），~183KB。
+适配 Emby **4.9.5.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll + TinyPinyin.dll），~190KB。
 
 ## 功能
 
-### 1. 拼音搜索
+### 1. 拼音 & 中文搜索
 
-通过 **FTS5 内容表注入拼音**，无需修改 tokenizer、不加载 libsimple.so：
+通过 **FTS5 内容表注入拼音 + 中文单字/双字子串 token**，无需修改 tokenizer、不加载 libsimple.so：
 
 ```
 用户搜 "gongfu"
-  → FTS MATCH:  fts_search9 MATCH 'gongfu'      ✅（标准类型）
-  → （v1.2.4.0+ 不再写 MediaItems.Name，LIKE 回退不适用）
+  → FTS MATCH:  fts_search9 MATCH 'gongfu'      ✅（拼音搜索）
+
+用户搜 "金刚"
+  → FTS MATCH:  fts_search9 MATCH '金刚'          ✅（中文子串搜索，v1.2.11.0+）
 ```
 
 - 使用 TinyPinyin C# 库，**反射加载**（绕过 Emby 插件 ALC 隔离，不在编译时生成 AssemblyRef）
 - 启动时自动扫描新入库的中文媒体注入拼音，写入 `fts_search9_content.c0`
+- c0 格式：`原名称 空格拼音 连写拼音 拼音bigram 单CJK字 CJK双字bigram`
+- 单 CJK 字 token（如 `变 形 金 刚`）支持单字搜索
+- CJK 双字 bigram token（如 `变形 形金 金刚`）支持中文子串搜索
 - SQL 查询用 `c.c0 NOT GLOB '*[a-zA-Z]*'` 避开了 UTF-8 GLOB 多字节范围不匹配 bug
 - 监听 `ItemAdded`/`ItemUpdated` 事件，新入库即时处理
 - 默认开启
@@ -39,12 +44,35 @@ Emby 播放体验增强插件 — **拼音搜索** + **片头片尾跳过** + **
 ### 要求
 - Emby 4.9.3.0+（.NET 6 容器）
 
-### 手动下载安装（非命令行）{#manual-install}
+### 升级安装（覆盖已有插件）
+
+已有 v1.2.x 的老用户，直接覆盖 DLL 即可升级：
+
+```bash
+# 1. 下载最新 DLL
+curl -L -o ViewMate.dll \
+  "https://github.com/ccwssy/ViewMate/releases/latest/download/ViewMate.dll"
+curl -L -o TinyPinyin.dll \
+  "https://github.com/ccwssy/ViewMate/releases/latest/download/TinyPinyin.dll"
+
+# 2. 覆盖到 Emby 插件目录
+docker cp ViewMate.dll emby:/config/plugins/ViewMate.dll
+docker cp TinyPinyin.dll emby:/config/plugins/TinyPinyin.dll
+
+# 3. 重启 Emby（必须重启，覆盖 DLL 后不重启不生效）
+docker restart emby
+```
+
+> ⚠️ 覆盖 DLL 后**必须重启 Emby** 才能加载新版本。只用 `docker restart` 即可，无需 Stop→Start 流程。
+
+### 全新安装
+
+#### 手动下载安装（非命令行）{#manual-install}
 
 如果你不想用命令行，可以通过浏览器手工操作：
 
 1. 打开 [Releases 页面](https://github.com/ccwssy/ViewMate/releases)
-2. 找到最新的 **v1.2.10.0**，展开 Assets
+2. 找到最新的 **v1.2.11.0**，展开 Assets
 3. 分别点击下载 **ViewMate.dll** 和 **TinyPinyin.dll**
 
 **Docker Emby 用户：**
@@ -56,11 +84,13 @@ Emby 播放体验增强插件 — **拼音搜索** + **片头片尾跳过** + **
 - 将两个 `.dll` 文件复制到 Emby 安装目录下的 `plugins/` 文件夹
 - 停止 Emby 服务 → 启动 Emby 服务
 
-> ⚠️ **重要**：修改插件文件时**必须 Stop 容器/服务，不要用 Restart**。Restart 触发的序列化会覆盖新配置缓存。正确顺序：**停止 → 删 `plugins/configurations/观影助手.json`（如有）→ 替换文件 → 启动**。
+> ⚠️ **重要**：全新安装时**必须 Stop 容器/服务，不要用 Restart**。Restart 触发的序列化会覆盖新配置缓存。正确顺序：**停止 → 删 `plugins/configurations/观影助手.json`（如有）→ 替换文件 → 启动**。
 
 首次启动后，PinyinSearch 会自动扫描中文条目注入拼音。稍等 10-30 秒后，搜索中文名或其拼音即可直达。
 
 ### 从 Release 安装（命令行）
+
+> ⚠️ 以下为**全新安装**步骤。已有 v1.2.x 请直接覆盖 DLL 后 `docker restart` 即可。
 
 ```bash
 # 1. 下载
@@ -86,7 +116,7 @@ docker exec emby grep "ViewMate" /config/logs/embyserver.txt
 预期输出：
 
 ```
-Loading ViewMate, Version=1.2.10.0... from /config/plugins/ViewMate.dll
+Loading ViewMate, Version=1.2.11.0... from /config/plugins/ViewMate.dll
 Entry point completed: ViewMate.Plugin
 ```
 
@@ -134,6 +164,7 @@ dotnet build -c Release
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| v1.2.11.0 | 2026-06-24 | 新增中文子串搜索：FTS c0 中注入单 CJK 字 + CJK 双字 bigram token，搜"金刚"能找到"变形金刚" |
 | v1.2.10.0 | 2026-06-24 | 修复 TinyPinyin 加载（反射替代编译引用）；修复 SQL GLOB 中文字符范围 bug |
 | v1.2.9.1 | 2026-06-23 | 修复 GetDbConnection（适配 Emby 4.8 PooledDatabaseConnectionManager） |
 | v1.2.9.0 | 2026-06-23 | 清理死代码 — 删 Lib.Harmony、scripts/、ITaskManager |
