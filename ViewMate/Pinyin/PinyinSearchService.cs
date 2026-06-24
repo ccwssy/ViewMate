@@ -171,15 +171,17 @@ namespace ViewMate.Pinyin
                         {
                             long id = row.Item1;
                             string name = row.Item2;
-                            var (spaced, connected, bigrams) = GeneratePinyin(name);
+                            var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
                             if (string.IsNullOrEmpty(spaced)) continue;
 
                             string esc = name.Replace("'", "''");
                             string s = spaced.Replace("'", "''");
                             string c = connected.Replace("'", "''");
                             string b = bigrams.Replace("'", "''");
+                            string sc = singleChars.Replace("'", "''");
+                            string cb = cjkBigrams.Replace("'", "''");
                             connection.Execute(
-                                $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c} {b}' WHERE id = {id}");
+                                $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c} {b} {sc} {cb}' WHERE id = {id}");
                             processed++;
                         }
                         catch (Exception ex)
@@ -214,7 +216,7 @@ namespace ViewMate.Pinyin
             var name = item.Name;
             if (string.IsNullOrEmpty(name)) return false;
 
-            var (spaced, connected, bigrams) = GeneratePinyin(name);
+            var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
             if (string.IsNullOrEmpty(spaced)) return false;
 
             var connection = GetDbConnection();
@@ -226,8 +228,10 @@ namespace ViewMate.Pinyin
                 string s = spaced.Replace("'", "''");
                 string c = connected.Replace("'", "''");
                 string b = bigrams.Replace("'", "''");
+                string sc = singleChars.Replace("'", "''");
+                string cb = cjkBigrams.Replace("'", "''");
                 connection.Execute(
-                    $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c} {b}' WHERE id = {item.Id}");
+                    $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c} {b} {sc} {cb}' WHERE id = {item.Id}");
                 ScheduleRebuild();
                 _logger.Info("[PinyinSearch] Injected '{0}'", name);
                 return true;
@@ -239,13 +243,14 @@ namespace ViewMate.Pinyin
             }
         }
 
-        public static (string spaced, string connected, string bigrams) GeneratePinyin(string text)
+        public static (string spaced, string connected, string bigrams, string singleChars, string cjkBigrams) GeneratePinyin(string text)
         {
-            if (string.IsNullOrEmpty(text)) return (null, null, null);
+            if (string.IsNullOrEmpty(text)) return (null, null, null, null, null);
 
             var sbSpaced = new StringBuilder();
             var sbConnected = new StringBuilder();
             var syllables = new List<string>();
+            var cjkChars = new List<char>();
             bool hasChinese = false;
 
             foreach (char ch in text)
@@ -261,6 +266,7 @@ namespace ViewMate.Pinyin
                             sbSpaced.Append(' ');
                             sbConnected.Append(p);
                             syllables.Add(p);
+                            cjkChars.Add(ch);
                             hasChinese = true;
                         }
                     }
@@ -268,8 +274,9 @@ namespace ViewMate.Pinyin
                 }
             }
 
-            if (!hasChinese) return (null, null, null);
+            if (!hasChinese) return (null, null, null, null, null);
 
+            // Pinyin syllable bigrams (adjacent pairs)
             var sbBigram = new StringBuilder();
             for (int i = 0; i + 1 < syllables.Count; i++)
             {
@@ -278,7 +285,26 @@ namespace ViewMate.Pinyin
                 sbBigram.Append(' ');
             }
 
-            return (sbSpaced.ToString().TrimEnd(), sbConnected.ToString(), sbBigram.ToString().TrimEnd());
+            // Single CJK characters
+            var sbSingle = new StringBuilder();
+            foreach (var ch in cjkChars)
+            {
+                sbSingle.Append(ch);
+                sbSingle.Append(' ');
+            }
+
+            // CJK 2-char bigrams (sliding window)
+            var sbCjkBigram = new StringBuilder();
+            for (int i = 0; i + 1 < cjkChars.Count; i++)
+            {
+                sbCjkBigram.Append(cjkChars[i]);
+                sbCjkBigram.Append(cjkChars[i + 1]);
+                sbCjkBigram.Append(' ');
+            }
+
+            return (sbSpaced.ToString().TrimEnd(), sbConnected.ToString(),
+                    sbBigram.ToString().TrimEnd(),
+                    sbSingle.ToString().TrimEnd(), sbCjkBigram.ToString().TrimEnd());
         }
 
         public static bool IsCjkItem(BaseItem item)
