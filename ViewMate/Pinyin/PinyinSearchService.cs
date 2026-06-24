@@ -8,8 +8,9 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Reflection;
 using System.Threading;
-using TinyPinyin;
+using System.IO;
 using ViewMate.Common;
 
 #nullable disable
@@ -22,6 +23,46 @@ namespace ViewMate.Pinyin
         private bool _disposed = false;
 
         private static readonly Regex ChineseRegex = new Regex(@"[\u4e00-\u9fff]", RegexOptions.Compiled);
+
+        // ── TinyPinyin reflection cache ──
+        private static Func<char, string> _getPinyin;
+        private static readonly object _pinyinLock = new object();
+
+        private static Func<char, string> GetPinyinFunc()
+        {
+            if (_getPinyin != null) return _getPinyin;
+            lock (_pinyinLock)
+            {
+                if (_getPinyin != null) return _getPinyin;
+
+                string[] probePaths =
+                {
+                    "/config/plugins/TinyPinyin.dll",
+                    "/system/TinyPinyin.dll",
+                    "plugins/TinyPinyin.dll",
+                    "../plugins/TinyPinyin.dll",
+                };
+
+                Assembly asm = null;
+                foreach (var path in probePaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        asm = Assembly.Load(File.ReadAllBytes(path));
+                        break;
+                    }
+                }
+
+                if (asm == null)
+                    throw new FileNotFoundException("TinyPinyin.dll not found in any probe path");
+
+                var helperType = asm.GetType("TinyPinyin.PinyinHelper");
+                var method = helperType.GetMethod("GetPinyin", new[] { typeof(char) });
+                _getPinyin = (Func<char, string>)Delegate.CreateDelegate(
+                    typeof(Func<char, string>), null, method);
+                return _getPinyin;
+            }
+        }
         private const string FtsTableName = "fts_search9";
         private const int RebuildDebounceMs = 10000;
 
@@ -130,14 +171,15 @@ namespace ViewMate.Pinyin
                         {
                             long id = row.Item1;
                             string name = row.Item2;
-                            var (spaced, connected) = GeneratePinyin(name);
+                            var (spaced, connected, bigrams) = GeneratePinyin(name);
                             if (string.IsNullOrEmpty(spaced)) continue;
 
                             string esc = name.Replace("'", "''");
                             string s = spaced.Replace("'", "''");
                             string c = connected.Replace("'", "''");
+                            string b = bigrams.Replace("'", "''");
                             connection.Execute(
-                                $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c}' WHERE id = {id}");
+                                $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c} {b}' WHERE id = {id}");
                             processed++;
                         }
                         catch (Exception ex)
@@ -172,7 +214,7 @@ namespace ViewMate.Pinyin
             var name = item.Name;
             if (string.IsNullOrEmpty(name)) return false;
 
-            var (spaced, connected) = GeneratePinyin(name);
+            var (spaced, connected, bigrams) = GeneratePinyin(name);
             if (string.IsNullOrEmpty(spaced)) return false;
 
             var connection = GetDbConnection();
@@ -183,8 +225,9 @@ namespace ViewMate.Pinyin
                 string esc = name.Replace("'", "''");
                 string s = spaced.Replace("'", "''");
                 string c = connected.Replace("'", "''");
+                string b = bigrams.Replace("'", "''");
                 connection.Execute(
-                    $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c}' WHERE id = {item.Id}");
+                    $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c} {b}' WHERE id = {item.Id}");
                 ScheduleRebuild();
                 _logger.Info("[PinyinSearch] Injected '{0}'", name);
                 return true;
@@ -196,12 +239,13 @@ namespace ViewMate.Pinyin
             }
         }
 
-        public static (string spaced, string connected) GeneratePinyin(string text)
+        public static (string spaced, string connected, string bigrams) GeneratePinyin(string text)
         {
-            if (string.IsNullOrEmpty(text)) return (null, null);
+            if (string.IsNullOrEmpty(text)) return (null, null, null);
 
             var sbSpaced = new StringBuilder();
             var sbConnected = new StringBuilder();
+            var syllables = new List<string>();
             bool hasChinese = false;
 
             foreach (char ch in text)
@@ -210,12 +254,13 @@ namespace ViewMate.Pinyin
                 {
                     try
                     {
-                        var p = PinyinHelper.GetPinyin(ch);
+                        var p = GetPinyinFunc()(ch);
                         if (!string.IsNullOrEmpty(p))
                         {
                             sbSpaced.Append(p);
                             sbSpaced.Append(' ');
                             sbConnected.Append(p);
+                            syllables.Add(p);
                             hasChinese = true;
                         }
                     }
@@ -223,8 +268,17 @@ namespace ViewMate.Pinyin
                 }
             }
 
-            if (!hasChinese) return (null, null);
-            return (sbSpaced.ToString().TrimEnd(), sbConnected.ToString());
+            if (!hasChinese) return (null, null, null);
+
+            var sbBigram = new StringBuilder();
+            for (int i = 0; i + 1 < syllables.Count; i++)
+            {
+                sbBigram.Append(syllables[i]);
+                sbBigram.Append(syllables[i + 1]);
+                sbBigram.Append(' ');
+            }
+
+            return (sbSpaced.ToString().TrimEnd(), sbConnected.ToString(), sbBigram.ToString().TrimEnd());
         }
 
         public static bool IsCjkItem(BaseItem item)
