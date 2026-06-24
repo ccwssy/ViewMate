@@ -39,7 +39,28 @@ Emby 播放体验增强插件 — **拼音搜索** + **片头片尾跳过** + **
 ### 要求
 - Emby 4.9.3.0+（.NET 6 容器）
 
-### 从 Release 安装
+### 手动下载安装（非命令行）{#manual-install}
+
+如果你不想用命令行，可以通过浏览器手工操作：
+
+1. 打开 [Releases 页面](https://github.com/ccwssy/ViewMate/releases)
+2. 找到最新的 **v1.2.10.0**，展开 Assets
+3. 分别点击下载 **ViewMate.dll** 和 **TinyPinyin.dll**
+
+**Docker Emby 用户：**
+- 使用 Portainer 或 Synology File Station 等文件管理工具，将两个 `.dll` 文件上传到 Emby 容器的挂载目录下的 `plugins/` 文件夹
+- 一般路径：`/path/to/emby/config/plugins/`（具体取决于你的 docker-compose 卷映射）
+- 上传后执行：停止容器 → 启动容器（不要用重启）
+
+**非 Docker（裸机/Win/Linux）用户：**
+- 将两个 `.dll` 文件复制到 Emby 安装目录下的 `plugins/` 文件夹
+- 停止 Emby 服务 → 启动 Emby 服务
+
+> ⚠️ **重要**：修改插件文件时**必须 Stop 容器/服务，不要用 Restart**。Restart 触发的序列化会覆盖新配置缓存。正确顺序：**停止 → 删 `plugins/configurations/观影助手.json`（如有）→ 替换文件 → 启动**。
+
+首次启动后，PinyinSearch 会自动扫描中文条目注入拼音。稍等 10-30 秒后，搜索中文名或其拼音即可直达。
+
+### 从 Release 安装（命令行）
 
 ```bash
 # 1. 下载
