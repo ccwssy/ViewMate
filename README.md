@@ -8,16 +8,16 @@ Emby 播放体验增强插件 — **拼音搜索** + **片头片尾跳过** + **
 
 ### 1. 拼音搜索
 
-通过 **FTS5 内容表 + MediaItems.Name 双重注入**，无需修改 tokenizer、不加载 libsimple.so：
+通过 **FTS5 内容表注入**拼音，无需修改 tokenizer、不加载 libsimple.so：
 
 ```
 用户搜 "gongfu"
-  → LIKE 回退: MediaItems.Name LIKE '%gongfu%'  ✅（所有类型均可）
   → FTS MATCH:  fts_search9 MATCH 'gongfu'      ✅（标准类型）
+  → （v1.2.4.0+ 不再写 MediaItems.Name，LIKE 回退不适用）
 ```
 
 - 使用 TinyPinyin C# 库，启动时自动扫描新入库的中文媒体注入拼音
-- 写入 `fts_search9_content.c0` + `MediaItems.Name`，格式：`原名称 空格拼音 连写拼音`
+- 写入 `fts_search9_content.c0`，格式：`原名称 空格拼音 连写拼音`
 - 监听 `ItemAdded`/`ItemUpdated` 事件，新入库即时处理
 - 默认开启，无外部依赖
 
@@ -78,7 +78,7 @@ docker exec emby rm -f /config/plugins/ViewMate.dll /config/plugins/TinyPinyin.d
 docker restart emby
 ```
 
-已写入的拼音数据保留在 `fts_search9_content` 和 `MediaItems.Name` 中；`Chapters3` 标记保留在 DB 中。
+已写入的拼音数据保留在 `fts_search9_content`（FTS 内容表）中；`Chapters3` 标记保留在 DB 中。
 
 ### 手动构建
 
