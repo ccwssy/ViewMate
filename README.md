@@ -2,7 +2,15 @@
 
 Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头片尾跳过** + **漏集补打**。
 
-适配 Emby **4.9.5.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll + TinyPinyin.dll），~1.9MB。
+适配 Emby **4.9.5.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll ~153KB + TinyPinyin.dll ~40KB）。
+
+## 支持平台
+
+| 架构 | 状态 |
+|:----:|:----:|
+| amd64 (x86_64) | ✅ 主推部署 |
+| arm64 | ✅ 已验证，v1.2.13.0 修复 ARM 卡死 |
+| Windows (amd64) | ✅ 复制 plugins 目录即可 |
 
 ## 功能
 
@@ -57,14 +65,15 @@ curl -L -o TinyPinyin.dll \
   "https://github.com/ccwssy/ViewMate/releases/latest/download/TinyPinyin.dll"
 
 # 2. 覆盖到 Emby 插件目录
-docker cp ViewMate.dll emby:/config/plugins/ViewMate.dll
-docker cp TinyPinyin.dll emby:/config/plugins/TinyPinyin.dll
+docker cp ViewMate.dll embyserver:/config/plugins/ViewMate.dll
+docker cp TinyPinyin.dll embyserver:/config/plugins/TinyPinyin.dll
 
 # 3. 重启 Emby（必须重启，覆盖 DLL 后不重启不生效）
-docker restart emby
+docker restart embyserver
 ```
 
 > ⚠️ 覆盖 DLL 后**必须重启 Emby** 才能加载新版本。只用 `docker restart` 即可，无需 Stop→Start 流程。
+> 以上命令中容器名 `embyserver` 为 Docker 默认名。若你的容器名不同（如 `emby`），请自行替换。
 
 ### 全新安装
 
@@ -73,7 +82,7 @@ docker restart emby
 如果你不想用命令行，可以通过浏览器手工操作：
 
 1. 打开 [Releases 页面](https://github.com/ccwssy/ViewMate/releases)
-2. 找到最新的 **v1.2.13.1**，展开 Assets
+2. 找到最新的 **v1.2.13.2**，展开 Assets
 3. 分别点击下载 **ViewMate.dll** 和 **TinyPinyin.dll**
 
 **Docker Emby 用户：**
@@ -101,23 +110,23 @@ curl -L -o TinyPinyin.dll \
   "https://github.com/ccwssy/ViewMate/releases/latest/download/TinyPinyin.dll"
 
 # 2. 复制到 Emby 插件目录
-docker cp ViewMate.dll emby:/config/plugins/ViewMate.dll
-docker cp TinyPinyin.dll emby:/config/plugins/TinyPinyin.dll
+docker cp ViewMate.dll embyserver:/config/plugins/ViewMate.dll
+docker cp TinyPinyin.dll embyserver:/config/plugins/TinyPinyin.dll
 
 # 3. 重启 Emby
-docker restart emby
+docker restart embyserver
 ```
 
 ### 验证安装
 
 ```bash
-docker exec emby grep "ViewMate" /config/logs/embyserver.txt
+docker exec embyserver grep "ViewMate" /config/logs/embyserver.txt
 ```
 
 预期输出：
 
 ```
-ViewMate, Version=1.2.13.1... from /config/plugins/ViewMate.dll
+ViewMate, Version=1.2.13.2... from /config/plugins/ViewMate.dll
 Entry point completed: ViewMate.Plugin
 ```
 
@@ -126,8 +135,8 @@ Entry point completed: ViewMate.Plugin
 ### 卸载
 
 ```bash
-docker exec emby rm -f /config/plugins/ViewMate.dll /config/plugins/TinyPinyin.dll
-docker restart emby
+docker exec embyserver rm -f /config/plugins/ViewMate.dll /config/plugins/TinyPinyin.dll
+docker restart embyserver
 ```
 
 已写入的拼音数据保留在 `fts_search9_content` 中；`Chapters3` 标记保留在 DB 中。
@@ -141,8 +150,6 @@ dotnet restore
 dotnet build -c Release -o build ViewMate/ViewMate.csproj
 # 产物: build/ViewMate.dll + build/TinyPinyin.dll
 ```
-
-> ⚠️ ILRepack 合并后 ViewMate.dll ~1.8MB。不含 TinyPinyin 则拼音搜索无法工作。部署时需要两个 DLL。
 
 ### pinyin-overrides.json（多音字校正）
 
@@ -174,32 +181,12 @@ dotnet build -c Release -o build ViewMate/ViewMate.csproj
 ## 卸载
 
 1. 删除 `/config/plugins/ViewMate.dll` 和 `/config/plugins/TinyPinyin.dll`
-2. `docker restart emby`
+2. `docker restart embyserver`
 3. 已写入的拼音数据保留在 `fts_search9_content` 中；`Chapters3` 标记保留在 DB 中
 
 ## 版本
 
-| 版本 | 日期 | 说明 |
-|------|------|------|
-| **v1.2.13.1** | 2026-06-24 | **修复 SQL GLOB `\\u4e00` 文本字面量问题（#15）** — C# verbatim 字符串中 `\\u4e00` 被 SQLite 当 6 ASCII 字符处理，只命中 4 项。改回实际汉字 `[一-龥]`，正确匹配 31+ 项。统一线上线下源。 |
-| **v1.2.13.0** | 2026-06-24 | **修复 ARM64 Synology DSM 卡死** — ProcessAllPending 改为后台分批执行，每批 200 条释放写锁，首页秒开；新增词组级多音字校正（pinyin-overrides.json） |
-| v1.2.12.0 | 2026-06-24 | 词组级多音字校正：外部 JSON 配置，支持词组跳过 TinyPinyin |
-| v1.2.11.0 | 2026-06-24 | 新增中文子串搜索：FTS c0 中注入单 CJK 字 + CJK 双字 bigram token，搜"金刚"能找到"变形金刚" |
-| v1.2.10.0 | 2026-06-24 | 修复 TinyPinyin 加载（反射替代编译引用）；修复 SQL GLOB 中文字符范围 bug |
-| v1.2.9.1 | 2026-06-23 | 修复 GetDbConnection（适配 Emby 4.8 PooledDatabaseConnectionManager） |
-| v1.2.9.0 | 2026-06-23 | 清理死代码 — 删 Lib.Harmony、scripts/、ITaskManager |
-| v1.2.8.0 | 2026-06-23 | IntroSkip 字段回到子 Section，VisibleCondition 隐藏子字段 |
-| v1.2.7.0 | 2026-06-23 | 平铺 IntroSkip 字段到 PluginOptions |
-| v1.2.6.0 | 2026-06-23 | 主开关 EnableIntroSkip 提到 PluginOptions 顶层 |
-| v1.2.5.0 | 2026-06-23 | 修复关于页版本号显示 1.0.0.0+n/a |
-| v1.2.4.0 | 2026-06-23 | 拼音搜索不再改 MediaItems.Name + 防抖重建 FTS |
-| v1.2.3.0 | 2026-06-23 | 修复累积检测 bug，遥控器连按也可触发 |
-| v1.2.2.0 | 2026-06-23 | 清理屎山：删除 Mod/Web/Tokenizer，DLL 从 6.7MB 降到 2.5MB |
-| v1.2.1.0 | 2026-06-23 | 精简配置页，隐藏无用模块 |
-| v1.2.0.0 | 2026-06-23 | 合并脚本功能：PinyinSearch + IntroBackfill 进 DLL |
-| v1.1.1.0 | 2026-06-23 | 新增 PersonFilter、写 MediaItems.Name |
-| v1.0.0.1 | 2026-06-23 | 更新图标、清理重复插件 |
-| v1.0.0 | 2026-06-21 | 首次发布（仅 IntroSkip + EnhanceChineseSearch） |
+完整版本历史请参阅 [CHANGELOG.md](./CHANGELOG.md)。
 
 ## 注意事项
 
