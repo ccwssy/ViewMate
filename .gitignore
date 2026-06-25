@@ -13,16 +13,5 @@ build/
 /StrmAssistant/Properties/launchSettings.json
 
 # Build output
-StrmAssistant/bin/
-StrmAssistant/obj/
-StrmAssistant/Properties/launchSettings.json
 libs/
-
-# ILRepack output
-StrmAssistant/bin/output/
-libs/
-StrmAssistant/bin/
-StrmAssistant/obj/
-StrmAssistant/bin/output/
-StrmAssistant/Properties/launchSettings.json
 out/
