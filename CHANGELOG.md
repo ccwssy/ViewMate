@@ -2,7 +2,7 @@
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
-| **v1.2.13.2** | 2026-06-25 | **README 修正** — 容器名 `emby`→`embyserver`（Docker 默认名），插件大小 ~1.9MB→152KB+40KB（双 DLL 实际），移除 ILRepack 误导段。 |
+| **v1.2.13.2** | 2026-06-25 | **添加 SQLite WAL checkpoint** — PinyinScan 完成 FTS 重建后执行 `PRAGMA wal_checkpoint(TRUNCATE)`，防止 WAL 持续膨胀导致首页搜索卡死；GLOB 查询继承 `[一-龥]` 修复（v1.2.13.0）。 |
 | **v1.2.13.1** | 2026-06-24 | **修复 SQL GLOB `\\u4e00` 文本字面量问题（#15）** — C# verbatim 字符串中 `\\u4e00` 被 SQLite 当 6 ASCII 字符处理，只命中 4 项。改回实际汉字 `[一-龥]`，正确匹配 31+ 项。统一线上线下源。 |
 | **v1.2.13.0** | 2026-06-24 | **修复 ARM64 Synology DSM 卡死** — ProcessAllPending 改为后台分批执行，每批 200 条释放写锁，首页秒开；新增词组级多音字校正（pinyin-overrides.json） |
 | v1.2.12.0 | 2026-06-24 | 词组级多音字校正：外部 JSON 配置，支持词组跳过 TinyPinyin |
