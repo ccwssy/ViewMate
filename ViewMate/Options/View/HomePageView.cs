@@ -30,14 +30,10 @@ namespace ViewMate.Options.View
             PluginOptions.IntroSkipOptions.MaxCreditsDurationSeconds = config.MaxCreditsDurationSeconds;
             PluginOptions.PinyinOptions.EnablePinyinSearch = config.EnablePinyinSearch;
             PluginOptions.IntroSkipOptions.EnableIntroBackfill = config.EnableIntroBackfill;
+            PluginOptions.VersionCheckOptions.EnableVersionCheck = config.EnableVersionCheck;
         }
 
         public PluginOptions PluginOptions => ContentData as PluginOptions;
-
-        public override Task<IPluginUIView> RunCommand(string itemId, string commandId, string data)
-        {
-            return base.RunCommand(itemId, commandId, data);
-        }
 
         public override Task<IPluginUIView> OnSaveCommand(string itemId, string commandId, string data)
         {
@@ -50,7 +46,20 @@ namespace ViewMate.Options.View
             config.MaxCreditsDurationSeconds = PluginOptions.IntroSkipOptions.MaxCreditsDurationSeconds;
             config.EnablePinyinSearch = PluginOptions.PinyinOptions.EnablePinyinSearch;
             config.EnableIntroBackfill = PluginOptions.IntroSkipOptions.EnableIntroBackfill;
+            config.EnableVersionCheck = PluginOptions.VersionCheckOptions.EnableVersionCheck;
             Plugin.Instance.UpdateConfiguration(config);
+
+            // ── Manual version check ──
+            if (PluginOptions.VersionCheckOptions.TriggerManualCheck)
+            {
+                PluginOptions.VersionCheckOptions.TriggerManualCheck = false;
+                Plugin.Instance.Logger.Info("[VersionCheck] Manual check triggered");
+                Task.Run(async () =>
+                {
+                    await Plugin.CheckForUpdatesAsync(maxRetries: 3, retryDelayMs: 10000);
+                    Plugin.Instance.Logger.Info("[VersionCheck] Manual check complete");
+                });
+            }
 
             return base.OnSaveCommand(itemId, commandId, data);
         }

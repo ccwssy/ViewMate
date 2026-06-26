@@ -55,8 +55,11 @@ namespace ViewMate
         // ── Version check ──
         public static string LatestVersion { get; private set; }
         public static bool HasUpdate { get; private set; }
+        public static bool VersionCheckFailed { get; private set; }
+        public static string VersionCheckStatus { get; private set; } = "检查中…";
         private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         private static bool _httpInitialized;
+        private static readonly object _versionLock = new object();
         private static void InitHttpClient()
         {
             if (!_httpInitialized)
@@ -145,35 +148,74 @@ namespace ViewMate
                 IntroBackfill = null;
             }
 
-            // ── Version check (background, fire-and-forget) ──
-            Task.Run(() => CheckForUpdatesAsync());
+            // ── Version check (deferred 5 min, max 3 retries) ──
+            var cfg = Configuration as PluginConfiguration ?? new PluginConfiguration();
+            if (cfg.EnableVersionCheck)
+            {
+                Instance?.Logger?.Info("[VersionCheck] Will check in 5 minutes...");
+                Task.Run(async () =>
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(5));
+                    await CheckForUpdatesAsync(maxRetries: 3, retryDelayMs: 10000);
+                });
+            }
+            else
+            {
+                Instance?.Logger?.Info("[VersionCheck] Disabled by configuration");
+                VersionCheckStatus = "已禁用";
+            }
         }
 
-        private async Task CheckForUpdatesAsync()
+        public static async Task CheckForUpdatesAsync(int maxRetries = 3, int retryDelayMs = 10000)
         {
-            try
+            lock (_versionLock)
             {
-                InitHttpClient();
-                var response = await _httpClient.GetStringAsync(
-                    "https://api.github.com/repos/ccwssy/ViewMate/releases/latest");
-                var json = System.Text.Json.JsonDocument.Parse(response);
-                var tagName = json.RootElement.GetProperty("tag_name").GetString();
-
-                LatestVersion = tagName?.TrimStart('v') ?? "unknown";
-                HasUpdate = Version.TryParse(LatestVersion, out var latestVer)
-                    && CurrentVersion != null
-                    && latestVer > CurrentVersion;
-
-                if (HasUpdate)
-                    Logger.Info($"[VersionCheck] New version available: {tagName} (current: v{CurrentVersion})");
-                else
-                    Logger.Info($"[VersionCheck] Up-to-date: v{LatestVersion}");
+                VersionCheckFailed = false;
+                VersionCheckStatus = "检查中…";
             }
-            catch (Exception ex)
+
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
-                Logger.Info($"[VersionCheck] Failed: {ex.Message}");
-                // Silently ignore — network failure shouldn't affect plugin function
+                try
+                {
+                    InitHttpClient();
+                    var response = await _httpClient.GetStringAsync(
+                        "https://api.github.com/repos/ccwssy/ViewMate/releases/latest");
+                    var json = System.Text.Json.JsonDocument.Parse(response);
+                    var tagName = json.RootElement.GetProperty("tag_name").GetString();
+
+                    lock (_versionLock)
+                    {
+                        LatestVersion = tagName?.TrimStart('v') ?? "unknown";
+                        HasUpdate = Version.TryParse(LatestVersion, out var latestVer)
+                            && CurrentVersion != null
+                            && latestVer > CurrentVersion;
+                        VersionCheckFailed = false;
+                        VersionCheckStatus = HasUpdate
+                            ? $"v{LatestVersion} ⬆ 有更新"
+                            : $"v{LatestVersion} ✅ 已是最新";
+                    }
+
+                    if (HasUpdate)
+                        Instance?.Logger?.Info($"[VersionCheck] New version available: {tagName} (current: v{CurrentVersion})");
+                    else
+                        Instance?.Logger?.Info($"[VersionCheck] Up-to-date: v{LatestVersion}");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Instance?.Logger?.Info($"[VersionCheck] Attempt {attempt}/{maxRetries} failed: {ex.Message}");
+                    if (attempt < maxRetries)
+                        await Task.Delay(retryDelayMs);
+                }
             }
+
+            lock (_versionLock)
+            {
+                VersionCheckFailed = true;
+                VersionCheckStatus = $"❌ 检查失败";
+            }
+            Instance?.Logger?.Info($"[VersionCheck] All {maxRetries} attempts failed — giving up");
         }
 
         public override void OnUninstalling()
@@ -231,5 +273,8 @@ namespace ViewMate
 
         // ── IntroBackfill configuration ──
         public bool EnableIntroBackfill { get; set; } = false;
+
+        // ── Version check configuration ──
+        public bool EnableVersionCheck { get; set; } = true;
     }
 }
