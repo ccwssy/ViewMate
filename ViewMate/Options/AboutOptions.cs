@@ -78,6 +78,15 @@ namespace ViewMate.Options
             VersionInfoList.Add(
                 new GenericListItem
                 {
+                    PrimaryText = "AGPL v3 许可证",
+                    Icon = IconNames.code,
+                    IconMode = ItemListIconMode.SmallRegular,
+                    HyperLink = "https://www.gnu.org/licenses/agpl-3.0",
+                });
+
+            VersionInfoList.Add(
+                new GenericListItem
+                {
                     PrimaryText = "上游: StrmAssistant_less",
                     Icon = IconNames.code,
                     IconMode = ItemListIconMode.SmallRegular,
