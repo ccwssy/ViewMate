@@ -19,6 +19,8 @@
 	  
 	  <RootNamespace>ViewMate</RootNamespace>
 	  <AssemblyName>ViewMate</AssemblyName>
+	  <Copyright>Copyright © 2026-$([System.DateTime]::Now.Year) ccwssy</Copyright>
+	  <Company>ccwssy</Company>
 	  
   </PropertyGroup>
 
