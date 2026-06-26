@@ -11,14 +11,14 @@ namespace ViewMate.Options
 
         public override string EditorDescription => string.Empty;
 
-        [DisplayName("版本更新检查")]
-        public VersionCheckSubOptions VersionCheckOptions { get; set; } = new VersionCheckSubOptions();
-
-        [DisplayName("片头片尾跳过")]
-        public IntroSkipOptions IntroSkipOptions { get; set; } = new IntroSkipOptions();
-
         [DisplayName("拼音搜索")]
         public Pinyin.PinyinOptions PinyinOptions { get; set; } = new Pinyin.PinyinOptions();
+
+        [DisplayName("片头尾跳过")]
+        public IntroSkipOptions IntroSkipOptions { get; set; } = new IntroSkipOptions();
+
+        [DisplayName("版本更新")]
+        public VersionCheckSubOptions VersionCheckOptions { get; set; } = new VersionCheckSubOptions();
 
         [DisplayName("关于")]
         public AboutOptions AboutOptions { get; set; } = new AboutOptions();

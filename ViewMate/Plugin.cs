@@ -56,7 +56,7 @@ namespace ViewMate
         public static string LatestVersion { get; private set; }
         public static bool HasUpdate { get; private set; }
         public static bool VersionCheckFailed { get; private set; }
-        public static string VersionCheckStatus { get; private set; } = "检查中…";
+        public static string VersionCheckStatus { get; private set; } = "";
         private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         private static bool _httpInitialized;
         private static readonly object _versionLock = new object();
@@ -149,9 +149,10 @@ namespace ViewMate
             }
 
             // ── Version check (deferred 5 min, max 3 retries) ──
-            var cfg = Configuration as PluginConfiguration ?? new PluginConfiguration();
-            if (cfg.EnableVersionCheck)
+            bool versionCheckEnabled = config.EnableVersionCheck;
+            if (versionCheckEnabled)
             {
+                VersionCheckStatus = ""; // 未开始检查
                 Instance?.Logger?.Info("[VersionCheck] Will check in 5 minutes...");
                 Task.Run(async () =>
                 {
@@ -275,6 +276,6 @@ namespace ViewMate
         public bool EnableIntroBackfill { get; set; } = false;
 
         // ── Version check configuration ──
-        public bool EnableVersionCheck { get; set; } = true;
+        public bool EnableVersionCheck { get; set; } = false;
     }
 }
