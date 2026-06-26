@@ -1,4 +1,5 @@
 using Emby.Web.GenericEdit;
+using Emby.Web.GenericEdit.Elements;
 using MediaBrowser.Model.Attributes;
 using System.ComponentModel;
 
@@ -9,6 +10,9 @@ namespace ViewMate.Options
         public override string EditorTitle => "观影助手";
 
         public override string EditorDescription => string.Empty;
+
+        [DisplayName("版本更新检查")]
+        public VersionCheckSubOptions VersionCheckOptions { get; set; } = new VersionCheckSubOptions();
 
         [DisplayName("片头片尾跳过")]
         public IntroSkipOptions IntroSkipOptions { get; set; } = new IntroSkipOptions();

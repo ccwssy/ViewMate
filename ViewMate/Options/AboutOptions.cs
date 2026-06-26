@@ -68,17 +68,16 @@ namespace ViewMate.Options
                 });
 
             // ── Version check status ──
-            var latest = Plugin.LatestVersion;
-            if (!string.IsNullOrEmpty(latest))
+            var statusText = Plugin.VersionCheckStatus;
+            if (!string.IsNullOrEmpty(statusText))
             {
-                var statusText = Plugin.HasUpdate
-                    ? $"最新版: v{latest} ⬆ 有更新"
-                    : $"最新版: v{latest} ✅ 已是最新";
-                var icon = Plugin.HasUpdate ? IconNames.warning : IconNames.check;
+                var icon = Plugin.VersionCheckFailed ? IconNames.warning
+                    : Plugin.HasUpdate ? IconNames.warning
+                    : IconNames.check;
                 VersionInfoList.Add(
                     new GenericListItem
                     {
-                        PrimaryText = statusText,
+                        PrimaryText = $"版本检查: {statusText}",
                         Icon = icon,
                         IconMode = ItemListIconMode.SmallRegular,
                     });
