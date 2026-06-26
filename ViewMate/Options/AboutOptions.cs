@@ -39,11 +39,11 @@ namespace ViewMate.Options
             {
                 var parts = informationalVersion.Split('+');
                 if (parts.Length > 1)
-                    return $"{fullVersion}+{parts[1].Substring(0, 7)}";
-                return fullVersion ?? informationalVersion;
+                    return $"v{fullVersion}+{parts[1].Substring(0, 7)}";
+                return $"v{fullVersion ?? informationalVersion}";
             }
 
-            return fullVersion ?? "unknown";
+            return fullVersion != null ? $"v{fullVersion}" : "unknown";
         }
 
         public void Initialize()
@@ -69,19 +69,25 @@ namespace ViewMate.Options
 
             // ── Version check status ──
             var statusText = Plugin.VersionCheckStatus;
-            if (!string.IsNullOrEmpty(statusText))
+            string displayText;
+            var icon = IconNames.info;
+            if (string.IsNullOrEmpty(statusText))
             {
-                var icon = Plugin.VersionCheckFailed ? IconNames.warning
-                    : Plugin.HasUpdate ? IconNames.warning
-                    : IconNames.check;
-                VersionInfoList.Add(
-                    new GenericListItem
-                    {
-                        PrimaryText = $"版本检查: {statusText}",
-                        Icon = icon,
-                        IconMode = ItemListIconMode.SmallRegular,
-                    });
+                displayText = "未开始检查";
+                icon = IconNames.info;
             }
+            else
+            {
+                displayText = statusText;
+                icon = Plugin.VersionCheckFailed || Plugin.HasUpdate ? IconNames.warning : IconNames.check;
+            }
+            VersionInfoList.Add(
+                new GenericListItem
+                {
+                    PrimaryText = $"版本检查: {displayText}",
+                    Icon = icon,
+                    IconMode = ItemListIconMode.SmallRegular,
+                });
 
             VersionInfoList.Add(
                 new GenericListItem

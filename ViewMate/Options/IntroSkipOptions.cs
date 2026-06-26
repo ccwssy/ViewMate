@@ -6,9 +6,9 @@ namespace ViewMate.Options
 {
     public class IntroSkipOptions : EditableOptionsBase
     {
-        public override string EditorTitle => "片头片尾跳过";
+        public override string EditorTitle => "片头尾跳过";
 
-        [DisplayName("启用片头跳过检测")]
+        [DisplayName("启用片头尾跳过检测")]
         [Description("播放时拖进度条跳过片头，自动写入 IntroSkip marker")]
         [Required]
         public bool EnableIntroSkip { get; set; } = false;
