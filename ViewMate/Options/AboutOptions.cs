@@ -66,6 +66,24 @@ namespace ViewMate.Options
                     Icon = IconNames.info,
                     IconMode = ItemListIconMode.SmallRegular
                 });
+
+            // ── Version check status ──
+            var latest = Plugin.LatestVersion;
+            if (!string.IsNullOrEmpty(latest))
+            {
+                var statusText = Plugin.HasUpdate
+                    ? $"最新版: v{latest} ⬆ 有更新"
+                    : $"最新版: v{latest} ✅ 已是最新";
+                var icon = Plugin.HasUpdate ? IconNames.warning : IconNames.check;
+                VersionInfoList.Add(
+                    new GenericListItem
+                    {
+                        PrimaryText = statusText,
+                        Icon = icon,
+                        IconMode = ItemListIconMode.SmallRegular,
+                    });
+            }
+
             VersionInfoList.Add(
                 new GenericListItem
                 {

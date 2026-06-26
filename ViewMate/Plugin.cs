@@ -21,7 +21,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
 using System.Reflection;
+using System.Threading.Tasks;
 #nullable disable
 namespace ViewMate
 {
@@ -49,6 +51,20 @@ namespace ViewMate
 
         // ── IntroBackfill ──
         public static IntroBackfillService IntroBackfill { get; private set; }
+
+        // ── Version check ──
+        public static string LatestVersion { get; private set; }
+        public static bool HasUpdate { get; private set; }
+        private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        private static bool _httpInitialized;
+        private static void InitHttpClient()
+        {
+            if (!_httpInitialized)
+            {
+                _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("ViewMate/1.0");
+                _httpInitialized = true;
+            }
+        }
 
         public Plugin(IApplicationHost applicationHost, IApplicationPaths applicationPaths, ILogManager logManager,
             IServerConfigurationManager configurationManager,
@@ -127,6 +143,36 @@ namespace ViewMate
             {
                 Logger.Info("[IntroBackfill] Disabled by configuration");
                 IntroBackfill = null;
+            }
+
+            // ── Version check (background, fire-and-forget) ──
+            Task.Run(() => CheckForUpdatesAsync());
+        }
+
+        private async Task CheckForUpdatesAsync()
+        {
+            try
+            {
+                InitHttpClient();
+                var response = await _httpClient.GetStringAsync(
+                    "https://api.github.com/repos/ccwssy/ViewMate/releases/latest");
+                var json = System.Text.Json.JsonDocument.Parse(response);
+                var tagName = json.RootElement.GetProperty("tag_name").GetString();
+
+                LatestVersion = tagName?.TrimStart('v') ?? "unknown";
+                HasUpdate = Version.TryParse(LatestVersion, out var latestVer)
+                    && CurrentVersion != null
+                    && latestVer > CurrentVersion;
+
+                if (HasUpdate)
+                    Logger.Info($"[VersionCheck] New version available: {tagName} (current: v{CurrentVersion})");
+                else
+                    Logger.Info($"[VersionCheck] Up-to-date: v{LatestVersion}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Info($"[VersionCheck] Failed: {ex.Message}");
+                // Silently ignore — network failure shouldn't affect plugin function
             }
         }
 
