@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Reflection;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.IO;
 using System.Threading.Tasks;
@@ -22,6 +23,12 @@ namespace ViewMate.Pinyin
         private readonly ILogger _logger;
         private readonly ILibraryManager _libraryManager;
         private bool _disposed = false;
+
+        // ── Event Queue (zero-SQL event handlers → timer-based batch processing) ──
+        private readonly ConcurrentQueue<Tuple<long, string>> _pendingEventQueue = new ConcurrentQueue<Tuple<long, string>>();
+        private Timer _eventTimer;
+        private const int EventBatchSize = 50;
+        private const int EventTimerIntervalMs = 30000; // 30s
 
         private static readonly Regex ChineseRegex = new Regex(@"[\\u4e00-\\u9fff]", RegexOptions.Compiled);
 
@@ -169,6 +176,10 @@ namespace ViewMate.Pinyin
 
             _libraryManager.ItemAdded += OnItemAdded;
             _libraryManager.ItemUpdated += OnItemUpdated;
+
+            // Timer-based batch processor: fires every 30s when queue is non-empty
+            _eventTimer = new Timer(_ => ProcessQueuedEvents(), null,
+                EventTimerIntervalMs, EventTimerIntervalMs);
         }
 
         // ── Pending-Item Query Builder ──
@@ -274,29 +285,22 @@ namespace ViewMate.Pinyin
                 totalProcessed += batch;
                 offset += BatchSize;
 
+                // Yield between batches so Emby's HTTP readers can acquire
+                // the SQLite read lock — prevents homepage freeze during
+                // library scan / startup background processing.
+                if (offset < actualTotal)
+                    Thread.Sleep(500);
+
                 if (_disposed) break;
             }
 
-            // Single FTS rebuild after all batches
+            // Single FTS rebuild after all batches — removed because INSERT OR REPLACE
+            // already auto-updates the FTS index incrementally. The explicit rebuild
+            // + WAL checkpoint held a write lock that blocked Emby's homepage search
+            // queries, causing 卡死. (v1.2.13.3)
             if (!_disposed)
             {
-                try
-                {
-                    var conn = GetDbConnection();
-                    if (conn != null)
-                    {
-                        conn.Execute($"INSERT INTO {FtsTableName}({FtsTableName}) VALUES('rebuild')");
-                        _logger.Info("[PinyinSearch] Final FTS rebuild done");
-
-                        // Force SQLite WAL checkpoint to prevent WAL growth
-                        // from causing slow reads on subsequent searches.
-                        conn.Execute("PRAGMA wal_checkpoint(TRUNCATE)");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warn("[PinyinSearch] Final FTS rebuild failed: {0}", ex.Message);
-                }
+                _logger.Debug("[PinyinSearch] Batch scan complete, skipping redundant FTS rebuild");
             }
 
             return totalProcessed;
@@ -310,69 +314,71 @@ namespace ViewMate.Pinyin
         /// </summary>
         private int ProcessBatch(long offset, int limit)
         {
-            var conn = GetDbConnection();
-            if (conn == null) return 0;
-
-            try
+            using (var conn = GetDbConnection())
             {
-                // Fetch batch rows
-                var rows = new List<Tuple<long, string>>();
-                var query = PendingQuery() + $" LIMIT {limit} OFFSET {offset}";
-                using (var stmt = conn.PrepareStatement(query))
-                {
-                    while (stmt.MoveNext())
-                        rows.Add(Tuple.Create(stmt.Current.GetInt64(0), stmt.Current.GetString(1)));
-                }
+                if (conn == null) return 0;
 
-                if (rows.Count == 0) return 0;
-
-                // Process in a short transaction
-                conn.BeginTransaction(TransactionMode.Deferred);
-                int processed = 0;
                 try
                 {
-                    foreach (var row in rows)
+                    // Fetch batch rows
+                    var rows = new List<Tuple<long, string>>();
+                    var query = PendingQuery() + $" LIMIT {limit} OFFSET {offset}";
+                    using (var stmt = conn.PrepareStatement(query))
                     {
-                        try
-                        {
-                            if (_disposed) break;
-
-                            long id = row.Item1;
-                            string name = row.Item2;
-                            var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
-                            if (string.IsNullOrEmpty(spaced)) continue;
-
-                            string esc = name.Replace("'", "''");
-                            string s = spaced.Replace("'", "''");
-                            string c = connected.Replace("'", "''");
-                            string b = bigrams.Replace("'", "''");
-                            string sc = singleChars.Replace("'", "''");
-                            string cb = cjkBigrams.Replace("'", "''");
-                            conn.Execute(
-                                $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c} {b} {sc} {cb}' WHERE id = {id}");
-                            processed++;
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.Warn("[PinyinSearch] Item {0}: {1}", row.Item1, ex.Message);
-                        }
+                        while (stmt.MoveNext())
+                            rows.Add(Tuple.Create(stmt.Current.GetInt64(0), stmt.Current.GetString(1)));
                     }
 
-                    conn.CommitTransaction();
-                    _logger.Debug("[PinyinSearch] Batch offset={0}: {1} items", offset, processed);
+                    if (rows.Count == 0) return 0;
+
+                    // Process in a short transaction
+                    conn.BeginTransaction(TransactionMode.Deferred);
+                    int processed = 0;
+                    try
+                    {
+                        foreach (var row in rows)
+                        {
+                            try
+                            {
+                                if (_disposed) break;
+
+                                long id = row.Item1;
+                                string name = row.Item2;
+                                var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
+                                if (string.IsNullOrEmpty(spaced)) continue;
+
+                                string esc = name.Replace("'", "''");
+                                string s = spaced.Replace("'", "''");
+                                string c = connected.Replace("'", "''");
+                                string b = bigrams.Replace("'", "''");
+                                string sc = singleChars.Replace("'", "''");
+                                string cb = cjkBigrams.Replace("'", "''");
+                                conn.Execute(
+                                    $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{esc} {s} {c} {b} {sc} {cb}',(SELECT COALESCE(c1,'') FROM {FtsTableName}_content WHERE id={id}),(SELECT COALESCE(c2,'') FROM {FtsTableName}_content WHERE id={id}),(SELECT COALESCE(c3,'') FROM {FtsTableName}_content WHERE id={id}))");
+                                processed++;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Warn("[PinyinSearch] Item {0}: {1}", row.Item1, ex.Message);
+                            }
+                        }
+
+                        conn.CommitTransaction();
+                        _logger.Debug("[PinyinSearch] Batch offset={0}: {1} items", offset, processed);
+                    }
+                    catch (Exception ex)
+                    {
+                        conn.RollbackTransaction();
+                        _logger.Error("[PinyinSearch] Batch offset={0} failed, rolled back: {1}", offset, ex.Message);
+                    }
+
+                    return processed;
                 }
                 catch (Exception ex)
                 {
-                    conn.RollbackTransaction();
-                    _logger.Error("[PinyinSearch] Batch offset={0} failed, rolled back: {1}", offset, ex.Message);
+                    _logger.Error("[PinyinSearch] Batch query failed at offset={0}: {1}", offset, ex.Message);
+                    return 0;
                 }
-
-                return processed;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error("[PinyinSearch] Batch query failed at offset={0}: {1}", offset, ex.Message);
-                return 0;
             }
         }
 
@@ -398,15 +404,58 @@ namespace ViewMate.Pinyin
                 string b = bigrams.Replace("'", "''");
                 string sc = singleChars.Replace("'", "''");
                 string cb = cjkBigrams.Replace("'", "''");
-                connection.Execute(
-                    $"UPDATE {FtsTableName}_content SET c0 = '{esc} {s} {c} {b} {sc} {cb}' WHERE id = {item.Id}");
-                ScheduleRebuild();
+
+                // Read existing columns via simple SELECT (no subqueries in VALUES)
+                string origTitle = "", seriesName = "", album = "";
+                try
+                {
+                    using (var stmt = connection.PrepareStatement(
+                        $"SELECT c1, c2, c3 FROM {FtsTableName}_content WHERE id = {item.InternalId}"))
+                    {
+                        if (stmt.MoveNext())
+                        {
+                            origTitle = (stmt.Current.GetString(0) ?? "").Replace("'", "''");
+                            seriesName = (stmt.Current.GetString(1) ?? "").Replace("'", "''");
+                            album = (stmt.Current.GetString(2) ?? "").Replace("'", "''");
+                        }
+                    }
+                }
+                catch { }
+
+                connection.BeginTransaction(TransactionMode.Deferred);
+                try
+                {
+                    var id = item.InternalId;
+                    var sql = $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{esc} {s} {c} {b} {sc} {cb}','{origTitle}','{seriesName}','{album}')";
+                    _logger.Info("[PinyinSearch] DEBUG SQL for {0} (len={1}): {2}", id, sql.Length, sql.Substring(0, Math.Min(sql.Length, 200)));
+                    connection.Execute(sql);
+                    connection.CommitTransaction();
+                }
+                catch
+                {
+                    connection.RollbackTransaction();
+                    throw;
+                }
+
                 _logger.Info("[PinyinSearch] Injected '{0}'", name);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.Warn("[PinyinSearch] '{0}': {1}", name, ex.Message);
+                _logger.Warn("[PinyinSearch] '{0}': {1} [Type={2} HResult={3}]",
+                    name, ex.Message, ex.GetType().FullName, ex.HResult);
+                if (ex.InnerException != null)
+                    _logger.Warn("[PinyinSearch] Inner: {0} [Type={1}]",
+                        ex.InnerException.Message, ex.InnerException.GetType().FullName);
+                var st = ex.StackTrace;
+                if (st != null)
+                {
+                    var lines = st.Split('\n');
+                    var top = lines.Length > 4
+                        ? string.Join(" | ", lines[0], lines[1], lines[2], lines[3])
+                        : string.Join(" | ", lines);
+                    _logger.Warn("[PinyinSearch] Stack: {0}", top.Trim());
+                }
                 return false;
             }
         }
@@ -527,19 +576,100 @@ namespace ViewMate.Pinyin
             return DbConnectionHelper.GetConnection(itemRepo, _logger, "PinyinSearch");
         }
 
+        // ── Zero-SQL Event Handlers (queue only, no SQLite access) ──
+        // Items are batched and processed by the timer, preventing threadpool
+        // starvation and SQLite write-lock contention during library scans.
+
         private void OnItemAdded(object sender, ItemChangeEventArgs e)
         {
-            if (e.Item != null && !_disposed) ProcessItem(e.Item);
+            if (e.Item != null && !_disposed && IsCjkItem(e.Item))
+                _pendingEventQueue.Enqueue(Tuple.Create(e.Item.InternalId, e.Item.Name));
         }
 
         private void OnItemUpdated(object sender, ItemChangeEventArgs e)
         {
-            if (e.Item != null && !_disposed) ProcessItem(e.Item);
+            if (e.Item != null && !_disposed && IsCjkItem(e.Item))
+                _pendingEventQueue.Enqueue(Tuple.Create(e.Item.InternalId, e.Item.Name));
+        }
+
+        /// <summary>
+        /// Dequeue up to EventBatchSize items and process them in batch.
+        /// Called by the timer; also safe to call manually after a scan.
+        /// </summary>
+        private void ProcessQueuedEvents(int maxItems = -1)
+        {
+            if (_disposed) return;
+
+            int limit = maxItems > 0 ? maxItems : EventBatchSize;
+            var items = new List<Tuple<long, string>>(limit);
+            while (items.Count < limit && _pendingEventQueue.TryDequeue(out var entry))
+                items.Add(entry);
+
+            if (items.Count == 0) return;
+
+            using (var connection = GetDbConnection())
+            {
+                connection.BeginTransaction(TransactionMode.Deferred);
+                try
+                {
+                    foreach (var entry in items)
+                    {
+                        long id = entry.Item1;
+                        string name = entry.Item2;
+                        try
+                        {
+                            if (_disposed) break;
+
+                            // Read existing columns to preserve them
+                            string origTitle = "", seriesName = "", album = "";
+                            try
+                            {
+                                using (var stmt = connection.PrepareStatement(
+                                    $"SELECT c1, c2, c3 FROM {FtsTableName}_content WHERE id = {id}"))
+                                {
+                                    if (stmt.MoveNext())
+                                    {
+                                        origTitle = (stmt.Current.GetString(0) ?? "").Replace("'", "''");
+                                        seriesName = (stmt.Current.GetString(1) ?? "").Replace("'", "''");
+                                        album = (stmt.Current.GetString(2) ?? "").Replace("'", "''");
+                                    }
+                                }
+                            }
+                            catch { }
+
+                            var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
+                            if (string.IsNullOrEmpty(spaced)) continue;
+
+                            string esc = name.Replace("'", "''");
+                            string s = spaced.Replace("'", "''");
+                            string c = connected.Replace("'", "''");
+                            string b = bigrams.Replace("'", "''");
+                            string sc = singleChars.Replace("'", "''");
+                            string cb = cjkBigrams.Replace("'", "''");
+
+                            connection.Execute(
+                                $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{esc} {s} {c} {b} {sc} {cb}','{origTitle}','{seriesName}','{album}')");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Warn("[PinyinSearch] Queue batch item {0}: {1}", id, ex.Message);
+                        }
+                    }
+                    connection.CommitTransaction();
+                    _logger.Debug("[PinyinSearch] Queue batch: {0} items processed", items.Count);
+                }
+                catch
+                {
+                    connection.RollbackTransaction();
+                    throw;
+                }
+            }
         }
 
         public void Dispose()
         {
             _disposed = true;
+            _eventTimer?.Dispose();
             lock (_rebuildLock)
             {
                 _rebuildTimer?.Dispose();
