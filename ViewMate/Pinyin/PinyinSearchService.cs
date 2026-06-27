@@ -178,15 +178,8 @@ namespace ViewMate.Pinyin
             _libraryManager.ItemUpdated += OnItemUpdated;
 
             // Timer-based batch processor: fires every 30s when queue is non-empty
-            _eventTimer = new Timer(_ =>
-            {
-                // Primary path: process event-queued items (broken on Emby 4.9.5.0+)
-                ProcessQueuedEvents();
-
-                // Catch-up: scan FTS content for items missing pinyin even if
-                // OnItemAdded/OnItemUpdated events were lost (reflection/API compat).
-                try { ProcessAllPendingBatched(); } catch { }
-            }, null, EventTimerIntervalMs, EventTimerIntervalMs);
+            _eventTimer = new Timer(_ => ProcessQueuedEvents(), null,
+                EventTimerIntervalMs, EventTimerIntervalMs);
         }
 
         // ── Pending-Item Query Builder ──
