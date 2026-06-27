@@ -208,6 +208,7 @@ namespace ViewMate.Pinyin
               AND c.id > {lastId}";
 
         private long _lastScanId = 0;
+        private DateTime _lastOrphanCleanup = DateTime.MinValue;
 
         // ── Deferred background scan (non-blocking for plugin startup) ──
 
@@ -244,6 +245,14 @@ namespace ViewMate.Pinyin
                     catch (Exception ex)
                     {
                         _logger.Error("[PinyinSearch] Catch-up scan failed", ex);
+                    }
+
+                    // Hourly orphan cleanup: remove fts_search9 rows whose
+                    // MediaItems RowId no longer exists (e.g. movie deleted).
+                    if ((DateTime.UtcNow - _lastOrphanCleanup).TotalHours >= 1)
+                    {
+                        CleanOrphanedFtsEntries();
+                        _lastOrphanCleanup = DateTime.UtcNow;
                     }
 
                     // 5-minute interval between scans — frequent enough for
@@ -545,6 +554,23 @@ namespace ViewMate.Pinyin
                 }
             }
             catch { }
+        }
+
+        private void CleanOrphanedFtsEntries()
+        {
+            try
+            {
+                using (var conn = GetDbConnection())
+                {
+                    conn.Execute(
+                        $"DELETE FROM {FtsTableName} WHERE rowid NOT IN (SELECT RowId FROM MediaItems)");
+                    _logger.Debug("[PinyinSearch] Orphan cleanup done");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn("[PinyinSearch] Orphan cleanup failed: {0}", ex.Message);
+            }
         }
 
         /// <summary>
