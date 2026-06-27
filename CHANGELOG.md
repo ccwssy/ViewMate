@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| **v1.2.14.1** | 2026-06-27 | **修复 Emby 4.9.5.0 兼容** — `OnItemAdded`/`OnItemUpdated` 事件处理器因 API 版本不兼容静默失败，新增条目永不入队。定时器回调加 `ProcessAllPendingBatched()` 扫描兜底：每 30s 检查 FTS 内容表中有中文但无拼音的条目并补全，绕过 broken 事件路径。 |
 | **v1.2.14.0** | 2026-06-26 | **修复扫库首页卡死** — 事件处理零SQL（仅入队不操作数据库）；`GetDbConnection()` 全部加 `using` 修复连接池泄漏；启动批处理每批间加 500ms 间隙让路首页读请求；`item.Id` → `item.InternalId` 修复 GUID→long 兼容。 |
 | **v1.2.13.2** | 2026-06-25 | **添加 SQLite WAL checkpoint** — PinyinScan 完成 FTS 重建后执行 `PRAGMA wal_checkpoint(TRUNCATE)`，防止 WAL 持续膨胀导致首页搜索卡死；GLOB 查询继承 `[一-龥]` 修复（v1.2.13.0）。 |
 | **v1.2.13.0** | 2026-06-24 | **修复 ARM64 Synology DSM 卡死** — ProcessAllPending 改为后台分批执行，每批 200 条释放写锁，首页秒开；新增词组级多音字校正（pinyin-overrides.json） |
