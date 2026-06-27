@@ -349,20 +349,7 @@ namespace ViewMate.Pinyin
                 _logger.Debug("[PinyinSearch] Batch scan complete, skipping redundant FTS rebuild");
             }
 
-            // Update _lastScanId so subsequent scans only check new FTS entries.
-            // Without this, every 5-minute scan would re-scan the entire 18k-row
-            // FTS content table with GLOB pattern matching — exactly the
-            // write-lock contention that caused homepage freezes.
-            try
-            {
-                using (var conn = GetDbConnection())
-                using (var stmt = conn.PrepareStatement($"SELECT MAX(id) FROM {FtsTableName}_content"))
-                {
-                    if (stmt.MoveNext() && !stmt.Current.IsDBNull(0))
-                        _lastScanId = stmt.Current.GetInt64(0);
-                }
-            }
-            catch { }
+            UpdateLastScanId();
 
             return totalProcessed;
         }
@@ -450,7 +437,7 @@ namespace ViewMate.Pinyin
                 return 0;
             }
 
-            long limit = totalItems;  // 50000; // no cap — process ALL items
+            long limit = totalItems;  // no cap — process ALL items
             _logger.Info("[PinyinSearch] Full reindex: {0} items from MediaItems", limit);
 
             int totalProcessed = 0;
@@ -469,16 +456,7 @@ namespace ViewMate.Pinyin
             }
 
             // Update _lastScanId so subsequent 5min scans are incremental
-            try
-            {
-                using (var conn = GetDbConnection())
-                using (var stmt = conn.PrepareStatement($"SELECT MAX(id) FROM {FtsTableName}_content"))
-                {
-                    if (stmt.MoveNext() && !stmt.Current.IsDBNull(0))
-                        _lastScanId = stmt.Current.GetInt64(0);
-                }
-            }
-            catch { }
+            UpdateLastScanId();
 
             return totalProcessed;
         }
@@ -513,15 +491,8 @@ namespace ViewMate.Pinyin
                             var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
                             if (string.IsNullOrEmpty(spaced)) continue;
 
-                            string esc = name.Replace("'", "''");
-                            string s = spaced.Replace("'", "''");
-                            string c = connected.Replace("'", "''");
-                            string b = bigrams.Replace("'", "''");
-                            string sc = singleChars.Replace("'", "''");
-                            string cb = cjkBigrams.Replace("'", "''");
-
                             conn.Execute(
-                                $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{esc} {s} {c} {b} {sc} {cb}','','','')");
+                                BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams));
                             processed++;
                         }
 
@@ -542,6 +513,38 @@ namespace ViewMate.Pinyin
                     return 0;
                 }
             }
+        }
+
+        // ── SQL helpers ──
+
+        private static string Escape(string s) => s?.Replace("'", "''") ?? "";
+
+        private string BuildFtsInsertSql(long id, string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string origTitle = "", string seriesName = "", string album = "")
+        {
+            string esc = Escape(name);
+            string s = Escape(spaced);
+            string c = Escape(connected);
+            string b = Escape(bigrams);
+            string sc = Escape(singleChars);
+            string cb = Escape(cjkBigrams);
+            string ot = Escape(origTitle);
+            string sn = Escape(seriesName);
+            string al = Escape(album);
+            return $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{esc} {s} {c} {b} {sc} {cb}','{ot}','{sn}','{al}')";
+        }
+
+        private void UpdateLastScanId()
+        {
+            try
+            {
+                using (var conn = GetDbConnection())
+                using (var stmt = conn.PrepareStatement($"SELECT MAX(id) FROM {FtsTableName}_content"))
+                {
+                    if (stmt.MoveNext() && !stmt.Current.IsDBNull(0))
+                        _lastScanId = stmt.Current.GetInt64(0);
+                }
+            }
+            catch { }
         }
 
         /// <summary>
@@ -585,14 +588,25 @@ namespace ViewMate.Pinyin
                                 var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
                                 if (string.IsNullOrEmpty(spaced)) continue;
 
-                                string esc = name.Replace("'", "''");
-                                string s = spaced.Replace("'", "''");
-                                string c = connected.Replace("'", "''");
-                                string b = bigrams.Replace("'", "''");
-                                string sc = singleChars.Replace("'", "''");
-                                string cb = cjkBigrams.Replace("'", "''");
+                                // Read existing OriginalTitle/SeriesName/Album to preserve them
+                                string origTitle = "", seriesName = "", album = "";
+                                try
+                                {
+                                    using (var r = conn.PrepareStatement(
+                                        $"SELECT c1, c2, c3 FROM {FtsTableName}_content WHERE id = {id}"))
+                                    {
+                                        if (r.MoveNext())
+                                        {
+                                            origTitle = r.Current.GetString(0) ?? "";
+                                            seriesName = r.Current.GetString(1) ?? "";
+                                            album = r.Current.GetString(2) ?? "";
+                                        }
+                                    }
+                                }
+                                catch { }
+
                                 conn.Execute(
-                                    $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{esc} {s} {c} {b} {sc} {cb}',(SELECT COALESCE(c1,'') FROM {FtsTableName}_content WHERE id={id}),(SELECT COALESCE(c2,'') FROM {FtsTableName}_content WHERE id={id}),(SELECT COALESCE(c3,'') FROM {FtsTableName}_content WHERE id={id}))");
+                                    BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album));
                                 processed++;
                             }
                             catch (Exception ex)
@@ -636,13 +650,6 @@ namespace ViewMate.Pinyin
 
             try
             {
-                string esc = name.Replace("'", "''");
-                string s = spaced.Replace("'", "''");
-                string c = connected.Replace("'", "''");
-                string b = bigrams.Replace("'", "''");
-                string sc = singleChars.Replace("'", "''");
-                string cb = cjkBigrams.Replace("'", "''");
-
                 // Read existing columns via simple SELECT (no subqueries in VALUES)
                 string origTitle = "", seriesName = "", album = "";
                 try
@@ -652,9 +659,9 @@ namespace ViewMate.Pinyin
                     {
                         if (stmt.MoveNext())
                         {
-                            origTitle = (stmt.Current.GetString(0) ?? "").Replace("'", "''");
-                            seriesName = (stmt.Current.GetString(1) ?? "").Replace("'", "''");
-                            album = (stmt.Current.GetString(2) ?? "").Replace("'", "''");
+                            origTitle = (stmt.Current.GetString(0) ?? "");
+                            seriesName = (stmt.Current.GetString(1) ?? "");
+                            album = (stmt.Current.GetString(2) ?? "");
                         }
                     }
                 }
@@ -664,7 +671,7 @@ namespace ViewMate.Pinyin
                 try
                 {
                     var id = item.InternalId;
-                    var sql = $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{esc} {s} {c} {b} {sc} {cb}','{origTitle}','{seriesName}','{album}')";
+                    var sql = BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album);
                     _logger.Info("[PinyinSearch] DEBUG SQL for {0} (len={1}): {2}", id, sql.Length, sql.Substring(0, Math.Min(sql.Length, 200)));
                     connection.Execute(sql);
                     connection.CommitTransaction();
@@ -867,9 +874,9 @@ namespace ViewMate.Pinyin
                                 {
                                     if (stmt.MoveNext())
                                     {
-                                        origTitle = (stmt.Current.GetString(0) ?? "").Replace("'", "''");
-                                        seriesName = (stmt.Current.GetString(1) ?? "").Replace("'", "''");
-                                        album = (stmt.Current.GetString(2) ?? "").Replace("'", "''");
+                                        origTitle = stmt.Current.GetString(0) ?? "";
+                                        seriesName = stmt.Current.GetString(1) ?? "";
+                                        album = stmt.Current.GetString(2) ?? "";
                                     }
                                 }
                             }
@@ -878,15 +885,8 @@ namespace ViewMate.Pinyin
                             var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
                             if (string.IsNullOrEmpty(spaced)) continue;
 
-                            string esc = name.Replace("'", "''");
-                            string s = spaced.Replace("'", "''");
-                            string c = connected.Replace("'", "''");
-                            string b = bigrams.Replace("'", "''");
-                            string sc = singleChars.Replace("'", "''");
-                            string cb = cjkBigrams.Replace("'", "''");
-
                             connection.Execute(
-                                $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{esc} {s} {c} {b} {sc} {cb}','{origTitle}','{seriesName}','{album}')");
+                                BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album));
                         }
                         catch (Exception ex)
                         {
