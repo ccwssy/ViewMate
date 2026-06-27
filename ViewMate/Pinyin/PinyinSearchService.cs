@@ -120,7 +120,7 @@ namespace ViewMate.Pinyin
 
         // ── Batch processing constants ──
         private const int BatchSize = 200;
-        private const int MaxPendingTotal = 5000;
+        private const int MaxPendingTotal = 100000;
 
         // ── debounced rebuild ──
         private Timer _rebuildTimer;
@@ -184,7 +184,7 @@ namespace ViewMate.Pinyin
 
         // ── Pending-Item Query Builder ──
 
-        private static string PendingQuery() => $@"
+        private static string PendingQuery(long lastId) => $@"
             SELECT c.id, mi.Name
             FROM {FtsTableName}_content c
             JOIN MediaItems mi ON c.id = mi.RowId
@@ -192,9 +192,11 @@ namespace ViewMate.Pinyin
               AND c.c0 GLOB '*[一-龥]*'
               AND mi.Name NOT GLOB '*Season*'
               AND mi.Name NOT GLOB '*Episode*'
-              AND mi.Name NOT GLOB '*Media Folder*'";
+              AND mi.Name NOT GLOB '*Media Folder*'
+              AND c.id > {lastId}
+            ORDER BY c.id";
 
-        private static string PendingCountQuery() => $@"
+        private static string PendingCountQuery(long lastId) => $@"
             SELECT COUNT(*)
             FROM {FtsTableName}_content c
             JOIN MediaItems mi ON c.id = mi.RowId
@@ -202,7 +204,10 @@ namespace ViewMate.Pinyin
               AND c.c0 GLOB '*[一-龥]*'
               AND mi.Name NOT GLOB '*Season*'
               AND mi.Name NOT GLOB '*Episode*'
-              AND mi.Name NOT GLOB '*Media Folder*'";
+              AND mi.Name NOT GLOB '*Media Folder*'
+              AND c.id > {lastId}";
+
+        private long _lastScanId = 0;
 
         // ── Deferred background scan (non-blocking for plugin startup) ──
 
@@ -220,16 +225,32 @@ namespace ViewMate.Pinyin
             }
 
             _logger.Info("[PinyinSearch] Deferring initial scan to background thread...");
-            Task.Run(() =>
+            Task.Run(async () =>
             {
-                try
+                // Wait 60s before first scan — Emby's startup library scan needs
+                // uncontended SQLite access.  Immediate scan on startup competes
+                // for write locks and freezes homepage / search.
+                for (int i = 0; i < 60 && !_disposed; i++)
+                    await Task.Delay(1000);
+
+                while (!_disposed)
                 {
-                    int total = ProcessAllPendingBatched();
-                    _logger.Info("[PinyinSearch] Background scan complete: {0} items processed", total);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error("[PinyinSearch] Background scan failed", ex);
+                    try
+                    {
+                        int total = ProcessAllPendingBatched();
+                        if (total > 0)
+                            _logger.Info("[PinyinSearch] Catch-up scan: {0} items processed", total);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error("[PinyinSearch] Catch-up scan failed", ex);
+                    }
+
+                    // 5-minute interval between scans — frequent enough for
+                    // missed items, sparse enough to avoid SQLite contention
+                    // with Emby's HTTP read queries / library scans.
+                    for (int i = 0; i < 300 && !_disposed; i++)
+                        await Task.Delay(1000);
                 }
             });
         }
@@ -251,7 +272,7 @@ namespace ViewMate.Pinyin
                 var conn = GetDbConnection();
                 if (conn == null) return false;
 
-                using (var stmt = conn.PrepareStatement(PendingCountQuery()))
+                using (var stmt = conn.PrepareStatement(PendingCountQuery(_lastScanId)))
                 {
                     stmt.MoveNext();
                     count = stmt.Current.GetInt64(0);
@@ -266,6 +287,31 @@ namespace ViewMate.Pinyin
 
         private int ProcessAllPendingBatched()
         {
+            // Phase 0: If FTS table is completely empty, fall back to MediaItems
+            // direct scan (e.g. after DELETE FROM fts_search9 for testing or
+            // plugin first-install). PendingQuery() on an empty FTS returns 0 rows
+            // and silently does nothing — without this fallback the user would see
+            // "No pending items" forever and no pinyin would ever be generated.
+            // v1.2.14.2
+            long ftsTotal = GetFtsTotalCount();
+            if (ftsTotal == 0)
+            {
+                _logger.Info("[PinyinSearch] fts_search9 is empty, scanning MediaItems directly...");
+                return ProcessFullReindex();
+            }
+
+            // Phase 0.5: If FTS has entries but MediaItems contain items with
+            // Chinese names that don't have any FTS entry yet, do a full reindex.
+            // This handles the case where MaxPendingTotal capped the initial
+            // reindex and some items were skipped (> 5000 but < 100000).
+            // v1.2.14.3
+            long missingCount = GetMissingMediaItemsCount();
+            if (missingCount > 0)
+            {
+                _logger.Info("[PinyinSearch] {0} MediaItems without FTS entry, full reindex needed", missingCount);
+                return ProcessFullReindex();
+            }
+
             if (!TryGetPendingCount(out long totalPending) || totalPending == 0)
             {
                 _logger.Info("[PinyinSearch] No pending items");
@@ -303,7 +349,199 @@ namespace ViewMate.Pinyin
                 _logger.Debug("[PinyinSearch] Batch scan complete, skipping redundant FTS rebuild");
             }
 
+            // Update _lastScanId so subsequent scans only check new FTS entries.
+            // Without this, every 5-minute scan would re-scan the entire 18k-row
+            // FTS content table with GLOB pattern matching — exactly the
+            // write-lock contention that caused homepage freezes.
+            try
+            {
+                using (var conn = GetDbConnection())
+                using (var stmt = conn.PrepareStatement($"SELECT MAX(id) FROM {FtsTableName}_content"))
+                {
+                    if (stmt.MoveNext() && !stmt.Current.IsDBNull(0))
+                        _lastScanId = stmt.Current.GetInt64(0);
+                }
+            }
+            catch { }
+
             return totalProcessed;
+        }
+
+        // ── Empty-FTS fallback: full reindex from MediaItems ──
+        // See Phase 0 in ProcessAllPendingBatched() above. v1.2.14.2
+
+        private long GetFtsTotalCount()
+        {
+            try
+            {
+                using (var conn = GetDbConnection())
+                using (var stmt = conn.PrepareStatement($"SELECT COUNT(*) FROM {FtsTableName}"))
+                {
+                    if (stmt.MoveNext())
+                        return stmt.Current.GetInt64(0);
+                }
+            }
+            catch { }
+            return -1;
+        }
+
+        private long GetMissingMediaItemsCount()
+        {
+            try
+            {
+                using (var conn = GetDbConnection())
+                using (var stmt = conn.PrepareStatement($@"
+                    SELECT COUNT(*)
+                    FROM MediaItems mi
+                    LEFT JOIN {FtsTableName}_content c ON mi.RowId = c.id
+                    WHERE c.id IS NULL
+                      AND mi.Name GLOB '*[一-龥]*'
+                      AND mi.Name NOT GLOB '*Season*'
+                      AND mi.Name NOT GLOB '*Episode*'
+                      AND mi.Name NOT GLOB '*Media Folder*'"))
+                {
+                    if (stmt.MoveNext())
+                        return stmt.Current.GetInt64(0);
+                }
+            }
+            catch { }
+            return 0;
+        }
+
+        private static string MediaItemsCountQuery() => @"
+            SELECT COUNT(*)
+            FROM MediaItems mi
+            WHERE mi.Name GLOB '*[一-龥]*'
+              AND mi.Name NOT GLOB '*Season*'
+              AND mi.Name NOT GLOB '*Episode*'
+              AND mi.Name NOT GLOB '*Media Folder*'";
+
+        private static string MediaItemsBatchQuery(long offset, int limit) => $@"
+            SELECT mi.RowId, mi.Name
+            FROM MediaItems mi
+            WHERE mi.Name GLOB '*[一-龥]*'
+              AND mi.Name NOT GLOB '*Season*'
+              AND mi.Name NOT GLOB '*Episode*'
+              AND mi.Name NOT GLOB '*Media Folder*'
+            ORDER BY mi.RowId
+            LIMIT {limit} OFFSET {offset}";
+
+        private int ProcessFullReindex()
+        {
+            // Count total Chinese-named items
+            long totalItems = 0;
+            try
+            {
+                using (var conn = GetDbConnection())
+                using (var stmt = conn.PrepareStatement(MediaItemsCountQuery()))
+                {
+                    if (stmt.MoveNext()) totalItems = stmt.Current.GetInt64(0);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("[PinyinSearch] Full reindex count failed: {0}", ex.Message);
+                return 0;
+            }
+
+            if (totalItems == 0)
+            {
+                _logger.Info("[PinyinSearch] No Chinese-named items in MediaItems");
+                return 0;
+            }
+
+            long limit = totalItems;  // 50000; // no cap — process ALL items
+            _logger.Info("[PinyinSearch] Full reindex: {0} items from MediaItems", limit);
+
+            int totalProcessed = 0;
+            long offset = 0;
+
+            while (offset < limit)
+            {
+                int batch = ProcessMediaItemsBatch(offset, BatchSize);
+                totalProcessed += batch;
+                offset += BatchSize;
+
+                if (offset < limit)
+                    Thread.Sleep(500);
+
+                if (_disposed) break;
+            }
+
+            // Update _lastScanId so subsequent 5min scans are incremental
+            try
+            {
+                using (var conn = GetDbConnection())
+                using (var stmt = conn.PrepareStatement($"SELECT MAX(id) FROM {FtsTableName}_content"))
+                {
+                    if (stmt.MoveNext() && !stmt.Current.IsDBNull(0))
+                        _lastScanId = stmt.Current.GetInt64(0);
+                }
+            }
+            catch { }
+
+            return totalProcessed;
+        }
+
+        private int ProcessMediaItemsBatch(long offset, int limit)
+        {
+            using (var conn = GetDbConnection())
+            {
+                if (conn == null) return 0;
+
+                try
+                {
+                    var rows = new List<Tuple<long, string>>();
+                    using (var stmt = conn.PrepareStatement(MediaItemsBatchQuery(offset, limit)))
+                    {
+                        while (stmt.MoveNext())
+                            rows.Add(Tuple.Create(stmt.Current.GetInt64(0), stmt.Current.GetString(1)));
+                    }
+
+                    if (rows.Count == 0) return 0;
+
+                    conn.BeginTransaction(TransactionMode.Deferred);
+                    int processed = 0;
+                    try
+                    {
+                        foreach (var row in rows)
+                        {
+                            if (_disposed) break;
+
+                            long id = row.Item1;
+                            string name = row.Item2;
+                            var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
+                            if (string.IsNullOrEmpty(spaced)) continue;
+
+                            string esc = name.Replace("'", "''");
+                            string s = spaced.Replace("'", "''");
+                            string c = connected.Replace("'", "''");
+                            string b = bigrams.Replace("'", "''");
+                            string sc = singleChars.Replace("'", "''");
+                            string cb = cjkBigrams.Replace("'", "''");
+
+                            conn.Execute(
+                                $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{esc} {s} {c} {b} {sc} {cb}','','','')");
+                            processed++;
+                        }
+
+                        conn.CommitTransaction();
+                        _logger.Debug("[PinyinSearch] MediaItems batch offset={0}: {1} items", offset, processed);
+                    }
+                    catch (Exception ex)
+                    {
+                        conn.RollbackTransaction();
+                        _logger.Error("[PinyinSearch] MediaItems batch offset={0} failed: {1}", offset, ex.Message);
+                    }
+
+                    return processed;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("[PinyinSearch] MediaItems batch query failed at offset={0}: {1}", offset, ex.Message);
+                    return 0;
+                }
+            }
         }
 
         /// <summary>
@@ -322,7 +560,7 @@ namespace ViewMate.Pinyin
                 {
                     // Fetch batch rows
                     var rows = new List<Tuple<long, string>>();
-                    var query = PendingQuery() + $" LIMIT {limit} OFFSET {offset}";
+                    var query = PendingQuery(_lastScanId) + $" LIMIT {limit} OFFSET {offset}";
                     using (var stmt = conn.PrepareStatement(query))
                     {
                         while (stmt.MoveNext())
