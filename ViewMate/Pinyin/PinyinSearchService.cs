@@ -5,13 +5,13 @@ using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Model.Logging;
 using SQLitePCL.pretty;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Reflection;
-using System.Collections.Concurrent;
 using System.Threading;
-using System.IO;
 using System.Threading.Tasks;
 
 #nullable disable
@@ -21,172 +21,62 @@ namespace ViewMate.Pinyin
     {
         private readonly ILogger _logger;
         private readonly ILibraryManager _libraryManager;
-        private bool _disposed = false;
 
-        // ── Event Queue (zero-SQL event handlers → timer-based batch processing) ──
+        // Thread-safe disposal flag
+        private int _disposed;
+        private bool IsDisposed => Interlocked.CompareExchange(ref _disposed, 0, 0) == 1;
+
+        // Static logger for Lazy initializers
+        private static ILogger _staticLogger;
+
+        // ── Event Queue ──
         private readonly ConcurrentQueue<Tuple<long, string>> _pendingEventQueue = new ConcurrentQueue<Tuple<long, string>>();
         private Timer _eventTimer;
+        private int _eventTimerRunning;
         private const int EventBatchSize = 50;
-        private const int EventTimerIntervalMs = 30000; // 30s
+        private const int EventTimerIntervalMs = 30000;
 
         private static readonly Regex ChineseRegex = new Regex(@"[\\u4e00-\\u9fff]", RegexOptions.Compiled);
 
-        // ── ConnectionManager cache (looked up once, no reflection per call) ──
+        // ── ConnectionManager cache ──
         private object _connectionManager;
         private MethodInfo _createConnectionMethod;
+        private readonly object _connectionManagerLock = new object();
 
-        // ── 词组级多音字校正表（外部 JSON，DLL 外维护）──
-        // 路径：/config/plugins/pinyin-overrides.json
-        // 修改此文件后重启 Emby 生效，无需重新编译 DLL
-        private static Dictionary<string, string> _phraseOverrides;
-        private static readonly object _phraseLock = new object();
+        // ── Static caches (Lazy<T>, thread-safe) ──
+        private static readonly Lazy<Dictionary<string, string>> _phraseOverridesLazy =
+            new Lazy<Dictionary<string, string>>(LoadPhraseOverrides, LazyThreadSafetyMode.ExecutionAndPublication);
 
-        private static Dictionary<string, string> GetPhraseOverrides()
-        {
-            if (_phraseOverrides != null) return _phraseOverrides;
-            lock (_phraseLock)
-            {
-                if (_phraseOverrides != null) return _phraseOverrides;
+        private static readonly Lazy<Func<char, string>> _getPinyinLazy =
+            new Lazy<Func<char, string>>(LoadPinyinFunc, LazyThreadSafetyMode.ExecutionAndPublication);
 
-                var dict = new Dictionary<string, string>();
-                string[] probePaths =
-                {
-                    "/config/plugins/pinyin-overrides.json",
-                    "plugins/pinyin-overrides.json",
-                    "../plugins/pinyin-overrides.json",
-                };
-
-                foreach (var path in probePaths)
-                {
-                    if (File.Exists(path))
-                    {
-                        try
-                        {
-                            var text = File.ReadAllText(path);
-                            var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(text);
-                            if (parsed != null)
-                            {
-                                dict = parsed;
-                                break;
-                            }
-                        }
-                        catch { }
-                    }
-                }
-
-                _phraseOverrides = dict;
-                return _phraseOverrides;
-            }
-        }
-
-        // ── TinyPinyin reflection cache ──
-        private static Func<char, string> _getPinyin;
-        private static readonly object _pinyinLock = new object();
-
-        private static Func<char, string> GetPinyinFunc()
-        {
-            if (_getPinyin != null) return _getPinyin;
-            lock (_pinyinLock)
-            {
-                if (_getPinyin != null) return _getPinyin;
-
-                string[] probePaths =
-                {
-                    "/config/plugins/TinyPinyin.dll",
-                    "/system/TinyPinyin.dll",
-                    "plugins/TinyPinyin.dll",
-                    "../plugins/TinyPinyin.dll",
-                };
-
-                Assembly asm = null;
-                foreach (var path in probePaths)
-                {
-                    if (File.Exists(path))
-                    {
-                        asm = Assembly.Load(File.ReadAllBytes(path));
-                        break;
-                    }
-                }
-
-                if (asm == null)
-                    throw new FileNotFoundException("TinyPinyin.dll not found in any probe path");
-
-                var helperType = asm.GetType("TinyPinyin.PinyinHelper");
-                var method = helperType.GetMethod("GetPinyin", new[] { typeof(char) });
-                _getPinyin = (Func<char, string>)Delegate.CreateDelegate(
-                    typeof(Func<char, string>), null, method);
-                return _getPinyin;
-            }
-        }
         private const string FtsTableName = "fts_search9";
-        private const int RebuildDebounceMs = 10000;
 
         // ── Batch processing constants ──
         private const int BatchSize = 200;
         private const int MaxPendingTotal = 100000;
 
-        // ── debounced rebuild (dead code, kept for API compat) ──
-        private Timer _rebuildTimer;
-        private readonly object _rebuildLock = new object();
+        // ── Cancellation support ──
+        private CancellationTokenSource _disposeCts = new CancellationTokenSource();
 
-        private void ScheduleRebuild()
-        {
-            lock (_rebuildLock)
-            {
-                if (_rebuildTimer == null)
-                {
-                    _rebuildTimer = new Timer(_ =>
-                    {
-                        DoRebuild();
-                    }, null, RebuildDebounceMs, Timeout.Infinite);
-                }
-                else
-                {
-                    _rebuildTimer.Change(RebuildDebounceMs, Timeout.Infinite);
-                }
-            }
-        }
-
-        private void DoRebuild()
-        {
-            lock (_rebuildLock)
-            {
-                try
-                {
-                    using (var connection = OpenWriteConnection())
-                    {
-                        if (connection == null) return;
-                        connection.Execute($"INSERT INTO {FtsTableName}({FtsTableName}) VALUES('rebuild')");
-                        _logger.Debug("[PinyinSearch] Deferred FTS rebuild done");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warn("[PinyinSearch] Deferred FTS rebuild failed", ex);
-                }
-                finally
-                {
-                    _rebuildTimer?.Dispose();
-                    _rebuildTimer = null;
-                }
-            }
-        }
+        // ── Batch state ──
+        private long _lastScanId = 0;
+        private DateTime _lastOrphanCleanup = DateTime.MinValue;
 
         public PinyinSearchService(ILibraryManager libraryManager, ILogger logger)
         {
             _libraryManager = libraryManager;
             _logger = logger;
+            _staticLogger = logger;
 
             _libraryManager.ItemAdded += OnItemAdded;
             _libraryManager.ItemUpdated += OnItemUpdated;
 
-            // Timer-based batch processor: fires every 30s when queue is non-empty
-            _eventTimer = new Timer(_ => ProcessQueuedEvents(), null,
-                EventTimerIntervalMs, EventTimerIntervalMs);
+            // Timer starts in one-shot mode; EnsureEventTimer() fires it when queue is non-empty
+            _eventTimer = new Timer(_ => ProcessQueuedEvents(), null, Timeout.Infinite, Timeout.Infinite);
         }
 
         // ── Pending-Item Query Builder ──
-
         private static string PendingQuery(long lastId) => $@"
             SELECT c.id, mi.Name
             FROM {FtsTableName}_content c
@@ -210,51 +100,62 @@ namespace ViewMate.Pinyin
               AND mi.Name NOT GLOB '*Media Folder*'
               AND c.id > {lastId}";
 
-        private long _lastScanId = 0;
-        private DateTime _lastOrphanCleanup = DateTime.MinValue;
-
         // ── Connection management ──
 
-        /// <summary>
-        /// Find and cache the ConnectionManager once.  After the first call,
-        /// subsequent OpenReadConnection / OpenWriteConnection calls go directly
-        /// to CreateConnection(bool, CancellationToken) with zero reflection.
-        /// </summary>
-        private void EnsureConnectionManager()
+        private bool TryEnsureConnectionManager()
         {
-            if (_connectionManager != null) return;
+            if (_connectionManager != null && _createConnectionMethod != null)
+                return true;
 
-            var itemRepo = Plugin.Instance.ApplicationHost.Resolve<IItemRepository>();
-            var type = itemRepo.GetType();
-            while (type != null)
+            lock (_connectionManagerLock)
             {
-                foreach (var f in type.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public))
+                if (_connectionManager != null && _createConnectionMethod != null)
+                    return true;
+
+                for (int attempt = 0; attempt < 3; attempt++)
                 {
-                    var val = f.GetValue(itemRepo);
-                    if (val == null) continue;
-                    var fn = f.Name;
-                    if (fn.Contains("ConnectionManager") || fn == "_connectionManager" || fn == "ConnectionManager")
+                    try
                     {
-                        _connectionManager = val;
-                        _createConnectionMethod = val.GetType().GetMethod(
-                            "CreateConnection", new[] { typeof(bool), typeof(CancellationToken) });
-                        _logger.Info("[PinyinSearch] Cached ConnectionManager ({0})", fn);
-                        return;
+                        var itemRepo = Plugin.Instance.ApplicationHost.Resolve<IItemRepository>();
+                        var type = itemRepo.GetType();
+                        while (type != null)
+                        {
+                            foreach (var f in type.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public))
+                            {
+                                var val = f.GetValue(itemRepo);
+                                if (val == null) continue;
+                                var fn = f.Name;
+                                if (fn.Contains("ConnectionManager") || fn == "_connectionManager" || fn == "ConnectionManager")
+                                {
+                                    _connectionManager = val;
+                                    _createConnectionMethod = val.GetType().GetMethod(
+                                        "CreateConnection", new[] { typeof(bool), typeof(CancellationToken) });
+                                    _logger.Info("[PinyinSearch] Cached ConnectionManager ({0})", fn);
+                                    return true;
+                                }
+                            }
+                            type = type.BaseType;
+                        }
                     }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn("[PinyinSearch] Attempt {0} to find ConnectionManager failed: {1}", attempt + 1, ex.Message);
+                    }
+
+                    if (attempt < 2)
+                        Thread.Sleep(500);
                 }
-                type = type.BaseType;
+
+                _logger.Error("[PinyinSearch] Could not find ConnectionManager after retries");
+                return false;
             }
-            _logger.Error("[PinyinSearch] Could not find ConnectionManager");
         }
 
-        /// <summary>
-        /// Open a managed connection with explicit read/write intent.
-        /// Caller MUST dispose (via using).
-        /// </summary>
         private IDatabaseConnection OpenConnection(bool readOnly)
         {
-            EnsureConnectionManager();
-            if (_connectionManager == null || _createConnectionMethod == null) return null;
+            if (!TryEnsureConnectionManager())
+                return null;
+
             try
             {
                 return (IDatabaseConnection)_createConnectionMethod.Invoke(
@@ -267,19 +168,11 @@ namespace ViewMate.Pinyin
             }
         }
 
-        /// <summary>Open a read-only connection. Always dispose.</summary>
         private IDatabaseConnection OpenReadConnection() => OpenConnection(true);
-
-        /// <summary>Open a writable connection. Always dispose.</summary>
         private IDatabaseConnection OpenWriteConnection() => OpenConnection(false);
 
-        // ── Deferred background scan (non-blocking for plugin startup) ──
+        // ── Deferred background scan ──
 
-        /// <summary>
-        /// Fire-and-forget background scan.  Emby's HTTP server starts immediately
-        /// while we process items in small batches, releasing the SQLite lock between
-        /// each batch.  Prevents "卡死" on slow ARM hardware.
-        /// </summary>
         public void ProcessAllPendingDeferred()
         {
             if (!Plugin.Instance.Configuration.EnablePinyinSearch)
@@ -289,15 +182,16 @@ namespace ViewMate.Pinyin
             }
 
             _logger.Info("[PinyinSearch] Deferring initial scan to background thread...");
+            var token = _disposeCts.Token;
             Task.Run(async () =>
             {
-                // Wait 60s before first scan — Emby's startup library scan needs
-                // uncontended SQLite access.  Immediate scan on startup competes
-                // for write locks and freezes homepage / search.
-                for (int i = 0; i < 60 && !_disposed; i++)
-                    await Task.Delay(1000);
+                // Wait 60s before first scan
+                for (int i = 0; i < 60 && !token.IsCancellationRequested; i++)
+                {
+                    try { await Task.Delay(1000, token); } catch (TaskCanceledException) { return; }
+                }
 
-                while (!_disposed)
+                while (!token.IsCancellationRequested)
                 {
                     try
                     {
@@ -310,29 +204,23 @@ namespace ViewMate.Pinyin
                         _logger.Error("[PinyinSearch] Catch-up scan failed", ex);
                     }
 
-                    // Hourly orphan cleanup: remove fts_search9 rows whose
-                    // MediaItems RowId no longer exists (e.g. movie deleted).
+                    // Hourly orphan cleanup
                     if ((DateTime.UtcNow - _lastOrphanCleanup).TotalHours >= 1)
                     {
                         CleanOrphanedFtsEntries();
                         _lastOrphanCleanup = DateTime.UtcNow;
                     }
 
-                    // 5-minute interval between scans — frequent enough for
-                    // missed items, sparse enough to avoid SQLite contention
-                    // with Emby's HTTP read queries / library scans.
-                    for (int i = 0; i < 300 && !_disposed; i++)
-                        await Task.Delay(1000);
+                    // 5-minute interval
+                    for (int i = 0; i < 300 && !token.IsCancellationRequested; i++)
+                    {
+                        try { await Task.Delay(1000, token); } catch (TaskCanceledException) { return; }
+                    }
                 }
             });
         }
 
-        // ── Batched processing (kept public for backward compat / manual triggers) ──
-
-        public int ProcessAllPending()
-        {
-            return ProcessAllPendingBatched();
-        }
+        public int ProcessAllPending() => ProcessAllPendingBatched();
 
         private bool TryGetPendingCount(out long count)
         {
@@ -345,26 +233,22 @@ namespace ViewMate.Pinyin
 
                     using (var stmt = conn.PrepareStatement(PendingCountQuery(_lastScanId)))
                     {
-                        stmt.MoveNext();
-                        count = stmt.Current.GetInt64(0);
+                        if (stmt.MoveNext())
+                            count = stmt.Current.GetInt64(0);
                     }
                     return true;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.Warn("[PinyinSearch] Failed to get pending count: {0}", ex.Message);
                 return false;
             }
         }
 
         private int ProcessAllPendingBatched()
         {
-            // Phase 0: If FTS table is completely empty, fall back to MediaItems
-            // direct scan (e.g. after DELETE FROM fts_search9 for testing or
-            // plugin first-install). PendingQuery() on an empty FTS returns 0 rows
-            // and silently does nothing — without this fallback the user would see
-            // "No pending items" forever and no pinyin would ever be generated.
-            // v1.2.14.2
+            // Phase 0: FTS empty → MediaItems full scan
             long ftsTotal = GetFtsTotalCount();
             if (ftsTotal == 0)
             {
@@ -372,11 +256,7 @@ namespace ViewMate.Pinyin
                 return ProcessFullReindex();
             }
 
-            // Phase 0.5: If FTS has entries but MediaItems contain items with
-            // Chinese names that don't have any FTS entry yet, do a full reindex.
-            // This handles the case where MaxPendingTotal capped the initial
-            // reindex and some items were skipped (> 5000 but < 100000).
-            // v1.2.14.3
+            // Phase 0.5: Missing MediaItems → full reindex
             long missingCount = GetMissingMediaItemsCount();
             if (missingCount > 0)
             {
@@ -397,50 +277,42 @@ namespace ViewMate.Pinyin
             int totalProcessed = 0;
             long offset = 0;
 
-            while (offset < actualTotal)
+            while (offset < actualTotal && !IsDisposed)
             {
                 int batch = ProcessBatch(offset, BatchSize);
                 totalProcessed += batch;
                 offset += BatchSize;
 
-                // Yield between batches so Emby's HTTP readers can acquire
-                // the SQLite read lock — prevents homepage freeze during
-                // library scan / startup background processing.
                 if (offset < actualTotal)
                     Thread.Sleep(500);
-
-                if (_disposed) break;
             }
 
-            // Single FTS rebuild after all batches — removed because INSERT OR REPLACE
-            // already auto-updates the FTS index incrementally. The explicit rebuild
-            // + WAL checkpoint held a write lock that blocked Emby's homepage search
-            // queries, causing 卡死. (v1.2.13.3)
-            if (!_disposed)
-            {
+            if (!IsDisposed)
                 _logger.Debug("[PinyinSearch] Batch scan complete, skipping redundant FTS rebuild");
-            }
 
             UpdateLastScanId();
-
             return totalProcessed;
         }
 
-        // ── Empty-FTS fallback: full reindex from MediaItems ──
-        // See Phase 0 in ProcessAllPendingBatched() above. v1.2.14.2
-
+        // ── Empty-FTS fallback ──
         private long GetFtsTotalCount()
         {
             try
             {
                 using (var conn = OpenReadConnection())
-                using (var stmt = conn.PrepareStatement($"SELECT COUNT(*) FROM {FtsTableName}"))
                 {
-                    if (stmt.MoveNext())
-                        return stmt.Current.GetInt64(0);
+                    if (conn == null) return -1;
+                    using (var stmt = conn.PrepareStatement($"SELECT COUNT(*) FROM {FtsTableName}"))
+                    {
+                        if (stmt.MoveNext())
+                            return stmt.Current.GetInt64(0);
+                    }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.Warn("[PinyinSearch] Failed to get FTS total count: {0}", ex.Message);
+            }
             return -1;
         }
 
@@ -449,21 +321,27 @@ namespace ViewMate.Pinyin
             try
             {
                 using (var conn = OpenReadConnection())
-                using (var stmt = conn.PrepareStatement($@"
-                    SELECT COUNT(*)
-                    FROM MediaItems mi
-                    LEFT JOIN {FtsTableName}_content c ON mi.RowId = c.id
-                    WHERE c.id IS NULL
-                      AND mi.Name GLOB '*[一-龥]*'
-                      AND mi.Name NOT GLOB '*Season*'
-                      AND mi.Name NOT GLOB '*Episode*'
-                      AND mi.Name NOT GLOB '*Media Folder*'"))
                 {
-                    if (stmt.MoveNext())
-                        return stmt.Current.GetInt64(0);
+                    if (conn == null) return 0;
+                    using (var stmt = conn.PrepareStatement($@"
+                        SELECT COUNT(*)
+                        FROM MediaItems mi
+                        LEFT JOIN {FtsTableName}_content c ON mi.RowId = c.id
+                        WHERE c.id IS NULL
+                          AND mi.Name GLOB '*[一-龥]*'
+                          AND mi.Name NOT GLOB '*Season*'
+                          AND mi.Name NOT GLOB '*Episode*'
+                          AND mi.Name NOT GLOB '*Media Folder*'"))
+                    {
+                        if (stmt.MoveNext())
+                            return stmt.Current.GetInt64(0);
+                    }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.Warn("[PinyinSearch] Failed to get missing media items count: {0}", ex.Message);
+            }
             return 0;
         }
 
@@ -487,14 +365,16 @@ namespace ViewMate.Pinyin
 
         private int ProcessFullReindex()
         {
-            // Count total Chinese-named items
             long totalItems = 0;
             try
             {
                 using (var conn = OpenReadConnection())
-                using (var stmt = conn.PrepareStatement(MediaItemsCountQuery()))
                 {
-                    if (stmt.MoveNext()) totalItems = stmt.Current.GetInt64(0);
+                    if (conn == null) return 0;
+                    using (var stmt = conn.PrepareStatement(MediaItemsCountQuery()))
+                    {
+                        if (stmt.MoveNext()) totalItems = stmt.Current.GetInt64(0);
+                    }
                 }
             }
             catch (Exception ex)
@@ -509,13 +389,13 @@ namespace ViewMate.Pinyin
                 return 0;
             }
 
-            long limit = totalItems;  // no cap — process ALL items
+            long limit = totalItems;
             _logger.Info("[PinyinSearch] Full reindex: {0} items from MediaItems", limit);
 
             int totalProcessed = 0;
             long offset = 0;
 
-            while (offset < limit)
+            while (offset < limit && !IsDisposed)
             {
                 int batch = ProcessMediaItemsBatch(offset, BatchSize);
                 totalProcessed += batch;
@@ -523,13 +403,9 @@ namespace ViewMate.Pinyin
 
                 if (offset < limit)
                     Thread.Sleep(500);
-
-                if (_disposed) break;
             }
 
-            // Update _lastScanId so subsequent 5min scans are incremental
             UpdateLastScanId();
-
             return totalProcessed;
         }
 
@@ -556,7 +432,7 @@ namespace ViewMate.Pinyin
                     {
                         foreach (var row in rows)
                         {
-                            if (_disposed) break;
+                            if (IsDisposed) break;
 
                             long id = row.Item1;
                             string name = row.Item2;
@@ -588,7 +464,6 @@ namespace ViewMate.Pinyin
         }
 
         // ── SQL helpers ──
-
         private static string Escape(string s) => s?.Replace("'", "''") ?? "";
 
         private string BuildFtsInsertSql(long id, string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string origTitle = "", string seriesName = "", string album = "")
@@ -610,13 +485,19 @@ namespace ViewMate.Pinyin
             try
             {
                 using (var conn = OpenReadConnection())
-                using (var stmt = conn.PrepareStatement($"SELECT MAX(id) FROM {FtsTableName}_content"))
                 {
-                    if (stmt.MoveNext() && !stmt.Current.IsDBNull(0))
-                        _lastScanId = stmt.Current.GetInt64(0);
+                    if (conn == null) return;
+                    using (var stmt = conn.PrepareStatement($"SELECT MAX(id) FROM {FtsTableName}_content"))
+                    {
+                        if (stmt.MoveNext() && !stmt.Current.IsDBNull(0))
+                            _lastScanId = stmt.Current.GetInt64(0);
+                    }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.Warn("[PinyinSearch] Failed to update last scan ID: {0}", ex.Message);
+            }
         }
 
         private void CleanOrphanedFtsEntries()
@@ -625,6 +506,7 @@ namespace ViewMate.Pinyin
             {
                 using (var conn = OpenWriteConnection())
                 {
+                    if (conn == null) return;
                     conn.Execute(
                         $"DELETE FROM {FtsTableName} WHERE rowid NOT IN (SELECT RowId FROM MediaItems)");
                     _logger.Debug("[PinyinSearch] Orphan cleanup done");
@@ -636,12 +518,6 @@ namespace ViewMate.Pinyin
             }
         }
 
-        /// <summary>
-        /// Process one batch of <paramref name="limit"/> items starting at
-        /// <paramref name="offset"/>.  Opens a fresh connection, holds a
-        /// short-lived deferred transaction, then releases — allowing Emby's
-        /// HTTP layer to access the database between batches.
-        /// </summary>
         private int ProcessBatch(long offset, int limit)
         {
             using (var conn = OpenWriteConnection())
@@ -650,7 +526,6 @@ namespace ViewMate.Pinyin
 
                 try
                 {
-                    // Fetch batch rows
                     var rows = new List<Tuple<long, string>>();
                     var query = PendingQuery(_lastScanId) + $" LIMIT {limit} OFFSET {offset}";
                     using (var stmt = conn.PrepareStatement(query))
@@ -661,7 +536,6 @@ namespace ViewMate.Pinyin
 
                     if (rows.Count == 0) return 0;
 
-                    // Process in a short transaction
                     conn.BeginTransaction(TransactionMode.Deferred);
                     int processed = 0;
                     try
@@ -670,14 +544,13 @@ namespace ViewMate.Pinyin
                         {
                             try
                             {
-                                if (_disposed) break;
+                                if (IsDisposed) break;
 
                                 long id = row.Item1;
                                 string name = row.Item2;
                                 var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
                                 if (string.IsNullOrEmpty(spaced)) continue;
 
-                                // Read existing OriginalTitle/SeriesName/Album to preserve them
                                 string origTitle = "", seriesName = "", album = "";
                                 try
                                 {
@@ -692,7 +565,10 @@ namespace ViewMate.Pinyin
                                         }
                                     }
                                 }
-                                catch { }
+                                catch (Exception ex)
+                                {
+                                    _logger.Warn("[PinyinSearch] Batch read existing columns for id {0}: {1}", id, ex.Message);
+                                }
 
                                 conn.Execute(
                                     BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album));
@@ -740,7 +616,6 @@ namespace ViewMate.Pinyin
 
                 try
                 {
-                    // Read existing columns via simple SELECT (no subqueries in VALUES)
                     string origTitle = "", seriesName = "", album = "";
                     try
                     {
@@ -755,7 +630,10 @@ namespace ViewMate.Pinyin
                             }
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn("[PinyinSearch] Read existing columns for item {0}: {1}", item.InternalId, ex.Message);
+                    }
 
                     connection.BeginTransaction(TransactionMode.Deferred);
                     try
@@ -806,16 +684,14 @@ namespace ViewMate.Pinyin
             var cjkChars = new List<char>();
             bool hasChinese = false;
 
-            // Index-based iteration to support phrase skipping
             for (int i = 0; i < text.Length; )
             {
                 char ch = text[i];
                 if (ch >= 0x4e00 && ch <= 0x9fff)
                 {
-                    // Check if a known phrase starts at this position (longest match wins)
                     string matchedPhrase = null;
                     int matchLen = 0;
-                    var overrides = GetPhraseOverrides();
+                    var overrides = _phraseOverridesLazy.Value;
                     foreach (var kvp in overrides)
                     {
                         if (i + kvp.Key.Length <= text.Length &&
@@ -829,7 +705,6 @@ namespace ViewMate.Pinyin
 
                     if (matchedPhrase != null)
                     {
-                        // Use override pinyin for the entire phrase
                         var overrideSegs = overrides[matchedPhrase].Split(' ');
                         foreach (var seg in overrideSegs)
                         {
@@ -839,18 +714,15 @@ namespace ViewMate.Pinyin
                             syllables.Add(seg);
                         }
                         foreach (char pc in matchedPhrase)
-                        {
                             cjkChars.Add(pc);
-                        }
                         i += matchLen;
                         hasChinese = true;
                         continue;
                     }
 
-                    // Fall back to per-character TinyPinyin
                     try
                     {
-                        var p = GetPinyinFunc()(ch);
+                        var p = _getPinyinLazy.Value(ch);
                         if (!string.IsNullOrEmpty(p))
                         {
                             sbSpaced.Append(p);
@@ -861,14 +733,16 @@ namespace ViewMate.Pinyin
                             hasChinese = true;
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        _staticLogger?.Warn("[PinyinSearch] TinyPinyin failed for char '{0}': {1}", ch, ex.Message);
+                    }
                 }
                 i++;
             }
 
             if (!hasChinese) return (null, null, null, null, null);
 
-            // Pinyin syllable bigrams (adjacent pairs)
             var sbBigram = new StringBuilder();
             for (int i = 0; i + 1 < syllables.Count; i++)
             {
@@ -877,22 +751,13 @@ namespace ViewMate.Pinyin
                 sbBigram.Append(' ');
             }
 
-            // Single CJK characters
             var sbSingle = new StringBuilder();
             foreach (var ch in cjkChars)
-            {
-                sbSingle.Append(ch);
-                sbSingle.Append(' ');
-            }
+                sbSingle.Append(ch).Append(' ');
 
-            // CJK 2-char bigrams (sliding window)
             var sbCjkBigram = new StringBuilder();
             for (int i = 0; i + 1 < cjkChars.Count; i++)
-            {
-                sbCjkBigram.Append(cjkChars[i]);
-                sbCjkBigram.Append(cjkChars[i + 1]);
-                sbCjkBigram.Append(' ');
-            }
+                sbCjkBigram.Append(cjkChars[i]).Append(cjkChars[i + 1]).Append(' ');
 
             return (sbSpaced.ToString().TrimEnd(), sbConnected.ToString(),
                     sbBigram.ToString().TrimEnd(),
@@ -906,39 +771,50 @@ namespace ViewMate.Pinyin
             return ChineseRegex.IsMatch(item.Name);
         }
 
-        // ── Zero-SQL Event Handlers (queue only, no SQLite access) ──
-        // Items are batched and processed by the timer, preventing threadpool
-        // starvation and SQLite write-lock contention during library scans.
-
+        // ── Zero-SQL Event Handlers ──
         private void OnItemAdded(object sender, ItemChangeEventArgs e)
         {
-            if (e.Item != null && !_disposed && IsCjkItem(e.Item))
+            if (e.Item != null && !IsDisposed && IsCjkItem(e.Item))
+            {
                 _pendingEventQueue.Enqueue(Tuple.Create(e.Item.InternalId, e.Item.Name));
+                EnsureEventTimer();
+            }
         }
 
         private void OnItemUpdated(object sender, ItemChangeEventArgs e)
         {
-            if (e.Item != null && !_disposed && IsCjkItem(e.Item))
+            if (e.Item != null && !IsDisposed && IsCjkItem(e.Item))
+            {
                 _pendingEventQueue.Enqueue(Tuple.Create(e.Item.InternalId, e.Item.Name));
+                EnsureEventTimer();
+            }
         }
 
-        /// <summary>
-        /// Dequeue up to EventBatchSize items and process them in batch.
-        /// Called by the timer; also safe to call manually after a scan.
-        /// </summary>
         private void ProcessQueuedEvents(int maxItems = -1)
         {
-            if (_disposed) return;
+            if (IsDisposed) return;
 
             int limit = maxItems > 0 ? maxItems : EventBatchSize;
             var items = new List<Tuple<long, string>>(limit);
             while (items.Count < limit && _pendingEventQueue.TryDequeue(out var entry))
                 items.Add(entry);
 
-            if (items.Count == 0) return;
+            if (items.Count == 0)
+            {
+                Interlocked.Exchange(ref _eventTimerRunning, 0);
+                return;
+            }
 
             using (var connection = OpenWriteConnection())
             {
+                if (connection == null)
+                {
+                    foreach (var entry in items)
+                        _pendingEventQueue.Enqueue(entry);
+                    Interlocked.Exchange(ref _eventTimerRunning, 0);
+                    return;
+                }
+
                 connection.BeginTransaction(TransactionMode.Deferred);
                 try
                 {
@@ -948,9 +824,8 @@ namespace ViewMate.Pinyin
                         string name = entry.Item2;
                         try
                         {
-                            if (_disposed) break;
+                            if (IsDisposed) break;
 
-                            // Read existing columns to preserve them
                             string origTitle = "", seriesName = "", album = "";
                             try
                             {
@@ -965,7 +840,10 @@ namespace ViewMate.Pinyin
                                     }
                                 }
                             }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                _logger.Warn("[PinyinSearch] Queue batch read columns for id {0}: {1}", id, ex.Message);
+                            }
 
                             var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
                             if (string.IsNullOrEmpty(spaced)) continue;
@@ -981,28 +859,106 @@ namespace ViewMate.Pinyin
                     connection.CommitTransaction();
                     _logger.Debug("[PinyinSearch] Queue batch: {0} items processed", items.Count);
                 }
-                catch
+                catch (Exception ex)
                 {
                     connection.RollbackTransaction();
-                    throw;
+                    _logger.Error("[PinyinSearch] Queue batch transaction failed, rolled back: {0}", ex.Message);
+                    foreach (var entry in items)
+                        _pendingEventQueue.Enqueue(entry);
                 }
             }
+
+            if (!_pendingEventQueue.IsEmpty)
+                EnsureEventTimer();
+            else
+                Interlocked.Exchange(ref _eventTimerRunning, 0);
+        }
+
+        private void EnsureEventTimer(int delayMs = EventTimerIntervalMs)
+        {
+            if (Interlocked.CompareExchange(ref _eventTimerRunning, 1, 0) == 0)
+                _eventTimer?.Change(delayMs, Timeout.Infinite);
         }
 
         public void Dispose()
         {
-            _disposed = true;
+            if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0)
+                return;
+
+            _disposeCts?.Cancel();
+            _disposeCts?.Dispose();
+
             _eventTimer?.Dispose();
-            lock (_rebuildLock)
-            {
-                _rebuildTimer?.Dispose();
-                _rebuildTimer = null;
-            }
+            _eventTimer = null;
+
             if (_libraryManager != null)
             {
                 _libraryManager.ItemAdded -= OnItemAdded;
                 _libraryManager.ItemUpdated -= OnItemUpdated;
             }
+        }
+
+        // ── Static Lazy initializers ──
+        private static Dictionary<string, string> LoadPhraseOverrides()
+        {
+            var dict = new Dictionary<string, string>();
+            string[] probePaths =
+            {
+                "/config/plugins/pinyin-overrides.json",
+                "plugins/pinyin-overrides.json",
+                "../plugins/pinyin-overrides.json",
+            };
+
+            foreach (var path in probePaths)
+            {
+                if (File.Exists(path))
+                {
+                    try
+                    {
+                        var text = File.ReadAllText(path);
+                        var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(text);
+                        if (parsed != null)
+                        {
+                            dict = parsed;
+                            break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _staticLogger?.Warn("[PinyinSearch] Failed to load pinyin overrides from {0}: {1}", path, ex.Message);
+                    }
+                }
+            }
+            return dict;
+        }
+
+        private static Func<char, string> LoadPinyinFunc()
+        {
+            string[] probePaths =
+            {
+                "/config/plugins/TinyPinyin.dll",
+                "/system/TinyPinyin.dll",
+                "plugins/TinyPinyin.dll",
+                "../plugins/TinyPinyin.dll",
+            };
+
+            Assembly asm = null;
+            foreach (var path in probePaths)
+            {
+                if (File.Exists(path))
+                {
+                    asm = Assembly.Load(File.ReadAllBytes(path));
+                    break;
+                }
+            }
+
+            if (asm == null)
+                throw new FileNotFoundException("TinyPinyin.dll not found in any probe path");
+
+            var helperType = asm.GetType("TinyPinyin.PinyinHelper");
+            var method = helperType.GetMethod("GetPinyin", new[] { typeof(char) });
+            return (Func<char, string>)Delegate.CreateDelegate(
+                typeof(Func<char, string>), null, method);
         }
     }
 }
