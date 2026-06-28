@@ -4,14 +4,14 @@
 
 Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头片尾跳过** + **漏集补打**。
 
-适配 Emby **4.9.5.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll ~153KB + TinyPinyin.dll ~40KB）。
+适配 Emby **4.9.5.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll ~172KB + TinyPinyin.dll ~40KB）。
 
 ## 支持平台
 
 | 架构 | 状态 |
 |:----:|:----:|
 | amd64 (x86_64) | ✅ 主推部署 |
-| arm64 | ✅ 已验证，v1.2.13.0 修复 ARM 卡死 |
+| arm64 | ✅ 支持 |
 | Windows (amd64) | ✅ 复制 plugins 目录即可 |
 
 ## 功能
@@ -36,7 +36,7 @@ Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头
 - SQL 查询用 `c.c0 NOT GLOB '*[a-zA-Z]*'` + `c.c0 GLOB '*[一-龥]*'` 双筛中文（#15 v1.2.13.1 修复 GLOB 使用实际汉字，非 `\\u` 文本字面量）
 - 监听 `ItemAdded`/`ItemUpdated` 事件，新入库即时处理
 - 默认开启
-- **词组级多音字校正**：通过外部 JSON 文件 `pinyin-overrides.json` 配置，无需重新编译 DLL
+- **词组级多音字校正**：通过外部 JSON 文件 `pinyin-overrides.json` 配置，`Lazy<T>` 加载，无需重启
 
 ### 2. 片头片尾跳过（IntroSkip）
 
@@ -84,7 +84,7 @@ docker restart embyserver
 如果你不想用命令行，可以通过浏览器手工操作：
 
 1. 打开 [Releases 页面](https://github.com/ccwssy/ViewMate/releases)
-2. 找到最新的 **v1.2.13.2**，展开 Assets
+2. 找到最新版，展开 Assets
 3. 分别点击下载 **ViewMate.dll** 和 **TinyPinyin.dll**
 
 **Docker Emby 用户：**
@@ -128,7 +128,7 @@ docker exec embyserver grep "ViewMate" /config/logs/embyserver.txt
 预期输出：
 
 ```
-ViewMate, Version=1.2.13.2... from /config/plugins/ViewMate.dll
+ViewMate, Version=1.2.15.0... from /config/plugins/ViewMate.dll
 Entry point completed: ViewMate.Plugin
 ```
 
@@ -166,7 +166,7 @@ dotnet build -c Release -o build ViewMate/ViewMate.csproj
 }
 ```
 
-文件格式：`{"词组": "拼音1 拼音2 ..."}`，支持多词组覆盖。无需重启即可生效，下次扫描时自动加载。
+文件格式：`{"词组": "拼音1 拼音2 ..."}`，支持多词组覆盖。无需重启即可生效，下次扫描时自动加载（v1.2.15.0 重构为 `Lazy<T>` 加载）。
 
 ## 配置
 
