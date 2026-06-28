@@ -13,7 +13,6 @@ using System.Collections.Concurrent;
 using System.Threading;
 using System.IO;
 using System.Threading.Tasks;
-using ViewMate.Common;
 
 #nullable disable
 namespace ViewMate.Pinyin
@@ -31,6 +30,10 @@ namespace ViewMate.Pinyin
         private const int EventTimerIntervalMs = 30000; // 30s
 
         private static readonly Regex ChineseRegex = new Regex(@"[\\u4e00-\\u9fff]", RegexOptions.Compiled);
+
+        // ── ConnectionManager cache (looked up once, no reflection per call) ──
+        private object _connectionManager;
+        private MethodInfo _createConnectionMethod;
 
         // ── 词组级多音字校正表（外部 JSON，DLL 外维护）──
         // 路径：/config/plugins/pinyin-overrides.json
@@ -122,7 +125,7 @@ namespace ViewMate.Pinyin
         private const int BatchSize = 200;
         private const int MaxPendingTotal = 100000;
 
-        // ── debounced rebuild ──
+        // ── debounced rebuild (dead code, kept for API compat) ──
         private Timer _rebuildTimer;
         private readonly object _rebuildLock = new object();
 
@@ -150,9 +153,9 @@ namespace ViewMate.Pinyin
             {
                 try
                 {
-                    var connection = GetDbConnection();
-                    if (connection != null)
+                    using (var connection = OpenWriteConnection())
                     {
+                        if (connection == null) return;
                         connection.Execute($"INSERT INTO {FtsTableName}({FtsTableName}) VALUES('rebuild')");
                         _logger.Debug("[PinyinSearch] Deferred FTS rebuild done");
                     }
@@ -209,6 +212,66 @@ namespace ViewMate.Pinyin
 
         private long _lastScanId = 0;
         private DateTime _lastOrphanCleanup = DateTime.MinValue;
+
+        // ── Connection management ──
+
+        /// <summary>
+        /// Find and cache the ConnectionManager once.  After the first call,
+        /// subsequent OpenReadConnection / OpenWriteConnection calls go directly
+        /// to CreateConnection(bool, CancellationToken) with zero reflection.
+        /// </summary>
+        private void EnsureConnectionManager()
+        {
+            if (_connectionManager != null) return;
+
+            var itemRepo = Plugin.Instance.ApplicationHost.Resolve<IItemRepository>();
+            var type = itemRepo.GetType();
+            while (type != null)
+            {
+                foreach (var f in type.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public))
+                {
+                    var val = f.GetValue(itemRepo);
+                    if (val == null) continue;
+                    var fn = f.Name;
+                    if (fn.Contains("ConnectionManager") || fn == "_connectionManager" || fn == "ConnectionManager")
+                    {
+                        _connectionManager = val;
+                        _createConnectionMethod = val.GetType().GetMethod(
+                            "CreateConnection", new[] { typeof(bool), typeof(CancellationToken) });
+                        _logger.Info("[PinyinSearch] Cached ConnectionManager ({0})", fn);
+                        return;
+                    }
+                }
+                type = type.BaseType;
+            }
+            _logger.Error("[PinyinSearch] Could not find ConnectionManager");
+        }
+
+        /// <summary>
+        /// Open a managed connection with explicit read/write intent.
+        /// Caller MUST dispose (via using).
+        /// </summary>
+        private IDatabaseConnection OpenConnection(bool readOnly)
+        {
+            EnsureConnectionManager();
+            if (_connectionManager == null || _createConnectionMethod == null) return null;
+            try
+            {
+                return (IDatabaseConnection)_createConnectionMethod.Invoke(
+                    _connectionManager, new object[] { readOnly, CancellationToken.None });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("[PinyinSearch] OpenConnection({0}) failed: {1}", readOnly, ex.Message);
+                return null;
+            }
+        }
+
+        /// <summary>Open a read-only connection. Always dispose.</summary>
+        private IDatabaseConnection OpenReadConnection() => OpenConnection(true);
+
+        /// <summary>Open a writable connection. Always dispose.</summary>
+        private IDatabaseConnection OpenWriteConnection() => OpenConnection(false);
 
         // ── Deferred background scan (non-blocking for plugin startup) ──
 
@@ -268,8 +331,6 @@ namespace ViewMate.Pinyin
 
         public int ProcessAllPending()
         {
-            // Calling this synchronously is still discouraged on slow hardware.
-            // Delegate to the batched implementation.
             return ProcessAllPendingBatched();
         }
 
@@ -278,15 +339,17 @@ namespace ViewMate.Pinyin
             count = 0;
             try
             {
-                var conn = GetDbConnection();
-                if (conn == null) return false;
-
-                using (var stmt = conn.PrepareStatement(PendingCountQuery(_lastScanId)))
+                using (var conn = OpenReadConnection())
                 {
-                    stmt.MoveNext();
-                    count = stmt.Current.GetInt64(0);
+                    if (conn == null) return false;
+
+                    using (var stmt = conn.PrepareStatement(PendingCountQuery(_lastScanId)))
+                    {
+                        stmt.MoveNext();
+                        count = stmt.Current.GetInt64(0);
+                    }
+                    return true;
                 }
-                return true;
             }
             catch
             {
@@ -370,7 +433,7 @@ namespace ViewMate.Pinyin
         {
             try
             {
-                using (var conn = GetDbConnection())
+                using (var conn = OpenReadConnection())
                 using (var stmt = conn.PrepareStatement($"SELECT COUNT(*) FROM {FtsTableName}"))
                 {
                     if (stmt.MoveNext())
@@ -385,7 +448,7 @@ namespace ViewMate.Pinyin
         {
             try
             {
-                using (var conn = GetDbConnection())
+                using (var conn = OpenReadConnection())
                 using (var stmt = conn.PrepareStatement($@"
                     SELECT COUNT(*)
                     FROM MediaItems mi
@@ -428,7 +491,7 @@ namespace ViewMate.Pinyin
             long totalItems = 0;
             try
             {
-                using (var conn = GetDbConnection())
+                using (var conn = OpenReadConnection())
                 using (var stmt = conn.PrepareStatement(MediaItemsCountQuery()))
                 {
                     if (stmt.MoveNext()) totalItems = stmt.Current.GetInt64(0);
@@ -472,7 +535,7 @@ namespace ViewMate.Pinyin
 
         private int ProcessMediaItemsBatch(long offset, int limit)
         {
-            using (var conn = GetDbConnection())
+            using (var conn = OpenWriteConnection())
             {
                 if (conn == null) return 0;
 
@@ -546,7 +609,7 @@ namespace ViewMate.Pinyin
         {
             try
             {
-                using (var conn = GetDbConnection())
+                using (var conn = OpenReadConnection())
                 using (var stmt = conn.PrepareStatement($"SELECT MAX(id) FROM {FtsTableName}_content"))
                 {
                     if (stmt.MoveNext() && !stmt.Current.IsDBNull(0))
@@ -560,7 +623,7 @@ namespace ViewMate.Pinyin
         {
             try
             {
-                using (var conn = GetDbConnection())
+                using (var conn = OpenWriteConnection())
                 {
                     conn.Execute(
                         $"DELETE FROM {FtsTableName} WHERE rowid NOT IN (SELECT RowId FROM MediaItems)");
@@ -581,7 +644,7 @@ namespace ViewMate.Pinyin
         /// </summary>
         private int ProcessBatch(long offset, int limit)
         {
-            using (var conn = GetDbConnection())
+            using (var conn = OpenWriteConnection())
             {
                 if (conn == null) return 0;
 
@@ -671,63 +734,65 @@ namespace ViewMate.Pinyin
             var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
             if (string.IsNullOrEmpty(spaced)) return false;
 
-            var connection = GetDbConnection();
-            if (connection == null) return false;
-
-            try
+            using (var connection = OpenWriteConnection())
             {
-                // Read existing columns via simple SELECT (no subqueries in VALUES)
-                string origTitle = "", seriesName = "", album = "";
+                if (connection == null) return false;
+
                 try
                 {
-                    using (var stmt = connection.PrepareStatement(
-                        $"SELECT c1, c2, c3 FROM {FtsTableName}_content WHERE id = {item.InternalId}"))
+                    // Read existing columns via simple SELECT (no subqueries in VALUES)
+                    string origTitle = "", seriesName = "", album = "";
+                    try
                     {
-                        if (stmt.MoveNext())
+                        using (var stmt = connection.PrepareStatement(
+                            $"SELECT c1, c2, c3 FROM {FtsTableName}_content WHERE id = {item.InternalId}"))
                         {
-                            origTitle = (stmt.Current.GetString(0) ?? "");
-                            seriesName = (stmt.Current.GetString(1) ?? "");
-                            album = (stmt.Current.GetString(2) ?? "");
+                            if (stmt.MoveNext())
+                            {
+                                origTitle = (stmt.Current.GetString(0) ?? "");
+                                seriesName = (stmt.Current.GetString(1) ?? "");
+                                album = (stmt.Current.GetString(2) ?? "");
+                            }
                         }
                     }
-                }
-                catch { }
+                    catch { }
 
-                connection.BeginTransaction(TransactionMode.Deferred);
-                try
-                {
-                    var id = item.InternalId;
-                    var sql = BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album);
-                    _logger.Info("[PinyinSearch] DEBUG SQL for {0} (len={1}): {2}", id, sql.Length, sql.Substring(0, Math.Min(sql.Length, 200)));
-                    connection.Execute(sql);
-                    connection.CommitTransaction();
-                }
-                catch
-                {
-                    connection.RollbackTransaction();
-                    throw;
-                }
+                    connection.BeginTransaction(TransactionMode.Deferred);
+                    try
+                    {
+                        var id = item.InternalId;
+                        var sql = BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album);
+                        _logger.Info("[PinyinSearch] DEBUG SQL for {0} (len={1}): {2}", id, sql.Length, sql.Substring(0, Math.Min(sql.Length, 200)));
+                        connection.Execute(sql);
+                        connection.CommitTransaction();
+                    }
+                    catch
+                    {
+                        connection.RollbackTransaction();
+                        throw;
+                    }
 
-                _logger.Info("[PinyinSearch] Injected '{0}'", name);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.Warn("[PinyinSearch] '{0}': {1} [Type={2} HResult={3}]",
-                    name, ex.Message, ex.GetType().FullName, ex.HResult);
-                if (ex.InnerException != null)
-                    _logger.Warn("[PinyinSearch] Inner: {0} [Type={1}]",
-                        ex.InnerException.Message, ex.InnerException.GetType().FullName);
-                var st = ex.StackTrace;
-                if (st != null)
-                {
-                    var lines = st.Split('\n');
-                    var top = lines.Length > 4
-                        ? string.Join(" | ", lines[0], lines[1], lines[2], lines[3])
-                        : string.Join(" | ", lines);
-                    _logger.Warn("[PinyinSearch] Stack: {0}", top.Trim());
+                    _logger.Info("[PinyinSearch] Injected '{0}'", name);
+                    return true;
                 }
-                return false;
+                catch (Exception ex)
+                {
+                    _logger.Warn("[PinyinSearch] '{0}': {1} [Type={2} HResult={3}]",
+                        name, ex.Message, ex.GetType().FullName, ex.HResult);
+                    if (ex.InnerException != null)
+                        _logger.Warn("[PinyinSearch] Inner: {0} [Type={1}]",
+                            ex.InnerException.Message, ex.InnerException.GetType().FullName);
+                    var st = ex.StackTrace;
+                    if (st != null)
+                    {
+                        var lines = st.Split('\n');
+                        var top = lines.Length > 4
+                            ? string.Join(" | ", lines[0], lines[1], lines[2], lines[3])
+                            : string.Join(" | ", lines);
+                        _logger.Warn("[PinyinSearch] Stack: {0}", top.Trim());
+                    }
+                    return false;
+                }
             }
         }
 
@@ -841,12 +906,6 @@ namespace ViewMate.Pinyin
             return ChineseRegex.IsMatch(item.Name);
         }
 
-        private IDatabaseConnection GetDbConnection()
-        {
-            var itemRepo = Plugin.Instance.ApplicationHost.Resolve<IItemRepository>();
-            return DbConnectionHelper.GetConnection(itemRepo, _logger, "PinyinSearch");
-        }
-
         // ── Zero-SQL Event Handlers (queue only, no SQLite access) ──
         // Items are batched and processed by the timer, preventing threadpool
         // starvation and SQLite write-lock contention during library scans.
@@ -878,7 +937,7 @@ namespace ViewMate.Pinyin
 
             if (items.Count == 0) return;
 
-            using (var connection = GetDbConnection())
+            using (var connection = OpenWriteConnection())
             {
                 connection.BeginTransaction(TransactionMode.Deferred);
                 try
