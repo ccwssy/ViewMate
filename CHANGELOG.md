@@ -2,7 +2,7 @@
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
-|| **v1.2.14.4** | 2026-06-27 | **代码洁癖 + 每小时 orphan 清理** — 提取 `Escape()`、`BuildFtsInsertSql()`、`UpdateLastScanId()` 消除 4 处 INSERT/2 处 MAX(id)/6 处 escape 重复；修正 ProcessBatch 预读路径二次 escape bug；清理死注释；新增 `CleanOrphanedFtsEntries()` 每小时删除已删除视频的残留 FTS 行。 |
+|| **v1.2.15.0** | 2026-06-28 | **基于 v1.2.14.4 重构 — deepseek-v4-pro 重写 PinyinSearchService** — 全量重构 PinyinSearchService（365行插入/350行删除）；`_disposed` 改为 `int` + `Interlocked` 原子操作；连接管理器反射缓存重构（Create/OpenRead/OpenWrite 统一管理）；移除词组多音字表加载等死代码；合并 v1.2.14.5 连接泄漏修复。 |\n|| **v1.2.14.4** | 2026-06-27 | **代码洁癖 + 每小时 orphan 清理** — 提取 `Escape()`、`BuildFtsInsertSql()`、`UpdateLastScanId()` 消除 4 处 INSERT/2 处 MAX(id)/6 处 escape 重复；修正 ProcessBatch 预读路径二次 escape bug；清理死注释；新增 `CleanOrphanedFtsEntries()` 每小时删除已删除视频的残留 FTS 行。 |
 || **v1.2.14.3** | 2026-06-27 | **四路径拼音录取 + 防锁增强** — 新增 `GetMissingMediaItemsCount()` 兜底 `MaxPendingTotal` cap 漏掉的条目；`MaxPendingTotal=5000`→`100000`；`PendingQuery()` 回退原始 JOIN（无 UNION），避免大表 LEFT JOIN 挂死；新增 `GetFtsTotalCount()==0`→`ProcessFullReindex()` 空 FTS 回退。 |
 || **v1.2.14.2** | 2026-06-27 | **空 FTS 全量重建** — `ProcessAllPendingBatched()` 检测 `SELECT COUNT(*) FROM fts_search9`=0 时切到 `ProcessFullReindex()`，直接从 MediaItems 扫中文名条目生成拼音；`_lastScanId` 保证后续增量走索引。 |
 || **v1.2.14.1** | 2026-06-27 | **修复 Emby 4.9.5.0 兼容 + 增量扫描** — 事件处理器可能静默失败时，后台线程 60s 后首次全量扫描补缺拼音，之后每 5 分钟增量扫描（`WHERE c.id > _lastScanId`，走 rowid 索引，不扫旧行不抢锁）。修复 v1 版误入 30s 热路径卡死和 v2 版全表扫与库扫描争锁的问题。 |
