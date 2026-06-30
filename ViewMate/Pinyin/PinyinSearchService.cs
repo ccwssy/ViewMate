@@ -36,7 +36,7 @@ namespace ViewMate.Pinyin
         private const int EventBatchSize = 50;
         private const int EventTimerIntervalMs = 30000;
 
-        private static readonly Regex ChineseRegex = new Regex(@"[\\u4e00-\\u9fff]", RegexOptions.Compiled);
+        private static readonly Regex ChineseRegex = new Regex(@"[\u4e00-\u9fff]", RegexOptions.Compiled);
 
         // ── ConnectionManager cache ──
         private object _connectionManager;
