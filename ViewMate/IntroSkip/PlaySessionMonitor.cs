@@ -244,15 +244,53 @@ namespace ViewMate.IntroSkip
 
             // Detect intro from seek tracking (DetectJump tracks cumulative multi-tap fast-forward)
             // FirstJumpPositionTicks = first seek source (never overwritten after first seek)
+            // FirstJumpTargetTicks = first seek target (never overwritten — where user actually started watching)
             // LastJumpPositionTicks = last seek target (updates on each seek in the sequence)
-            // LastBigJumpSourceTicks is a fallback for older single-jump scenario
+            // LastBigJumpSourceTicks / LastBigJumpTargetTicks are fallbacks for older single-jump scenario
             if (!data.NoDetectionButReset)
             {
                 long? jumpSrc = data.FirstJumpPositionTicks ?? data.LastBigJumpSourceTicks;
-                long? jumpTgt = data.LastJumpPositionTicks ?? data.LastBigJumpTargetTicks;
+                long? jumpTgt = data.FirstJumpTargetTicks ?? data.LastJumpPositionTicks ?? data.LastBigJumpTargetTicks;
 
                 if (jumpSrc.HasValue && jumpTgt.HasValue)
                 {
+                    // Yamby (and most mobile clients) report progress infrequently (~20s intervals).
+                    // The detected jump source is often the LAST REPORTED position, not the actual
+                    // pre-jump position. If the user started from 0s (PlaybackStartTicks=0) and the
+                    // jump source is within maxIntro, the intro genuinely starts at 0, not at some
+                    // intermediate position Yamby finally reported.
+                    if (data.PlaybackStartTicks == 0 && jumpSrc.Value > 0
+                        && jumpSrc.Value <= maxIntro)
+                    {
+                        jumpSrc = 0;
+                    }
+
+                    // Determine intro end: use FirstJumpTargetTicks when client reports timely
+                    // (unreported gap ≤10s), fall back to skipDistance when Yamby combines events.
+                    // Hills reports frequently (~5s gap) → FirstJumpTargetTicks=45s ✅
+                    // Yamby reports rarely (~21s gap) → skipDistance=39s≈40s ✅
+                    if (data.PlaybackStartTicks == 0
+                        && data.FirstJumpPositionTicks.HasValue && data.LastJumpPositionTicks.HasValue)
+                    {
+                        var unreportedGap = data.FirstJumpPositionTicks.Value - data.PlaybackStartTicks;
+                        var skipDistance = data.LastJumpPositionTicks.Value - data.FirstJumpPositionTicks.Value;
+                        if (skipDistance > 0 && skipDistance <= maxIntro)
+                        {
+                            var reliableTarget = data.FirstJumpTargetTicks ?? (skipDistance);
+                            jumpTgt = unreportedGap > TimeSpan.FromSeconds(10).Ticks
+                                ? skipDistance    // Yamby: use skip distance from 0
+                                : reliableTarget; // Hills: use first FF target
+                        }
+                    }
+
+                    // User may overshoot first FF and correct backward (FF to 60s, scrub back to 40s, FF again).
+                    // In that case LastJumpPositionTicks is closer to the actual watching start.
+                    if (data.FirstJumpTargetTicks.HasValue && data.LastJumpPositionTicks.HasValue
+                        && data.LastJumpPositionTicks.Value < data.FirstJumpTargetTicks.Value)
+                    {
+                        jumpTgt = data.LastJumpPositionTicks.Value;
+                    }
+
                     var jumpSrcSec = TimeSpan.FromTicks(jumpSrc.Value).TotalSeconds;
                     var jumpTgtSec = TimeSpan.FromTicks(jumpTgt.Value).TotalSeconds;
                     if (jumpSrcSec <= maxIntroSec)
@@ -302,20 +340,22 @@ namespace ViewMate.IntroSkip
 
             if (!isSeek)
             {
-                // Reset jump tracking if user pauses for too long (not a seek)
+                // Reset last-jump tracking only (not FirstJumpPositionTicks)
+                // FirstJumpPositionTicks marks the origin of the very first seek sequence
+                // in this session and must survive non-seek events (e.g. Yamby sends Pause
+                // with a large position delta as a single event, which is not a real seek).
+                // Clearing it here would lose the true intro origin on the next FF event.
                 if (elapsedSeconds > 10)
-                {
-                    data.FirstJumpPositionTicks = null;
                     data.LastJumpPositionTicks = null;
-                }
                 return;
             }
 
             // Track the first and last seek positions
             if (!data.FirstJumpPositionTicks.HasValue)
             {
-                // New jump sequence — keep the original source position
+                // New jump sequence — keep the original source position and first target
                 data.FirstJumpPositionTicks = data.PreviousPositionTicks;
+                data.FirstJumpTargetTicks = currentTicks;
             }
             data.LastJumpPositionTicks = currentTicks;
 
