@@ -46,6 +46,31 @@ Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头
 - 写入 `IntroStart#ECS` / `IntroEnd#ECS` 到 `Chapters3` 表
 - 下次播放时客户端自动显示「跳过片头」按钮
 
+#### 客户端上报间隔对检测精度的影响
+
+IntroSkip 依赖客户端进度事件来确定跳转起止点。不同客户端的上报行为差异显著：
+
+| 客户端 | 首次上报间隔 | 可靠性 | 说明 |
+|--------|------------|--------|------|
+| **Hills**（第三方） | ~5s | ✅ | 事件密集，跳转源/终点位置准确 |
+| **Emby 原生安卓** | ~5s | ✅ | 同上 |
+| **Yamby**（安卓） | ~22s | ⚠️ | 首次进度事件滞后，自然播放位置污染 pre-FF 数据 |
+
+**工作机理：** 插件通过三种算法自动适配：
+
+1. **unreportedGap 检测** — 比较 `FirstJumpPositionTicks` 与 `PlaybackStartTicks` 的差值。≤10s（Hills/原生）用 `FirstJumpTargetTicks` 作为片头终点；>10s（Yamby）用 `skipDistance` 推算净跳转距离
+2. **回退修正** — 检测到 `FirstJumpTarget > LastJumpPosition` 时（用户跳过头又拉回），改用最近一次 FF 终点
+3. **起点强制归零** — 当 `PlaybackStartTicks=0`（用户从视频开头播放）时，片头起点强制从 0s 开始
+
+**实际效果：** Hills/原生客户端首次即可准确检测。Yamby 用户首次播放时终点可能有 5-10s 误差，但后续播放时缩略图跳转行为会自动修正（auto-healing）。
+
+**日志关键词：**
+```
+[IntroSkip] Intro detected: 0s → 45s (src=0s)    # 正常检测
+Big jump tracked: 5s → 45s (elapsed=0.6s)          # 跳转原始数据
+Seek detected: 00:00:05 → 00:00:45 (jump=40s elapsed=0.6s)  # 累计跳转
+```
+
 ### 3. 漏集补打（IntroBackfill）
 
 启动时自动扫描缺少 Intro 标记的剧集，从同季已有标记的集复制补打。解决库扫描时序竞态导致的漏打问题。
