@@ -15,3 +15,4 @@ build/
 # Build output
 libs/
 out/
+_lastScanId
