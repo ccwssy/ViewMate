@@ -198,9 +198,9 @@ dotnet build -c Release -o build ViewMate/ViewMate.csproj
 # 查看 FTS 记录总数
 sqlite3 /config/data/library.db "SELECT COUNT(*) FROM fts_search9;"
 
-# 测试拼音搜索（gugu → 古古）
+# 测试拼音搜索（dianying → 电影）
 sqlite3 /config/data/library.db \
-  "SELECT Name FROM fts_search9 WHERE fts_search9 MATCH 'gugu' LIMIT 5;"
+  "SELECT Name FROM fts_search9 WHERE fts_search9 MATCH 'dianying' LIMIT 5;"
 
 # 查看一条完整拼音记录
 sqlite3 /config/data/library.db \

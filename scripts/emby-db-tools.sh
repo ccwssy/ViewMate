@@ -33,8 +33,8 @@ cmd_check_pinyin() {
 
     if [ "$total" -gt 0 ]; then
         echo ""
-        echo "测试拼音搜索 (gugu):"
-        host_sqlite "SELECT Name FROM fts_search9 WHERE fts_search9 MATCH 'gugu' LIMIT 5;"
+        echo "测试拼音搜索 (dianying):"
+        host_sqlite "SELECT Name FROM fts_search9 WHERE fts_search9 MATCH 'dianying' LIMIT 5;"
         echo ""
         echo "FTS 内容样例:"
         host_sqlite "SELECT substr(c0,1,120) FROM fts_search9_content LIMIT 1;"
