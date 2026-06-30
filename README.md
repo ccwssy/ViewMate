@@ -190,6 +190,81 @@ dotnet build -c Release -o build ViewMate/ViewMate.csproj
 
 完整版本历史请参阅 [CHANGELOG.md](./CHANGELOG.md)。
 
+## 数据库维护
+
+### 验证拼音是否录入成功
+
+```bash
+# 查看 FTS 记录总数
+sqlite3 /config/data/library.db "SELECT COUNT(*) FROM fts_search9;"
+
+# 测试拼音搜索（gugu → 古古）
+sqlite3 /config/data/library.db \
+  "SELECT Name FROM fts_search9 WHERE fts_search9 MATCH 'gugu' LIMIT 5;"
+
+# 查看一条完整拼音记录
+sqlite3 /config/data/library.db \
+  "SELECT substr(c0,1,120) FROM fts_search9_content LIMIT 1;"
+```
+
+预期：count > 0（中文媒体多的可能上万）；MATCH 应有结果；c0 内容格式为 `原名 空格拼音 连写拼音 bigram 单字 token 双字 token`。
+
+### 验证数据库是否损坏
+
+```bash
+sqlite3 /config/data/library.db "PRAGMA integrity_check;"
+```
+
+输出 `ok` 表示数据库完好。如果出现 `database corruption`、`out of order`、`btreeInitPage() returns error code 11` 等均表示数据库损坏。
+
+### 修复损坏的数据库
+
+> ⚠️ 先备份，再修复。
+
+```bash
+# 1. 停 Emby（防止写入冲突）
+docker stop emby
+
+# 2. 备份损坏的库
+cp /config/data/library.db /config/data/library.db.bak
+
+# 3. 使用 .recover 从损坏的库中提取所有可恢复数据
+sqlite3 /config/data/library.db ".recover" > /tmp/recover.sql
+
+# 4. 重建干净的库
+sqlite3 /config/data/library-recovered.db < /tmp/recover.sql
+
+# 5. 修复 FTS 虚拟表（.recover 不会重建 FTS5 virtual table）
+#    如果修复后 FTS5 无法使用，需删除 shadow tables 并重建空 FTS：
+sqlite3 /config/data/library-recovered.db "
+DROP TABLE IF EXISTS fts_search9;
+DROP TABLE IF EXISTS fts_search9_data;
+DROP TABLE IF EXISTS fts_search9_idx;
+DROP TABLE IF EXISTS fts_search9_content;
+DROP TABLE IF EXISTS fts_search9_docsize;
+DROP TABLE IF EXISTS fts_search9_config;
+"
+sqlite3 /config/data/library-recovered.db "
+CREATE VIRTUAL TABLE fts_search9 USING FTS5(
+    Name, OriginalTitle, SeriesName, Album,
+    tokenize='unicode61 remove_diacritics 2',
+    prefix='1 2 3 4'
+);
+"
+
+# 6. 验证新库
+sqlite3 /config/data/library-recovered.db "PRAGMA integrity_check;"
+# 应输出: ok
+
+# 7. 替换原库
+mv /config/data/library-recovered.db /config/data/library.db
+
+# 8. 启动 Emby
+docker start emby
+```
+
+启动后插件会自动检测 FTS 为空并全量重建拼音，约 30~60 秒完成。中间首页可正常加载，后台无阻塞。
+
 ## 注意事项
 
 ### ARM64 Synology DSM 卡死（v1.2.12.0 及之前）
