@@ -100,6 +100,28 @@ namespace ViewMate.Pinyin
               AND mi.Name NOT GLOB '*Media Folder*'
               AND c.id > {lastId}";
 
+        // ── Catch-up Query (no id filter) ──
+        private static string CatchUpQuery() => $@"
+            SELECT c.id, mi.Name
+            FROM {FtsTableName}_content c
+            JOIN MediaItems mi ON c.id = mi.RowId
+            WHERE c.c0 NOT GLOB '*[a-zA-Z]*'
+              AND c.c0 GLOB '*[一-龥]*'
+              AND mi.Name NOT GLOB '*Season*'
+              AND mi.Name NOT GLOB '*Episode*'
+              AND mi.Name NOT GLOB '*Media Folder*'
+            ORDER BY c.id";
+
+        private static string CatchUpCountQuery() => $@"
+            SELECT COUNT(*)
+            FROM {FtsTableName}_content c
+            JOIN MediaItems mi ON c.id = mi.RowId
+            WHERE c.c0 NOT GLOB '*[a-zA-Z]*'
+              AND c.c0 GLOB '*[一-龥]*'
+              AND mi.Name NOT GLOB '*Season*'
+              AND mi.Name NOT GLOB '*Episode*'
+              AND mi.Name NOT GLOB '*Media Folder*'";
+
         // ── Connection management ──
 
         private bool TryEnsureConnectionManager()
@@ -246,6 +268,30 @@ namespace ViewMate.Pinyin
             }
         }
 
+        private bool TryGetCatchUpCount(out long count)
+        {
+            count = 0;
+            try
+            {
+                using (var conn = OpenReadConnection())
+                {
+                    if (conn == null) return false;
+
+                    using (var stmt = conn.PrepareStatement(CatchUpCountQuery()))
+                    {
+                        if (stmt.MoveNext())
+                            count = stmt.Current.GetInt64(0);
+                    }
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn("[PinyinSearch] Failed to get catch-up count: {0}", ex.Message);
+                return false;
+            }
+        }
+
         private int ProcessAllPendingBatched()
         {
             // Phase 0: FTS empty → MediaItems full scan
@@ -266,6 +312,13 @@ namespace ViewMate.Pinyin
 
             if (!TryGetPendingCount(out long totalPending) || totalPending == 0)
             {
+                _logger.Info("[PinyinSearch] No pending items, checking for catch-up items...");
+                // Run catch-up scan only when incremental scan finds 0 items
+                if (TryGetCatchUpCount(out long catchUpTotal) && catchUpTotal > 0)
+                {
+                    _logger.Info("[PinyinSearch] Found {0} catch-up items (missing from incremental scan)", catchUpTotal);
+                    return ProcessCatchUpBatched();
+                }
                 _logger.Info("[PinyinSearch] No pending items");
                 return 0;
             }
@@ -594,6 +647,134 @@ namespace ViewMate.Pinyin
                 catch (Exception ex)
                 {
                     _logger.Error("[PinyinSearch] Batch query failed at offset={0}: {1}", offset, ex.Message);
+                    return 0;
+                }
+            }
+        }
+
+        // ── Catch-up scan (no id filter) ──
+        // Thread-safe tracking of already-processed catch-up items to avoid re-processing
+        private readonly HashSet<int> _processedCatchUpIds = new HashSet<int>();
+        private readonly object _processedCatchUpLock = new object();
+
+        private int ProcessCatchUpBatched()
+        {
+            long offset = 0;
+            int totalProcessed = 0;
+            _logger.Info("[PinyinSearch] Starting catch-up scan in batches of {0}...", BatchSize);
+
+            while (!IsDisposed)
+            {
+                int batch = ProcessCatchUpBatch((int)offset);
+                if (batch == 0) break;
+                totalProcessed += batch;
+                offset += BatchSize;
+
+                if (!IsDisposed)
+                    Thread.Sleep(500);
+            }
+
+            _logger.Info("[PinyinSearch] Catch-up scan complete: {0} items processed", totalProcessed);
+            UpdateLastScanId();
+            return totalProcessed;
+        }
+
+        private int ProcessCatchUpBatch(int offset)
+        {
+            using (var conn = OpenWriteConnection())
+            {
+                if (conn == null) return 0;
+
+                try
+                {
+                    var rows = new List<Tuple<long, string>>();
+                    var query = CatchUpQuery() + $" LIMIT {BatchSize} OFFSET {offset}";
+                    using (var stmt = conn.PrepareStatement(query))
+                    {
+                        while (stmt.MoveNext())
+                            rows.Add(Tuple.Create(stmt.Current.GetInt64(0), stmt.Current.GetString(1)));
+                    }
+
+                    if (rows.Count == 0) return 0;
+
+                    // Filter out already-processed items
+                    lock (_processedCatchUpLock)
+                    {
+                        rows.RemoveAll(r => _processedCatchUpIds.Contains((int)r.Item1));
+                    }
+
+                    if (rows.Count == 0) return 0;
+
+                    conn.BeginTransaction(TransactionMode.Deferred);
+                    int processed = 0;
+                    try
+                    {
+                        foreach (var row in rows)
+                        {
+                            try
+                            {
+                                if (IsDisposed) break;
+
+                                long id = row.Item1;
+                                string name = row.Item2;
+
+                                // Track processed to avoid re-processing on next cycle
+                                bool alreadyProcessed;
+                                lock (_processedCatchUpLock)
+                                {
+                                    alreadyProcessed = _processedCatchUpIds.Contains((int)id);
+                                    if (!alreadyProcessed)
+                                        _processedCatchUpIds.Add((int)id);
+                                }
+
+                                if (alreadyProcessed) continue;
+
+                                var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
+                                if (string.IsNullOrEmpty(spaced)) continue;
+
+                                string origTitle = "", seriesName = "", album = "";
+                                try
+                                {
+                                    using (var r = conn.PrepareStatement(
+                                        $@"SELECT c1, c2, c3 FROM {FtsTableName}_content WHERE id = {id}"))
+                                    {
+                                        if (r.MoveNext())
+                                        {
+                                            origTitle = r.Current.GetString(0) ?? "";
+                                            seriesName = r.Current.GetString(1) ?? "";
+                                            album = r.Current.GetString(2) ?? "";
+                                        }
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.Warn("[PinyinSearch] Catch-up batch read existing columns for id {0}: {1}", id, ex.Message);
+                                }
+
+                                conn.Execute(
+                                    BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album));
+                                processed++;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Warn("[PinyinSearch] Catch-up item {0}: {1}", row.Item1, ex.Message);
+                            }
+                        }
+
+                        conn.CommitTransaction();
+                        _logger.Debug("[PinyinSearch] Catch-up batch offset={0}: {1} items", offset, processed);
+                    }
+                    catch (Exception ex)
+                    {
+                        conn.RollbackTransaction();
+                        _logger.Error("[PinyinSearch] Catch-up batch offset={0} failed, rolled back: {1}", offset, ex.Message);
+                    }
+
+                    return processed;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("[PinyinSearch] Catch-up batch query failed at offset={0}: {1}", offset, ex.Message);
                     return 0;
                 }
             }
