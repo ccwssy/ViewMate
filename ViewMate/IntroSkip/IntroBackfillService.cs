@@ -34,28 +34,24 @@ namespace ViewMate.IntroSkip
             try
             {
                 // Find all series that have at least one episode with #ECS marker
-                var seriesQuery = @"
-                    SELECT DISTINCT m.SeriesId FROM MediaItems m
-                    JOIN Chapters3 c ON c.ItemId = m.Id
-                    WHERE c.Name LIKE '%#ECS%' AND c.Name NOT LIKE '%plot%'";
-
                 var seriesIds = new List<long>();
-                using (var stmt = connection.PrepareStatement(seriesQuery))
+                using (var stmt = connection.PrepareStatement(
+                    @"SELECT DISTINCT m.SeriesId FROM MediaItems m
+                      JOIN Chapters3 c ON c.ItemId = m.Id
+                      WHERE c.Name LIKE '%#ECS%' AND c.Name NOT LIKE '%plot%'"))
                 {
                     while (stmt.MoveNext())
                         seriesIds.Add(stmt.Current.GetInt64(0));
                 }
 
-                _logger.Info("[IntroBackfill] {0} series with existing markers", seriesIds.Count);
+                _logger.Info($"[IntroBackfill] {seriesIds.Count} series with existing markers");
 
                 foreach (var sid in seriesIds)
                 {
-                    // Get all episodes, grouped by season
-                    var epQuery = $@"
-                        SELECT Id, Name, IndexNumber, ParentIndexNumber FROM MediaItems
-                        WHERE SeriesId = {sid} AND Type = 8 ORDER BY IndexNumber";
-
+                    // Get all episodes, grouped by season (sid from DB — safe integer)
                     var episodes = new List<Tuple<long, string, int?, int?>>();
+                    var epQuery = $@"SELECT Id, Name, IndexNumber, ParentIndexNumber FROM MediaItems
+                                     WHERE SeriesId = {sid} AND Type = 8 ORDER BY IndexNumber";
                     using (var stmt = connection.PrepareStatement(epQuery))
                     {
                         while (stmt.MoveNext())
@@ -92,11 +88,10 @@ namespace ViewMate.IntroSkip
 
                         foreach (var ep in eps)
                         {
-                            var markerQuery = $@"
-                                SELECT StartPositionTicks, Name FROM Chapters3
-                                WHERE ItemId = {ep.Item1} AND Name LIKE '%#ECS%'
-                                ORDER BY StartPositionTicks";
-
+                            // ep.Item1 is a long from DB — safe for interpolation
+                            var markerQuery = $@"SELECT StartPositionTicks, Name FROM Chapters3
+                                               WHERE ItemId = {ep.Item1} AND Name LIKE '%#ECS%'
+                                               ORDER BY StartPositionTicks";
                             var markers = new List<Tuple<long, string>>();
                             using (var stmt = connection.PrepareStatement(markerQuery))
                             {
@@ -119,11 +114,9 @@ namespace ViewMate.IntroSkip
                         // Fill missing episodes
                         foreach (var ep in eps)
                         {
-                            var countQuery = $@"
-                                SELECT COUNT(*) FROM Chapters3
-                                WHERE ItemId = {ep.Item1} AND Name LIKE '%#ECS%'
-                                AND Name NOT LIKE '%plot%'";
-
+                            var countQuery = $@"SELECT COUNT(*) FROM Chapters3
+                                              WHERE ItemId = {ep.Item1} AND Name LIKE '%#ECS%'
+                                              AND Name NOT LIKE '%plot%'";
                             int has;
                             using (var stmt = connection.PrepareStatement(countQuery))
                             {
@@ -142,6 +135,7 @@ namespace ViewMate.IntroSkip
                                 maxIdx = stmt.Current.IsDBNull(0) ? 0 : (int)stmt.Current.GetInt64(0);
                             }
 
+                            // Delete old ECS markers
                             connection.Execute(
                                 $"DELETE FROM Chapters3 WHERE ItemId = {ep.Item1} AND Name LIKE '%#ECS%'");
 
@@ -154,12 +148,12 @@ namespace ViewMate.IntroSkip
                                 $"VALUES ({ep.Item1}, {maxIdx + 2}, {refEnd}, 'IntroEnd#ECS', 2)");
 
                             totalFixed++;
-                            _logger.Info("[IntroBackfill] Fixed: Series={0} E{1} ({2})", sid, ep.Item3 ?? 0, ep.Item2);
+                            _logger.Info($"[IntroBackfill] Fixed: Series={sid} E{ep.Item3 ?? 0} ({ep.Item2})");
                         }
                     }
                 }
 
-                _logger.Info("[IntroBackfill] Complete: {0} episodes fixed", totalFixed);
+                _logger.Info($"[IntroBackfill] Complete: {totalFixed} episodes fixed");
             }
             catch (Exception ex)
             {

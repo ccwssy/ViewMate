@@ -7,8 +7,6 @@ using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Session;
 using System;
 using System.Collections.Concurrent;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace ViewMate.IntroSkip
 {
@@ -27,19 +25,44 @@ namespace ViewMate.IntroSkip
         private readonly ISessionManager _sessionManager;
         private readonly ILogger _logger;
 
-        private readonly TimeSpan _updateInterval = TimeSpan.FromSeconds(10);
         private readonly ConcurrentDictionary<string, PlaySessionData> _sessions
             = new ConcurrentDictionary<string, PlaySessionData>();
 
-        // ── config overrides (could be moved to PluginOptions) ──
-        public long MaxIntroDurationTicks { get; set; } = TimeSpan.FromSeconds(150).Ticks;
-        public long MaxCreditsDurationTicks { get; set; } = TimeSpan.FromSeconds(180).Ticks;
+        private readonly object _configLock = new object();
+        private bool _disposed;
+
+        // ── config overrides (thread-safe via _configLock) ──
+
+        private long _maxIntroDurationTicks = TimeSpan.FromSeconds(150).Ticks;
+        private long _maxCreditsDurationTicks = TimeSpan.FromSeconds(180).Ticks;
+        private bool _allLibrariesEnabled = true;
+        private string _clientFilter = "";
+
+        public long MaxIntroDurationTicks
+        {
+            get { lock (_configLock) return _maxIntroDurationTicks; }
+            set { lock (_configLock) _maxIntroDurationTicks = value; }
+        }
+
+        public long MaxCreditsDurationTicks
+        {
+            get { lock (_configLock) return _maxCreditsDurationTicks; }
+            set { lock (_configLock) _maxCreditsDurationTicks = value; }
+        }
 
         /// <summary>When true, all TV libraries are in scope.</summary>
-        public bool AllLibrariesEnabled { get; set; } = true;
+        public bool AllLibrariesEnabled
+        {
+            get { lock (_configLock) return _allLibrariesEnabled; }
+            set { lock (_configLock) _allLibrariesEnabled = value; }
+        }
 
         /// <summary>Substring match on client name — empty means all clients.</summary>
-        public string ClientFilter { get; set; } = "";
+        public string ClientFilter
+        {
+            get { lock (_configLock) return _clientFilter ?? ""; }
+            set { lock (_configLock) _clientFilter = value ?? ""; }
+        }
 
         public PlaySessionMonitor(ILibraryManager libraryManager, ISessionManager sessionManager, ILogger logger)
         {
@@ -58,10 +81,21 @@ namespace ViewMate.IntroSkip
 
         public void Dispose()
         {
-            _sessionManager.PlaybackStart -= OnPlaybackStart;
-            _sessionManager.PlaybackProgress -= OnPlaybackProgress;
-            _sessionManager.PlaybackStopped -= OnPlaybackStopped;
-            _sessions.Clear();
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed) return;
+            if (disposing)
+            {
+                _sessionManager.PlaybackStart -= OnPlaybackStart;
+                _sessionManager.PlaybackProgress -= OnPlaybackProgress;
+                _sessionManager.PlaybackStopped -= OnPlaybackStopped;
+                _sessions.Clear();
+            }
+            _disposed = true;
             _logger.Info("[IntroSkip] PlaySessionMonitor stopped");
         }
 
@@ -74,24 +108,30 @@ namespace ViewMate.IntroSkip
 
             if (!IsClientInScope(e.ClientName))
             {
-                _logger.Debug("[IntroSkip] Client {0} not in scope, skipping", e.ClientName);
+                _logger.Debug($"[IntroSkip] Client {e.ClientName} not in scope, skipping");
                 return;
             }
 
             _sessions.TryRemove(e.PlaySessionId, out _);
+
+            long maxIntro, maxCredits;
+            lock (_configLock)
+            {
+                maxIntro = _maxIntroDurationTicks;
+                maxCredits = _maxCreditsDurationTicks;
+            }
 
             var data = new PlaySessionData(episode)
             {
                 PlaybackStartTicks = e.PlaybackPositionTicks.Value,
                 PreviousPositionTicks = e.PlaybackPositionTicks.Value,
                 PreviousEventTime = DateTime.UtcNow,
-                MaxIntroDurationTicks = MaxIntroDurationTicks,
-                MaxCreditsDurationTicks = MaxCreditsDurationTicks,
+                MaxIntroDurationTicks = maxIntro,
+                MaxCreditsDurationTicks = maxCredits,
             };
             _sessions[e.PlaySessionId] = data;
 
-            _logger.Info("[IntroSkip] Playback started: {0} pos={1} client={2}",
-                episode.Name, new TimeSpan(data.PlaybackStartTicks).ToString(@"hh\:mm\:ss\.fff"), e.ClientName);
+            _logger.Info($"[IntroSkip] Playback started: {episode.Name} pos={new TimeSpan(data.PlaybackStartTicks).ToString(@"hh\:mm\:ss\.fff")} client={e.ClientName}");
         }
 
         private void OnPlaybackProgress(object sender, PlaybackProgressEventArgs e)
@@ -116,17 +156,25 @@ namespace ViewMate.IntroSkip
             }
 
             // ── detect manual pause-unpause → credits (user teaching) ──
+            long maxCredits;
+            long maxIntro;
+            lock (_configLock)
+            {
+                maxCredits = _maxCreditsDurationTicks;
+                maxIntro = _maxIntroDurationTicks;
+            }
+
             if (e.EventName == ProgressEvent.Unpause && data.LastPauseEventTime.HasValue && episode.RunTimeTicks.HasValue)
             {
                 var pauseDuration = (now - data.LastPauseEventTime.Value).TotalMilliseconds;
                 if (pauseDuration > 500 && pauseDuration < 5000)
                 {
                     // User paused near end → likely credits boundary
-                    var nearEnd = episode.RunTimeTicks.Value - MaxCreditsDurationTicks;
+                    var nearEnd = episode.RunTimeTicks.Value - maxCredits;
                     if (!data.CreditsStart.HasValue && currentTicks > nearEnd)
                     {
                         var creditsDuration = episode.RunTimeTicks.Value - currentTicks;
-                        if (creditsDuration > 0 && creditsDuration <= MaxCreditsDurationTicks)
+                        if (creditsDuration > 0 && creditsDuration <= maxCredits)
                         {
                             Plugin.ChapterMarkerApi.UpdateCredits(episode, creditsDuration);
                             data.CreditsStart = Plugin.ChapterMarkerApi.GetCreditsStart(episode);
@@ -134,7 +182,7 @@ namespace ViewMate.IntroSkip
                     }
 
                     // User paused near beginning → teach intro boundary (NoDetectionButReset mode)
-                    if (data.NoDetectionButReset && !data.IntroStart.HasValue && currentTicks < MaxIntroDurationTicks)
+                    if (data.NoDetectionButReset && !data.IntroStart.HasValue && currentTicks < maxIntro)
                     {
                         Plugin.ChapterMarkerApi.UpdateIntro(episode, 0, currentTicks);
                         data.IntroStart = Plugin.ChapterMarkerApi.GetIntroStart(episode);
@@ -156,10 +204,7 @@ namespace ViewMate.IntroSkip
             {
                 data.LastBigJumpSourceTicks = data.PreviousPositionTicks;
                 data.LastBigJumpTargetTicks = currentTicks;
-                _logger.Info("[IntroSkip] Big jump tracked: {0:F0}s → {1:F0}s (elapsed={2:F1}s)",
-                    TimeSpan.FromTicks(data.PreviousPositionTicks).TotalSeconds,
-                    TimeSpan.FromTicks(currentTicks).TotalSeconds,
-                    timeElapsed);
+                _logger.Info($"[IntroSkip] Big jump tracked: {TimeSpan.FromTicks(data.PreviousPositionTicks).TotalSeconds:F0}s → {TimeSpan.FromTicks(currentTicks).TotalSeconds:F0}s (elapsed={timeElapsed:F1}s)");
             }
 
             data.PreviousPositionTicks = currentTicks;
@@ -170,15 +215,13 @@ namespace ViewMate.IntroSkip
         {
             if (!(e.Item is Episode episode) || !e.PlaybackPositionTicks.HasValue)
             {
-                _logger.Info("[IntroSkip] OnPlaybackStopped skipped: type={0} pos={1} session={2}",
-                    e.Item?.GetType().Name, e.PlaybackPositionTicks, e.PlaySessionId);
+                _logger.Info($"[IntroSkip] OnPlaybackStopped skipped: type={e.Item?.GetType().Name} pos={e.PlaybackPositionTicks} session={e.PlaySessionId}");
                 return;
             }
 
             if (!_sessions.TryRemove(e.PlaySessionId, out var data))
             {
-                _logger.Info("[IntroSkip] OnPlaybackStopped session {0} not found (sessions count={1})",
-                    e.PlaySessionId, _sessions.Count);
+                _logger.Info($"[IntroSkip] OnPlaybackStopped session {e.PlaySessionId} not found (sessions count={_sessions.Count})");
                 return;
             }
 
@@ -187,10 +230,17 @@ namespace ViewMate.IntroSkip
             var jumpForward = TimeSpan.FromTicks(currentTicks - prevTicks).TotalSeconds;
             var curSec = TimeSpan.FromTicks(currentTicks).TotalSeconds;
             var prevSec = TimeSpan.FromTicks(prevTicks).TotalSeconds;
-            var maxIntroSec = TimeSpan.FromTicks(MaxIntroDurationTicks).TotalSeconds;
 
-            _logger.Info("[IntroSkip] OnPlaybackStopped: pos={0:F0}s prev={1:F0}s jump={2:F0}s maxIntro={3:F0}s",
-                curSec, prevSec, jumpForward, maxIntroSec);
+            long maxIntro;
+            long maxCredits;
+            lock (_configLock)
+            {
+                maxIntro = _maxIntroDurationTicks;
+                maxCredits = _maxCreditsDurationTicks;
+            }
+            var maxIntroSec = TimeSpan.FromTicks(maxIntro).TotalSeconds;
+
+            _logger.Info($"[IntroSkip] OnPlaybackStopped: pos={curSec:F0}s prev={prevSec:F0}s jump={jumpForward:F0}s maxIntro={maxIntroSec:F0}s");
 
             // Detect intro from tracked big jump (covers mobile seek-then-resume scenarios)
             // Always run even with existing markers → enables auto-healing of wrong markers
@@ -204,13 +254,11 @@ namespace ViewMate.IntroSkip
                 if (jumpSrcSec <= maxIntroSec)
                 {
                     Plugin.ChapterMarkerApi.UpdateIntro(episode, jumpSrc, jumpTgt);
-                    _logger.Info("[IntroSkip] Intro detected (from tracked jump): {0:F0}s → {1:F0}s (src={2:F0}s)",
-                        jumpSrcSec, jumpTgtSec, jumpSrcSec);
+                    _logger.Info($"[IntroSkip] Intro detected (from tracked jump): {jumpSrcSec:F0}s → {jumpTgtSec:F0}s (src={jumpSrcSec:F0}s)");
                 }
                 else
                 {
-                    _logger.Info("[IntroSkip] Tracked jump ignored: src={0:F0}s exceeds maxIntro={1:F0}s",
-                        jumpSrcSec, maxIntroSec);
+                    _logger.Info($"[IntroSkip] Tracked jump ignored: src={jumpSrcSec:F0}s exceeds maxIntro={maxIntroSec:F0}s");
                 }
             }
             else if (!data.IntroEnd.HasValue)
@@ -221,11 +269,11 @@ namespace ViewMate.IntroSkip
             // Detect credits from stop position (requires RunTimeTicks)
             if (episode.RunTimeTicks.HasValue && !data.CreditsStart.HasValue && !data.NoDetectionButReset)
             {
-                var nearEnd = episode.RunTimeTicks.Value - MaxCreditsDurationTicks;
+                var nearEnd = episode.RunTimeTicks.Value - maxCredits;
                 if (e.PlaybackPositionTicks.Value > nearEnd)
                 {
                     var creditsDuration = episode.RunTimeTicks.Value - e.PlaybackPositionTicks.Value;
-                    if (creditsDuration > 0 && creditsDuration <= MaxCreditsDurationTicks)
+                    if (creditsDuration > 0 && creditsDuration <= maxCredits)
                     {
                         Plugin.ChapterMarkerApi.UpdateCredits(episode, creditsDuration);
                     }
@@ -266,10 +314,7 @@ namespace ViewMate.IntroSkip
             }
             data.LastJumpPositionTicks = currentTicks;
 
-            _logger.Debug("[IntroSkip] Seek detected: {0} → {1} (jump={2}s elapsed={3:F1}s)",
-                new TimeSpan(data.PreviousPositionTicks).ToString(@"hh\:mm\:ss"),
-                new TimeSpan(currentTicks).ToString(@"hh\:mm\:ss"),
-                jumpForward, elapsedSeconds);
+            _logger.Debug($"[IntroSkip] Seek detected: {new TimeSpan(data.PreviousPositionTicks).ToString(@"hh\:mm\:ss")} → {new TimeSpan(currentTicks).ToString(@"hh\:mm\:ss")} (jump={jumpForward}s elapsed={elapsedSeconds:F1}s)");
 
             // Analyse: if end of jump within MaxIntro → it's the intro
             if (data.FirstJumpPositionTicks.HasValue && data.LastJumpPositionTicks.HasValue)
@@ -277,17 +322,17 @@ namespace ViewMate.IntroSkip
                 var introStart = data.FirstJumpPositionTicks.Value;
                 var introEnd = data.LastJumpPositionTicks.Value;
                 var introDurationSeconds = TimeSpan.FromTicks(introEnd - introStart).TotalSeconds;
+                long maxIntro;
+                lock (_configLock) { maxIntro = _maxIntroDurationTicks; }
+                var maxIntroSec = TimeSpan.FromTicks(maxIntro).TotalSeconds;
 
                 if (introDurationSeconds > 5
-                    && TimeSpan.FromTicks(introStart).TotalSeconds <= TimeSpan.FromTicks(MaxIntroDurationTicks).TotalSeconds)
+                    && TimeSpan.FromTicks(introStart).TotalSeconds <= maxIntroSec)
                 {
                     Plugin.ChapterMarkerApi.UpdateIntro(episode, introStart, introEnd);
                     data.IntroStart = Plugin.ChapterMarkerApi.GetIntroStart(episode);
                     data.IntroEnd = Plugin.ChapterMarkerApi.GetIntroEnd(episode);
-                    _logger.Info("[IntroSkip] Intro detected: {0} – {1} (dur={2:F0}s)",
-                        new TimeSpan(introStart).ToString(@"hh\:mm\:ss\.fff"),
-                        new TimeSpan(introEnd).ToString(@"hh\:mm\:ss\.fff"),
-                        introDurationSeconds);
+                    _logger.Info($"[IntroSkip] Intro detected: {new TimeSpan(introStart).ToString(@"hh\:mm\:ss\.fff")} – {new TimeSpan(introEnd).ToString(@"hh\:mm\:ss\.fff")} (dur={introDurationSeconds:F0}s)");
                 }
             }
         }
@@ -296,14 +341,17 @@ namespace ViewMate.IntroSkip
 
         private bool IsClientInScope(string clientName)
         {
-            if (string.IsNullOrEmpty(ClientFilter)) return true;
-            return clientName != null && clientName.Contains(ClientFilter, StringComparison.OrdinalIgnoreCase);
+            string filter;
+            lock (_configLock) { filter = _clientFilter ?? ""; }
+            if (string.IsNullOrEmpty(filter)) return true;
+            return clientName != null && clientName.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         public bool IsLibraryInScope(BaseItem item)
         {
-            if (AllLibrariesEnabled) return item is Episode;
-            // Future: library path filtering
+            bool allEnabled;
+            lock (_configLock) { allEnabled = _allLibrariesEnabled; }
+            if (allEnabled) return item is Episode;
             return item is Episode;
         }
     }
