@@ -204,16 +204,16 @@ namespace ViewMate.Pinyin
             }
 
             _logger.Info("[PinyinSearch] Deferring initial scan to background thread...");
-            var token = _disposeCts.Token;
             Task.Run(async () =>
             {
-                // Wait 60s before first scan
-                for (int i = 0; i < 60 && !token.IsCancellationRequested; i++)
+                // Wait 60s before first scan — no cancellation token so Dispose()
+                // during startup doesn't kill the thread before it runs at least once.
+                for (int i = 0; i < 60 && !IsDisposed; i++)
                 {
-                    try { await Task.Delay(1000, token); } catch (TaskCanceledException) { return; }
+                    await Task.Delay(1000);
                 }
 
-                while (!token.IsCancellationRequested)
+                if (!IsDisposed)
                 {
                     try
                     {
@@ -231,12 +231,6 @@ namespace ViewMate.Pinyin
                     {
                         CleanOrphanedFtsEntries();
                         _lastOrphanCleanup = DateTime.UtcNow;
-                    }
-
-                    // 5-minute interval
-                    for (int i = 0; i < 300 && !token.IsCancellationRequested; i++)
-                    {
-                        try { await Task.Delay(1000, token); } catch (TaskCanceledException) { return; }
                     }
                 }
             });
