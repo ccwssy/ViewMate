@@ -203,15 +203,18 @@ namespace ViewMate.Pinyin
                 return;
             }
 
-            _logger.Info("[PinyinSearch] Deferring initial scan to background thread...");
-            Task.Run(async () =>
+            // All FTS operations run on a background thread to avoid blocking
+            // Plugin.Run() and delaying Emby HTTP server startup.
+            // Previously a sync retry loop blocked Plugin.Run() for up to 120s,
+            // causing the home page to hang — a recurring bug across 5 releases.
+            // Background thread uses Thread.Sleep (not Task.Delay) to avoid
+            // deadlock on Emby 4.9.5.0's single-threaded sync context, and
+            // checks IsDisposed at every iteration for clean shutdown.
+            var scanThread = new Thread(() =>
             {
-                // Wait 60s before first scan — no cancellation token so Dispose()
-                // during startup doesn't kill the thread before it runs at least once.
+                _logger.Info("[PinyinSearch] Background thread started, waiting 60s...");
                 for (int i = 0; i < 60 && !IsDisposed; i++)
-                {
-                    await Task.Delay(1000);
-                }
+                    Thread.Sleep(1000);
 
                 if (!IsDisposed)
                 {
@@ -225,15 +228,10 @@ namespace ViewMate.Pinyin
                     {
                         _logger.Error("[PinyinSearch] Catch-up scan failed", ex);
                     }
-
-                    // Hourly orphan cleanup
-                    if ((DateTime.UtcNow - _lastOrphanCleanup).TotalHours >= 1)
-                    {
-                        CleanOrphanedFtsEntries();
-                        _lastOrphanCleanup = DateTime.UtcNow;
-                    }
                 }
             });
+            scanThread.IsBackground = true;
+            scanThread.Start();
         }
 
         public int ProcessAllPending() => ProcessAllPendingBatched();
