@@ -2,7 +2,8 @@
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
-| **v1.2.16.1** | 2026-06-30 | **修复 FTS catch-up 扫描** — 新增 `CatchUpQuery()`/`TryGetCatchUpCount()`/`ProcessCatchUpBatched()`；当增量扫描 (WHERE c.id > _lastScanId) 返回 0 时触发 catch-up 全表扫描，捕获创建于扫描周期内但 rowid 低于_lastScanId 的条目（如 Emby 在扫描间隙插入的条目，其 rowid 305563 < _lastScanId 305822）；使用 HashSet 跟踪已处理的 catch-up 条目避免重复处理。 |
+| **v1.2.16.3** | 2026-06-30 | **修复 Plugin.Run() 同步阻塞致首页卡死** — 删除 `ProcessAllPendingDeferred()` 中残留的 sync retry 循环（120 次 × 1s + `ProcessFullReindex()` 同步执行），全部交由后台 Thread 处理。后台 Thread 已使用 `Thread.Sleep` + `IsDisposed` 检查，不会被 Dispose 杀死。`Plugin.Run()` 耗时从 30~120s 降至 0.065s。 |
+| **v1.2.16.2** | 2026-06-30 | **修复后台线程被 Dispose 杀死 + FTS 为空检测修正** — `Task.Delay` 改为 `Thread.Sleep` 避免 Emby 单线程上下文死锁；`GetFtsTotalCount()` 失败时返回 -1，`<=0` 检测代替 `==0` 确保空 FTS 触发重建。 |
 | **v1.2.15.0** | 2026-06-28 | **基于 v1.2.14.4 重构 — 重写 PinyinSearchService** — 全量重构 PinyinSearchService（365 行插入/350 行删除）；`_disposed` 改为 `int` + `Interlocked` 原子操作；连接管理器反射缓存重构（Create/OpenRead/OpenWrite 统一管理）；词组多音字校正重构为 `Lazy<T>` 加载；合并 v1.2.14.5 连接泄漏修复。 |
 | **v1.2.14.4** | 2026-06-27 | **代码洁癖 + 每小时 orphan 清理** — 提取 `Escape()`、`BuildFtsInsertSql()`、`UpdateLastScanId()` 消除 4 处 INSERT/2 处 MAX(id)/6 处 escape 重复；修正 ProcessBatch 预读路径二次 escape bug；清理死注释；新增 `CleanOrphanedFtsEntries()` 每小时删除已删除视频的残留 FTS 行。 |
 | **v1.2.14.3** | 2026-06-27 | **四路径拼音录取 + 防锁增强** — 新增 `GetMissingMediaItemsCount()` 兜底 `MaxPendingTotal` cap 漏掉的条目；`MaxPendingTotal=5000`→`100000`；`PendingQuery()` 回退原始 JOIN（无 UNION），避免大表 LEFT JOIN 挂死；新增 `GetFtsTotalCount()==0`→`ProcessFullReindex()` 空 FTS 回退。 |
