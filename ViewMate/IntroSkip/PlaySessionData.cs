@@ -28,6 +28,7 @@ namespace ViewMate.IntroSkip
 
         // ── cumulative seek tracking ──
         public long? FirstJumpPositionTicks { get; set; }
+        public long? FirstJumpTargetTicks { get; set; }
         public long? LastJumpPositionTicks { get; set; }
 
         // ── config snapshot (copied from PlaySessionMonitor at session start) ──
