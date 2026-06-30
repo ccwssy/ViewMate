@@ -242,28 +242,33 @@ namespace ViewMate.IntroSkip
 
             _logger.Info($"[IntroSkip] OnPlaybackStopped: pos={curSec:F0}s prev={prevSec:F0}s jump={jumpForward:F0}s maxIntro={maxIntroSec:F0}s");
 
-            // Detect intro from tracked big jump (covers mobile seek-then-resume scenarios)
-            // Always run even with existing markers → enables auto-healing of wrong markers
-            if (!data.NoDetectionButReset
-                && data.LastBigJumpSourceTicks.HasValue && data.LastBigJumpTargetTicks.HasValue)
+            // Detect intro from seek tracking (DetectJump tracks cumulative multi-tap fast-forward)
+            // FirstJumpPositionTicks = first seek source (never overwritten after first seek)
+            // LastJumpPositionTicks = last seek target (updates on each seek in the sequence)
+            // LastBigJumpSourceTicks is a fallback for older single-jump scenario
+            if (!data.NoDetectionButReset)
             {
-                var jumpSrc = data.LastBigJumpSourceTicks.Value;
-                var jumpTgt = data.LastBigJumpTargetTicks.Value;
-                var jumpSrcSec = TimeSpan.FromTicks(jumpSrc).TotalSeconds;
-                var jumpTgtSec = TimeSpan.FromTicks(jumpTgt).TotalSeconds;
-                if (jumpSrcSec <= maxIntroSec)
+                long? jumpSrc = data.FirstJumpPositionTicks ?? data.LastBigJumpSourceTicks;
+                long? jumpTgt = data.LastJumpPositionTicks ?? data.LastBigJumpTargetTicks;
+
+                if (jumpSrc.HasValue && jumpTgt.HasValue)
                 {
-                    Plugin.ChapterMarkerApi.UpdateIntro(episode, jumpSrc, jumpTgt);
-                    _logger.Info($"[IntroSkip] Intro detected (from tracked jump): {jumpSrcSec:F0}s → {jumpTgtSec:F0}s (src={jumpSrcSec:F0}s)");
-                }
-                else
-                {
-                    _logger.Info($"[IntroSkip] Tracked jump ignored: src={jumpSrcSec:F0}s exceeds maxIntro={maxIntroSec:F0}s");
+                    var jumpSrcSec = TimeSpan.FromTicks(jumpSrc.Value).TotalSeconds;
+                    var jumpTgtSec = TimeSpan.FromTicks(jumpTgt.Value).TotalSeconds;
+                    if (jumpSrcSec <= maxIntroSec)
+                    {
+                        Plugin.ChapterMarkerApi.UpdateIntro(episode, jumpSrc.Value, jumpTgt.Value);
+                        _logger.Info($"[IntroSkip] Intro detected: {jumpSrcSec:F0}s → {jumpTgtSec:F0}s (src={jumpSrcSec:F0}s)");
+                    }
+                    else
+                    {
+                        _logger.Info($"[IntroSkip] Tracked jump ignored: src={jumpSrcSec:F0}s exceeds maxIntro={maxIntroSec:F0}s");
+                    }
                 }
             }
-            else if (!data.IntroEnd.HasValue)
+            if (!data.IntroEnd.HasValue && !data.FirstJumpPositionTicks.HasValue && !data.LastBigJumpSourceTicks.HasValue)
             {
-                _logger.Info("[IntroSkip] OnPlaybackStopped: no tracked jump available");
+                _logger.Debug("[IntroSkip] OnPlaybackStopped: no tracked jump available");
             }
 
             // Detect credits from stop position (requires RunTimeTicks)
