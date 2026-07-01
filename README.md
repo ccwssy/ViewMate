@@ -219,7 +219,16 @@ dotnet build -c Release -o build ViewMate/ViewMate.csproj
 
 > ⚠️ 以下所有命令中的 `/config/data/library.db` 均为 **Emby 容器内部路径**，不可直接在宿主机 shell 执行。
 >
-> **正确用法**：在每条命令前加上 `docker exec <容器名>`。默认容器名为 `emby`（也有叫 `embyserver` 的，请根据实际情况替换）。
+> **方式一（推荐）：** `docker exec emby sqlite3 ...`（Emby 容器需内置 sqlite3，官方镜像默认不含，需自行 `apk add sqlite`）
+>
+> **方式二（宿主机）：** 找到 Emby config 的宿主机挂载点，直接用宿主机 sqlite3：
+> ```bash
+> # 先查挂载路径
+> docker inspect emby --format '{{range .Mounts}}{{.Source}} → {{.Destination}}{{"\n"}}{{end}}' | grep config
+> # 示例输出: /mnt/data/docker-data/emby → /config
+> # 然后用宿主机路径
+> sqlite3 /mnt/data/docker-data/emby/data/library.db "SELECT COUNT(*) FROM fts_search9;"
+> ```
 
 ### 验证拼音是否录入成功
 
