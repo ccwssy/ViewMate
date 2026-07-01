@@ -22,9 +22,5 @@ namespace ViewMate.Options
 
         [DisplayName("关于")]
         public AboutOptions AboutOptions { get; set; } = new AboutOptions();
-
-        public void Initialize()
-        {
-        }
     }
 }

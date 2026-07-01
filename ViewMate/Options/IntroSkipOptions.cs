@@ -30,9 +30,5 @@ namespace ViewMate.Options
         [Required]
         [VisibleCondition("EnableIntroSkip", SimpleCondition.IsTrue)]
         public bool EnableIntroBackfill { get; set; } = false;
-
-        public void Initialize()
-        {
-        }
     }
 }

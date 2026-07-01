@@ -18,9 +18,6 @@ namespace ViewMate.Options.View
             _store = store;
             ContentData = store.GetOptions();
 
-            PluginOptions.Initialize();
-            PluginOptions.IntroSkipOptions.Initialize();
-            PluginOptions.PinyinOptions.Initialize();
             PluginOptions.AboutOptions.Initialize();
 
             // Load values from PluginConfiguration

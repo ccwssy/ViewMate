@@ -13,8 +13,9 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using ViewMate.Common;
 
-#nullable disable
+#nullable enable
 namespace ViewMate.Pinyin
 {
     public class PinyinSearchService : IDisposable
@@ -27,11 +28,11 @@ namespace ViewMate.Pinyin
         private bool IsDisposed => Interlocked.CompareExchange(ref _disposed, 0, 0) == 1;
 
         // Static logger for Lazy initializers
-        private static ILogger _staticLogger;
+        private static ILogger _staticLogger = null!;
 
         // ── Event Queue ──
         private readonly ConcurrentQueue<Tuple<long, string>> _pendingEventQueue = new ConcurrentQueue<Tuple<long, string>>();
-        private Timer _eventTimer;
+        private Timer? _eventTimer;
         private int _eventTimerRunning;
         private const int EventBatchSize = 50;
         private const int EventTimerIntervalMs = 30000;
@@ -39,9 +40,7 @@ namespace ViewMate.Pinyin
         private static readonly Regex ChineseRegex = new Regex(@"[\u4e00-\u9fff]", RegexOptions.Compiled);
 
         // ── ConnectionManager cache ──
-        private object _connectionManager;
-        private MethodInfo _createConnectionMethod;
-        private readonly object _connectionManagerLock = new object();
+        private readonly ConnectionManagerCache _connectionCache;
 
         // ── Static caches (Lazy<T>, thread-safe) ──
         private static readonly Lazy<Dictionary<string, string>> _phraseOverridesLazy =
@@ -56,11 +55,8 @@ namespace ViewMate.Pinyin
         private const int BatchSize = 200;
         private const int MaxPendingTotal = 100000;
 
-        // ── Cancellation support ──
-        private CancellationTokenSource _disposeCts = new CancellationTokenSource();
-
         // ── Batch state ──
-        private long _lastScanId = 0;
+        private long _lastScanId;
         private DateTime _lastOrphanCleanup = DateTime.MinValue;
 
         public PinyinSearchService(ILibraryManager libraryManager, ILogger logger)
@@ -68,6 +64,7 @@ namespace ViewMate.Pinyin
             _libraryManager = libraryManager;
             _logger = logger;
             _staticLogger = logger;
+            _connectionCache = new ConnectionManagerCache(logger, "PinyinSearch");
 
             _libraryManager.ItemAdded += OnItemAdded;
             _libraryManager.ItemUpdated += OnItemUpdated;
@@ -122,76 +119,6 @@ namespace ViewMate.Pinyin
               AND mi.Name NOT GLOB '*Episode*'
               AND mi.Name NOT GLOB '*Media Folder*'";
 
-        // ── Connection management ──
-
-        private bool TryEnsureConnectionManager()
-        {
-            if (_connectionManager != null && _createConnectionMethod != null)
-                return true;
-
-            lock (_connectionManagerLock)
-            {
-                if (_connectionManager != null && _createConnectionMethod != null)
-                    return true;
-
-                for (int attempt = 0; attempt < 3; attempt++)
-                {
-                    try
-                    {
-                        var itemRepo = Plugin.Instance.ApplicationHost.Resolve<IItemRepository>();
-                        var type = itemRepo.GetType();
-                        while (type != null)
-                        {
-                            foreach (var f in type.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public))
-                            {
-                                var val = f.GetValue(itemRepo);
-                                if (val == null) continue;
-                                var fn = f.Name;
-                                if (fn.Contains("ConnectionManager") || fn == "_connectionManager" || fn == "ConnectionManager")
-                                {
-                                    _connectionManager = val;
-                                    _createConnectionMethod = val.GetType().GetMethod(
-                                        "CreateConnection", new[] { typeof(bool), typeof(CancellationToken) });
-                                    _logger.Info("[PinyinSearch] Cached ConnectionManager ({0})", fn);
-                                    return true;
-                                }
-                            }
-                            type = type.BaseType;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Warn("[PinyinSearch] Attempt {0} to find ConnectionManager failed: {1}", attempt + 1, ex.Message);
-                    }
-
-                    if (attempt < 2)
-                        Thread.Sleep(500);
-                }
-
-                _logger.Error("[PinyinSearch] Could not find ConnectionManager after retries");
-                return false;
-            }
-        }
-
-        private IDatabaseConnection OpenConnection(bool readOnly)
-        {
-            if (!TryEnsureConnectionManager())
-                return null;
-
-            try
-            {
-                return (IDatabaseConnection)_createConnectionMethod.Invoke(
-                    _connectionManager, new object[] { readOnly, CancellationToken.None });
-            }
-            catch (Exception ex)
-            {
-                _logger.Error("[PinyinSearch] OpenConnection({0}) failed: {1}", readOnly, ex.Message);
-                return null;
-            }
-        }
-
-        private IDatabaseConnection OpenReadConnection() => OpenConnection(true);
-        private IDatabaseConnection OpenWriteConnection() => OpenConnection(false);
 
         // ── Deferred background scan ──
 
@@ -241,11 +168,11 @@ namespace ViewMate.Pinyin
             count = 0;
             try
             {
-                using (var conn = OpenReadConnection())
+                using (var conn = _connectionCache.OpenReadConnection())
                 {
                     if (conn == null) return false;
 
-                    using (var stmt = conn.PrepareStatement(PendingCountQuery(_lastScanId)))
+                    using (var stmt = conn.PrepareStatement(PendingCountQuery(Volatile.Read(ref _lastScanId))))
                     {
                         if (stmt.MoveNext())
                             count = stmt.Current.GetInt64(0);
@@ -265,7 +192,7 @@ namespace ViewMate.Pinyin
             count = 0;
             try
             {
-                using (var conn = OpenReadConnection())
+                using (var conn = _connectionCache.OpenReadConnection())
                 {
                     if (conn == null) return false;
 
@@ -344,7 +271,7 @@ namespace ViewMate.Pinyin
         {
             try
             {
-                using (var conn = OpenReadConnection())
+                using (var conn = _connectionCache.OpenReadConnection())
                 {
                     if (conn == null) return -1;
                     using (var stmt = conn.PrepareStatement($"SELECT COUNT(*) FROM {FtsTableName}"))
@@ -365,7 +292,7 @@ namespace ViewMate.Pinyin
         {
             try
             {
-                using (var conn = OpenReadConnection())
+                using (var conn = _connectionCache.OpenReadConnection())
                 {
                     if (conn == null) return 0;
                     using (var stmt = conn.PrepareStatement($@"
@@ -413,7 +340,7 @@ namespace ViewMate.Pinyin
             long totalItems = 0;
             try
             {
-                using (var conn = OpenReadConnection())
+                using (var conn = _connectionCache.OpenReadConnection())
                 {
                     if (conn == null) return 0;
                     using (var stmt = conn.PrepareStatement(MediaItemsCountQuery()))
@@ -456,7 +383,7 @@ namespace ViewMate.Pinyin
 
         private int ProcessMediaItemsBatch(long offset, int limit)
         {
-            using (var conn = OpenWriteConnection())
+            using (var conn = _connectionCache.OpenWriteConnection())
             {
                 if (conn == null) return 0;
 
@@ -529,13 +456,13 @@ namespace ViewMate.Pinyin
         {
             try
             {
-                using (var conn = OpenReadConnection())
+                using (var conn = _connectionCache.OpenReadConnection())
                 {
                     if (conn == null) return;
                     using (var stmt = conn.PrepareStatement($"SELECT MAX(id) FROM {FtsTableName}_content"))
                     {
                         if (stmt.MoveNext() && !stmt.Current.IsDBNull(0))
-                            _lastScanId = stmt.Current.GetInt64(0);
+                            Volatile.Write(ref _lastScanId, stmt.Current.GetInt64(0));
                     }
                 }
             }
@@ -549,7 +476,7 @@ namespace ViewMate.Pinyin
         {
             try
             {
-                using (var conn = OpenWriteConnection())
+                using (var conn = _connectionCache.OpenWriteConnection())
                 {
                     if (conn == null) return;
                     conn.Execute(
@@ -565,14 +492,14 @@ namespace ViewMate.Pinyin
 
         private int ProcessBatch(long offset, int limit)
         {
-            using (var conn = OpenWriteConnection())
+            using (var conn = _connectionCache.OpenWriteConnection())
             {
                 if (conn == null) return 0;
 
                 try
                 {
                     var rows = new List<Tuple<long, string>>();
-                    var query = PendingQuery(_lastScanId) + $" LIMIT {limit} OFFSET {offset}";
+                    var query = PendingQuery(Volatile.Read(ref _lastScanId)) + $" LIMIT {limit} OFFSET {offset}";
                     using (var stmt = conn.PrepareStatement(query))
                     {
                         while (stmt.MoveNext())
@@ -673,7 +600,7 @@ namespace ViewMate.Pinyin
 
         private int ProcessCatchUpBatch(int offset)
         {
-            using (var conn = OpenWriteConnection())
+            using (var conn = _connectionCache.OpenWriteConnection())
             {
                 if (conn == null) return 0;
 
@@ -783,7 +710,7 @@ namespace ViewMate.Pinyin
             var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
             if (string.IsNullOrEmpty(spaced)) return false;
 
-            using (var connection = OpenWriteConnection())
+            using (var connection = _connectionCache.OpenWriteConnection())
             {
                 if (connection == null) return false;
 
@@ -813,7 +740,7 @@ namespace ViewMate.Pinyin
                     {
                         var id = item.InternalId;
                         var sql = BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album);
-                        _logger.Info("[PinyinSearch] DEBUG SQL for {0} (len={1}): {2}", id, sql.Length, sql.Substring(0, Math.Min(sql.Length, 200)));
+                        _logger.Debug("[PinyinSearch] DEBUG SQL for {0} (len={1}): {2}", id, sql.Length, sql.Substring(0, Math.Min(sql.Length, 200)));
                         connection.Execute(sql);
                         connection.CommitTransaction();
                     }
@@ -849,7 +776,7 @@ namespace ViewMate.Pinyin
 
         public static (string spaced, string connected, string bigrams, string singleChars, string cjkBigrams) GeneratePinyin(string text)
         {
-            if (string.IsNullOrEmpty(text)) return (null, null, null, null, null);
+            if (string.IsNullOrEmpty(text)) return (null!, null!, null!, null!, null!);
 
             var sbSpaced = new StringBuilder();
             var sbConnected = new StringBuilder();
@@ -862,7 +789,7 @@ namespace ViewMate.Pinyin
                 char ch = text[i];
                 if (ch >= 0x4e00 && ch <= 0x9fff)
                 {
-                    string matchedPhrase = null;
+                    string? matchedPhrase = null;
                     int matchLen = 0;
                     var overrides = _phraseOverridesLazy.Value;
                     foreach (var kvp in overrides)
@@ -914,7 +841,7 @@ namespace ViewMate.Pinyin
                 i++;
             }
 
-            if (!hasChinese) return (null, null, null, null, null);
+            if (!hasChinese) return (null!, null!, null!, null!, null!);
 
             var sbBigram = new StringBuilder();
             for (int i = 0; i + 1 < syllables.Count; i++)
@@ -945,7 +872,7 @@ namespace ViewMate.Pinyin
         }
 
         // ── Zero-SQL Event Handlers ──
-        private void OnItemAdded(object sender, ItemChangeEventArgs e)
+        private void OnItemAdded(object? sender, ItemChangeEventArgs e)
         {
             if (e.Item != null && !IsDisposed && IsCjkItem(e.Item))
             {
@@ -954,7 +881,7 @@ namespace ViewMate.Pinyin
             }
         }
 
-        private void OnItemUpdated(object sender, ItemChangeEventArgs e)
+        private void OnItemUpdated(object? sender, ItemChangeEventArgs e)
         {
             if (e.Item != null && !IsDisposed && IsCjkItem(e.Item))
             {
@@ -978,7 +905,7 @@ namespace ViewMate.Pinyin
                 return;
             }
 
-            using (var connection = OpenWriteConnection())
+            using (var connection = _connectionCache.OpenWriteConnection())
             {
                 if (connection == null)
                 {
@@ -1058,9 +985,6 @@ namespace ViewMate.Pinyin
             if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0)
                 return;
 
-            _disposeCts?.Cancel();
-            _disposeCts?.Dispose();
-
             _eventTimer?.Dispose();
             _eventTimer = null;
 
@@ -1115,7 +1039,7 @@ namespace ViewMate.Pinyin
                 "../plugins/TinyPinyin.dll",
             };
 
-            Assembly asm = null;
+            Assembly? asm = null;
             foreach (var path in probePaths)
             {
                 if (File.Exists(path))
@@ -1129,7 +1053,13 @@ namespace ViewMate.Pinyin
                 throw new FileNotFoundException("TinyPinyin.dll not found in any probe path");
 
             var helperType = asm.GetType("TinyPinyin.PinyinHelper");
+            if (helperType == null)
+                throw new FileNotFoundException("TinyPinyin.PinyinHelper type not found");
+
             var method = helperType.GetMethod("GetPinyin", new[] { typeof(char) });
+            if (method == null)
+                throw new MissingMethodException("GetPinyin method not found");
+
             return (Func<char, string>)Delegate.CreateDelegate(
                 typeof(Func<char, string>), null, method);
         }

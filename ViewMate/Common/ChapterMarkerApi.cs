@@ -4,6 +4,7 @@ using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Logging;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -15,7 +16,7 @@ namespace ViewMate.Common
         private readonly IItemRepository _itemRepository;
         private readonly ILibraryManager _libraryManager;
 
-        private const string MarkerSuffix = "#ECS";
+        private const string MarkerSuffix = "#ECS"; // sentinel suffix — IntroBackfillService depends on this via LIKE '%#ECS%'
 
         public ChapterMarkerApi(ILibraryManager libraryManager, IItemRepository itemRepository, ILogger logger)
         {
@@ -133,8 +134,9 @@ namespace ViewMate.Common
             {
                 return _itemRepository.GetChapters(item).ToList();
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.Warn("[ChapterMarkerApi] GetChapters failed for {0}: {1}", item.Name, ex.Message);
                 // Fallback: return empty list on API mismatch
                 return new List<ChapterInfo>();
             }
