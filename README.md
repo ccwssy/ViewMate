@@ -217,31 +217,30 @@ dotnet build -c Release -o build ViewMate/ViewMate.csproj
 
 ## 数据库维护
 
-> ⚠️ 以下所有命令中的 `/config/data/library.db` 均为 **Emby 容器内部路径**，不可直接在宿主机 shell 执行。
->
-> **方式一（推荐）：** `docker exec emby sqlite3 ...`（Emby 容器需内置 sqlite3，官方镜像默认不含，需自行 `apk add sqlite`）
->
-> **方式二（宿主机）：** 找到 Emby config 的宿主机挂载点，然后用宿主机的 sqlite3 直接操作：
-> ```bash
-> # 先查挂载路径
-> docker inspect emby --format '{{range .Mounts}}{{.Source}} → {{.Destination}}{{"\n"}}{{end}}' | grep config
-> # 取 Source 列，替换下文中的 <宿主机config路径>
-> sqlite3 <宿主机config路径>/data/library.db "SELECT COUNT(*) FROM fts_search9;"
-> ```
+Emby 的数据库位于容器内部 `/config/data/library.db`，但官方镜像**不含 sqlite3 客户端**。需要先找到宿主机挂载路径，用宿主机的 sqlite3 直接操作。
+
+### 前置：查找宿主机路径
+
+```bash
+docker inspect emby --format '{{range .Mounts}}{{.Source}} → {{.Destination}}{{"\n"}}{{end}}' | grep config
+```
+
+取输出中 `→` 左侧的路径，记为 `<config路径>`。后续所有命令都使用该路径。
+
+例：输出为 `/mnt/data/emby-config → /config`，则 `<config路径>` = `/mnt/data/emby-config`。
 
 ### 验证拼音是否录入成功
 
 ```bash
 # 查看 FTS 记录总数
-docker exec emby sqlite3 /config/data/library.db \
-  "SELECT COUNT(*) FROM fts_search9;"
+sqlite3 <config路径>/data/library.db "SELECT COUNT(*) FROM fts_search9;"
 
 # 测试拼音搜索（dianying → 电影）
-docker exec emby sqlite3 /config/data/library.db \
+sqlite3 <config路径>/data/library.db \
   "SELECT Name FROM fts_search9 WHERE fts_search9 MATCH 'dianying' LIMIT 5;"
 
 # 查看一条完整拼音记录
-docker exec emby sqlite3 /config/data/library.db \
+sqlite3 <config路径>/data/library.db \
   "SELECT substr(c0,1,120) FROM fts_search9_content LIMIT 1;"
 ```
 
@@ -250,10 +249,10 @@ docker exec emby sqlite3 /config/data/library.db \
 ### 验证数据库是否损坏
 
 ```bash
-docker exec emby sqlite3 /config/data/library.db "PRAGMA integrity_check;"
+sqlite3 <config路径>/data/library.db "PRAGMA integrity_check;"
 ```
 
-输出 `ok` 表示数据库完好。如果出现 `database corruption`、`out of order`、`btreeInitPage() returns error code 11` 等均表示数据库损坏。
+输出 `ok` 表示完好。出现 `database corruption`、`btreeInitPage() returns error code 11` 等表示损坏。
 
 ### 修复损坏的数据库
 
@@ -263,19 +262,17 @@ docker exec emby sqlite3 /config/data/library.db "PRAGMA integrity_check;"
 # 1. 停 Emby（防止写入冲突）
 docker stop emby
 
-# 2. 备份损坏的库
-docker run --rm -v emby-config:/config alpine cp /config/data/library.db /config/data/library.db.bak
-# 或者如果 config 是宿主机挂载目录，直接用宿主机路径 cp
+# 2. 备份
+cp <config路径>/data/library.db <config路径>/data/library.db.bak
 
-# 3. 使用 .recover 从损坏的库中提取所有可恢复数据
-docker exec emby sqlite3 /config/data/library.db ".recover" > /tmp/recover.sql
+# 3. 使用 .recover 提取可恢复数据
+sqlite3 <config路径>/data/library.db ".recover" > /tmp/recover.sql
 
-# 4. 重建干净的库
-docker exec -i emby sqlite3 /config/data/library-recovered.db < /tmp/recover.sql
+# 4. 重建干净库
+sqlite3 <config路径>/data/library-recovered.db < /tmp/recover.sql
 
-# 5. 修复 FTS 虚拟表（.recover 不会重建 FTS5 virtual table）
-#    如果修复后 FTS5 无法使用，需删除 shadow tables 并重建空 FTS：
-docker exec emby sqlite3 /config/data/library-recovered.db "
+# 5. 重建 FTS 虚拟表（.recover 不会重建 FTS5）
+sqlite3 <config路径>/data/library-recovered.db "
 DROP TABLE IF EXISTS fts_search9;
 DROP TABLE IF EXISTS fts_search9_data;
 DROP TABLE IF EXISTS fts_search9_idx;
@@ -283,7 +280,7 @@ DROP TABLE IF EXISTS fts_search9_content;
 DROP TABLE IF EXISTS fts_search9_docsize;
 DROP TABLE IF EXISTS fts_search9_config;
 "
-docker exec emby sqlite3 /config/data/library-recovered.db "
+sqlite3 <config路径>/data/library-recovered.db "
 CREATE VIRTUAL TABLE fts_search9 USING FTS5(
     Name, OriginalTitle, SeriesName, Album,
     tokenize='unicode61 remove_diacritics 2',
@@ -292,25 +289,17 @@ CREATE VIRTUAL TABLE fts_search9 USING FTS5(
 "
 
 # 6. 验证新库
-docker exec emby sqlite3 /config/data/library-recovered.db "PRAGMA integrity_check;"
+sqlite3 <config路径>/data/library-recovered.db "PRAGMA integrity_check;"
 # 应输出: ok
 
-# 7. 替换原库
-docker exec emby mv /config/data/library-recovered.db /config/data/library.db
+# 7. 替换
+mv <config路径>/data/library-recovered.db <config路径>/data/library.db
 
 # 8. 启动 Emby
 docker start emby
 ```
 
-启动后插件会自动检测 FTS 为空并全量重建拼音，约 30~60 秒完成。中间首页可正常加载，后台无阻塞。
-
-### 非 Docker 用户替代命令
-
-如果 Emby 安装在宿主机（裸机/Win），/config/data/library.db 是实际的宿主机路径，直接执行：
-
-```bash
-sqlite3 /path/to/emby/data/library.db "SELECT COUNT(*) FROM fts_search9;"
-```
+启动后插件会自动检测 FTS 为空并全量重建拼音，约 30~60 秒完成。首页正常加载，后台无阻塞。
 
 ## 注意事项
 
