@@ -7,6 +7,7 @@ using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Session;
 using System;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace ViewMate.IntroSkip
 {
@@ -29,13 +30,13 @@ namespace ViewMate.IntroSkip
             = new ConcurrentDictionary<string, PlaySessionData>();
 
         private readonly object _configLock = new object();
-        private bool _disposed;
+        private int _disposed;
+        private bool IsDisposed => Interlocked.CompareExchange(ref _disposed, 0, 0) == 1;
 
         // ── config overrides (thread-safe via _configLock) ──
 
         private long _maxIntroDurationTicks = TimeSpan.FromSeconds(150).Ticks;
         private long _maxCreditsDurationTicks = TimeSpan.FromSeconds(180).Ticks;
-        private bool _allLibrariesEnabled = true;
         private string _clientFilter = "";
 
         public long MaxIntroDurationTicks
@@ -50,14 +51,6 @@ namespace ViewMate.IntroSkip
             set { lock (_configLock) _maxCreditsDurationTicks = value; }
         }
 
-        /// <summary>When true, all TV libraries are in scope.</summary>
-        public bool AllLibrariesEnabled
-        {
-            get { lock (_configLock) return _allLibrariesEnabled; }
-            set { lock (_configLock) _allLibrariesEnabled = value; }
-        }
-
-        /// <summary>Substring match on client name — empty means all clients.</summary>
         public string ClientFilter
         {
             get { lock (_configLock) return _clientFilter ?? ""; }
@@ -87,7 +80,7 @@ namespace ViewMate.IntroSkip
 
         protected virtual void Dispose(bool disposing)
         {
-            if (_disposed) return;
+            if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
             if (disposing)
             {
                 _sessionManager.PlaybackStart -= OnPlaybackStart;
@@ -95,7 +88,6 @@ namespace ViewMate.IntroSkip
                 _sessionManager.PlaybackStopped -= OnPlaybackStopped;
                 _sessions.Clear();
             }
-            _disposed = true;
             _logger.Info("[IntroSkip] PlaySessionMonitor stopped");
         }
 
@@ -421,9 +413,6 @@ namespace ViewMate.IntroSkip
 
         public bool IsLibraryInScope(BaseItem item)
         {
-            bool allEnabled;
-            lock (_configLock) { allEnabled = _allLibrariesEnabled; }
-            if (allEnabled) return item is Episode;
             return item is Episode;
         }
     }
