@@ -56,11 +56,8 @@ namespace ViewMate.Pinyin
         private const int BatchSize = 200;
         private const int MaxPendingTotal = 100000;
 
-        // ── Cancellation support ──
-        private CancellationTokenSource _disposeCts = new CancellationTokenSource();
-
         // ── Batch state ──
-        private long _lastScanId = 0;
+        private long _lastScanId;
         private DateTime _lastOrphanCleanup = DateTime.MinValue;
 
         public PinyinSearchService(ILibraryManager libraryManager, ILogger logger)
@@ -245,7 +242,7 @@ namespace ViewMate.Pinyin
                 {
                     if (conn == null) return false;
 
-                    using (var stmt = conn.PrepareStatement(PendingCountQuery(_lastScanId)))
+                    using (var stmt = conn.PrepareStatement(PendingCountQuery(Volatile.Read(ref _lastScanId))))
                     {
                         if (stmt.MoveNext())
                             count = stmt.Current.GetInt64(0);
@@ -535,7 +532,7 @@ namespace ViewMate.Pinyin
                     using (var stmt = conn.PrepareStatement($"SELECT MAX(id) FROM {FtsTableName}_content"))
                     {
                         if (stmt.MoveNext() && !stmt.Current.IsDBNull(0))
-                            _lastScanId = stmt.Current.GetInt64(0);
+                            Volatile.Write(ref _lastScanId, stmt.Current.GetInt64(0));
                     }
                 }
             }
@@ -572,7 +569,7 @@ namespace ViewMate.Pinyin
                 try
                 {
                     var rows = new List<Tuple<long, string>>();
-                    var query = PendingQuery(_lastScanId) + $" LIMIT {limit} OFFSET {offset}";
+                    var query = PendingQuery(Volatile.Read(ref _lastScanId)) + $" LIMIT {limit} OFFSET {offset}";
                     using (var stmt = conn.PrepareStatement(query))
                     {
                         while (stmt.MoveNext())
@@ -813,7 +810,7 @@ namespace ViewMate.Pinyin
                     {
                         var id = item.InternalId;
                         var sql = BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album);
-                        _logger.Info("[PinyinSearch] DEBUG SQL for {0} (len={1}): {2}", id, sql.Length, sql.Substring(0, Math.Min(sql.Length, 200)));
+                        _logger.Debug("[PinyinSearch] DEBUG SQL for {0} (len={1}): {2}", id, sql.Length, sql.Substring(0, Math.Min(sql.Length, 200)));
                         connection.Execute(sql);
                         connection.CommitTransaction();
                     }
@@ -1057,9 +1054,6 @@ namespace ViewMate.Pinyin
         {
             if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0)
                 return;
-
-            _disposeCts?.Cancel();
-            _disposeCts?.Dispose();
 
             _eventTimer?.Dispose();
             _eventTimer = null;

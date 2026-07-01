@@ -31,7 +31,7 @@
   <ItemGroup>
     <PackageReference Include="mediabrowser.server.core" Version="4.9.1.90" />
     <PackageReference Include="SQLitePCL.pretty.core" Version="1.2.2" />
-    <PackageReference Include="TinyPinyin" Version="1.1.0" />
+    <PackageReference Include="TinyPinyin" Version="1.1.0" /> <!-- runtime reflection only, no compile-time dependency -->
   </ItemGroup>
 
   <ItemGroup>

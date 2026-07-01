@@ -12,9 +12,5 @@ namespace ViewMate.IntroSkip
         [Description("启动时自动检测缺少片头片尾标记的剧集，从同季已有标记的集复制补打")]
         [Required]
         public bool EnableIntroBackfill { get; set; } = false;
-
-        public void Initialize()
-        {
-        }
     }
 }
