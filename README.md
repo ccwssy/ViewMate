@@ -221,13 +221,12 @@ dotnet build -c Release -o build ViewMate/ViewMate.csproj
 >
 > **方式一（推荐）：** `docker exec emby sqlite3 ...`（Emby 容器需内置 sqlite3，官方镜像默认不含，需自行 `apk add sqlite`）
 >
-> **方式二（宿主机）：** 找到 Emby config 的宿主机挂载点，直接用宿主机 sqlite3：
+> **方式二（宿主机）：** 找到 Emby config 的宿主机挂载点，然后用宿主机的 sqlite3 直接操作：
 > ```bash
 > # 先查挂载路径
 > docker inspect emby --format '{{range .Mounts}}{{.Source}} → {{.Destination}}{{"\n"}}{{end}}' | grep config
-> # 示例输出: /mnt/data/docker-data/emby → /config
-> # 然后用宿主机路径
-> sqlite3 /mnt/data/docker-data/emby/data/library.db "SELECT COUNT(*) FROM fts_search9;"
+> # 取 Source 列，替换下文中的 <宿主机config路径>
+> sqlite3 <宿主机config路径>/data/library.db "SELECT COUNT(*) FROM fts_search9;"
 > ```
 
 ### 验证拼音是否录入成功
