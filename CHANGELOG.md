@@ -2,7 +2,8 @@
 
 | 版本 | 日期 | 变更内容 |
 |------|------|---------|
-| **v1.2.16.6** | 2026-06-30 | **修复 ChineseRegex 正则错误** — `@"[\\u4e00-\\u9fff]"` 的双反斜杠导致 regex 匹配的是 ASCII 范围 `0`–`\`（数字和英文大写），而非真正的 CJK 范围。纯中文名条目被 `IsCjkItem()` 误判为 false，不入事件队列；有年份数字的条目入队后 `GeneratePinyin()` 因正确硬编码判断无中文而返回 null → SKIP。现修正为 `@"[\u4e00-\u9fff]"`。 |
+| **v1.2.16.17** | 2026-07-01 | **添加周期性后台扫描定时器** — `ProcessPeriodicScan()` 每5分钟触发，先跑 CatchUp 全量补漏（低ID老旧FTS条目）再跑增量；修复 `ProcessCatchUpBatch` 中 `_processedCatchUpIds` 在 GeneratePinyin 前就添加ID导致拼音失败的条目永不重试的 bug。 |
+| **v1.2.16.16** | 2026-06-30 | **代码洁癖 — 死代码清理、线程安全、连接提取** — PinyinSearchService 清理死代码和注释；ProcessCatchUpBatch 提取为单独方法；`Volatile.Read/Write` 保护 `_lastScanId`；`ConnectionManagerCache` 提取到 Common 命名空间与 IntroBackfill 共享。 |
 | **v1.2.16.4** | 2026-06-30 | **修复陈旧 FTS 条目检测遗漏** — `GetMissingMediaItemsCount()` 和 `CatchUpQuery`/`CatchUpCountQuery` 增加 `c.c0 NOT GLOB '*[A-Z]*'` 检测，可识别"有 FTS 但无拼音"的陈旧条目并触发重新注入；CatchUp 查询从 `FTS_content JOIN MediaItems` 改为 `MediaItems LEFT JOIN FTS_content`，确保完全未被 FTS 覆盖的条目也能被扫描到。|
 | **v1.2.16.3** | 2026-06-30 | **修复 Plugin.Run() 同步阻塞致首页卡死** — 删除 `ProcessAllPendingDeferred()` 中残留的 sync retry 循环（120 次 × 1s + `ProcessFullReindex()` 同步执行），全部交由后台 Thread 处理。后台 Thread 已使用 `Thread.Sleep` + `IsDisposed` 检查，不会被 Dispose 杀死。`Plugin.Run()` 耗时从 30~120s 降至 0.065s。 |
 | **v1.2.16.2** | 2026-06-30 | **修复后台线程被 Dispose 杀死 + FTS 为空检测修正** — `Task.Delay` 改为 `Thread.Sleep` 避免 Emby 单线程上下文死锁；`GetFtsTotalCount()` 失败时返回 -1，`<=0` 检测代替 `==0` 确保空 FTS 触发重建。 |

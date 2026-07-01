@@ -36,6 +36,10 @@ namespace ViewMate.Pinyin
         private int _eventTimerRunning;
         private const int EventBatchSize = 50;
         private const int EventTimerIntervalMs = 30000;
+        private const int PeriodicScanIntervalMs = 300000; // 5 minutes
+
+        // ── Periodic background scan ──
+        private Timer? _periodicTimer;
 
         private static readonly Regex ChineseRegex = new Regex(@"[\u4e00-\u9fff]", RegexOptions.Compiled);
 
@@ -155,6 +159,18 @@ namespace ViewMate.Pinyin
                     {
                         _logger.Error("[PinyinSearch] Catch-up scan failed", ex);
                     }
+
+                    // Start periodic timer for catch-up scans after initial scan completes.
+                    // This catches items added by library scans that don't fire ItemAdded/Updated events.
+                    if (!IsDisposed)
+                    {
+                        _logger.Info("[PinyinSearch] Starting periodic scan every 5 minutes...");
+                        _periodicTimer = new Timer(
+                            _ => ProcessPeriodicScan(),
+                            null,
+                            PeriodicScanIntervalMs,
+                            PeriodicScanIntervalMs);
+                    }
                 }
             });
             scanThread.IsBackground = true;
@@ -264,6 +280,37 @@ namespace ViewMate.Pinyin
 
             UpdateLastScanId();
             return totalProcessed;
+        }
+
+        // ── Periodic background scan callback ──
+        // Runs catch-up scan first (catches ALL stale entries regardless of ID),
+        // then incremental scan for any new items added since the last run.
+        private void ProcessPeriodicScan()
+        {
+            if (IsDisposed) return;
+
+            try
+            {
+                int total = 0;
+
+                // Phase 1: catch-up scan — processes all stale entries (any ID)
+                if (TryGetCatchUpCount(out long catchUpCount) && catchUpCount > 0)
+                {
+                    _logger.Info("[PinyinSearch] Periodic catch-up: {0} stale entries", catchUpCount);
+                    total += ProcessCatchUpBatched();
+                }
+
+                // Phase 2: incremental scan — new items since last scan
+                int incremental = ProcessAllPendingBatched();
+                total += incremental;
+
+                if (total > 0)
+                    _logger.Info("[PinyinSearch] Periodic scan: {0} items processed", total);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("[PinyinSearch] Periodic scan failed", ex);
+            }
         }
 
         // ── Empty-FTS fallback ──
@@ -638,18 +685,25 @@ namespace ViewMate.Pinyin
                                 string name = row.Item2;
 
                                 // Track processed to avoid re-processing on next cycle
-                                bool alreadyProcessed;
-                                lock (_processedCatchUpLock)
+                                var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
+                                if (string.IsNullOrEmpty(spaced))
                                 {
-                                    alreadyProcessed = _processedCatchUpIds.Contains((int)id);
-                                    if (!alreadyProcessed)
+                                    lock (_processedCatchUpLock)
                                         _processedCatchUpIds.Add((int)id);
+                                    continue;
                                 }
 
-                                if (alreadyProcessed) continue;
+                                bool alreadyProcessed;
+                                lock (_processedCatchUpLock)
+                                    alreadyProcessed = _processedCatchUpIds.Contains((int)id);
+                                if (alreadyProcessed)
+                                {
+                                    _logger.Debug("[PinyinSearch] CatchUp skip already processed: id={0}", id);
+                                    continue;
+                                }
 
-                                var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
-                                if (string.IsNullOrEmpty(spaced)) continue;
+                                lock (_processedCatchUpLock)
+                                    _processedCatchUpIds.Add((int)id);
 
                                 string origTitle = "", seriesName = "", album = "";
                                 try
@@ -987,6 +1041,9 @@ namespace ViewMate.Pinyin
 
             _eventTimer?.Dispose();
             _eventTimer = null;
+
+            _periodicTimer?.Dispose();
+            _periodicTimer = null;
 
             if (_libraryManager != null)
             {
