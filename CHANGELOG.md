@@ -3,7 +3,7 @@
 | 版本 | 日期 | 变更内容 |
 |------|------|---------|
 | **v1.2.16.6** | 2026-06-30 | **修复 ChineseRegex 正则错误** — `@"[\\u4e00-\\u9fff]"` 的双反斜杠导致 regex 匹配的是 ASCII 范围 `0`–`\`（数字和英文大写），而非真正的 CJK 范围。纯中文名条目被 `IsCjkItem()` 误判为 false，不入事件队列；有年份数字的条目入队后 `GeneratePinyin()` 因正确硬编码判断无中文而返回 null → SKIP。现修正为 `@"[\u4e00-\u9fff]"`。 |
-|| **v1.2.16.4** | 2026-06-30 | **修复陈旧 FTS 条目检测遗漏** — `GetMissingMediaItemsCount()` 和 `CatchUpQuery`/`CatchUpCountQuery` 增加 `c.c0 NOT GLOB '*[A-Z]*'` 检测，可识别"有 FTS 但无拼音"的陈旧条目并触发重新注入；CatchUp 查询从 `FTS_content JOIN MediaItems` 改为 `MediaItems LEFT JOIN FTS_content`，确保完全未被 FTS 覆盖的条目也能被扫描到。|
+| **v1.2.16.4** | 2026-06-30 | **修复陈旧 FTS 条目检测遗漏** — `GetMissingMediaItemsCount()` 和 `CatchUpQuery`/`CatchUpCountQuery` 增加 `c.c0 NOT GLOB '*[A-Z]*'` 检测，可识别"有 FTS 但无拼音"的陈旧条目并触发重新注入；CatchUp 查询从 `FTS_content JOIN MediaItems` 改为 `MediaItems LEFT JOIN FTS_content`，确保完全未被 FTS 覆盖的条目也能被扫描到。|
 | **v1.2.16.3** | 2026-06-30 | **修复 Plugin.Run() 同步阻塞致首页卡死** — 删除 `ProcessAllPendingDeferred()` 中残留的 sync retry 循环（120 次 × 1s + `ProcessFullReindex()` 同步执行），全部交由后台 Thread 处理。后台 Thread 已使用 `Thread.Sleep` + `IsDisposed` 检查，不会被 Dispose 杀死。`Plugin.Run()` 耗时从 30~120s 降至 0.065s。 |
 | **v1.2.16.2** | 2026-06-30 | **修复后台线程被 Dispose 杀死 + FTS 为空检测修正** — `Task.Delay` 改为 `Thread.Sleep` 避免 Emby 单线程上下文死锁；`GetFtsTotalCount()` 失败时返回 -1，`<=0` 检测代替 `==0` 确保空 FTS 触发重建。 |
 | **v1.2.15.0** | 2026-06-28 | **基于 v1.2.14.4 重构 — 重写 PinyinSearchService** — 全量重构 PinyinSearchService（365 行插入/350 行删除）；`_disposed` 改为 `int` + `Interlocked` 原子操作；连接管理器反射缓存重构（Create/OpenRead/OpenWrite 统一管理）；词组多音字校正重构为 `Lazy<T>` 加载；合并 v1.2.14.5 连接泄漏修复。 |
