@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net6.0</TargetFrameworks>
-<Version>1.2.16.14</Version>
+<Version>1.2.16.16</Version>
 	  <AssemblyVersion>$(Version)</AssemblyVersion>
 	  <FileVersion>$(Version)</FileVersion>
     <CopyLocalLockFileAssemblies>True</CopyLocalLockFileAssemblies>
@@ -31,7 +31,7 @@
   <ItemGroup>
     <PackageReference Include="mediabrowser.server.core" Version="4.9.1.90" />
     <PackageReference Include="SQLitePCL.pretty.core" Version="1.2.2" />
-    <PackageReference Include="TinyPinyin" Version="1.1.0" />
+    <PackageReference Include="TinyPinyin" Version="1.1.0" /> <!-- runtime reflection only, no compile-time dependency -->
   </ItemGroup>
 
   <ItemGroup>

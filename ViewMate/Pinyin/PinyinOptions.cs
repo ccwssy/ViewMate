@@ -12,9 +12,5 @@ namespace ViewMate.Pinyin
         [Description("自动为新入库的中文媒体生成拼音索引，支持拼音搜索")]
         [Required]
         public bool EnablePinyinSearch { get; set; } = true;
-
-        public void Initialize()
-        {
-        }
     }
 }
