@@ -13,88 +13,14 @@ namespace ViewMate.IntroSkip
     {
         private readonly ILogger _logger;
         private readonly ChapterMarkerApi _chapterMarkerApi;
-
-        // ── ConnectionManager cache (same pattern as PinyinSearchService) ──
-        private object _connectionManager;
-        private MethodInfo _createConnectionMethod;
-        private readonly object _connectionManagerLock = new object();
+        private readonly ConnectionManagerCache _connectionCache;
 
         public IntroBackfillService(ChapterMarkerApi chapterMarkerApi, ILogger logger)
         {
             _chapterMarkerApi = chapterMarkerApi;
             _logger = logger;
+            _connectionCache = new ConnectionManagerCache(logger, "IntroBackfill");
         }
-
-        // ── Connection management ──
-
-        private bool TryEnsureConnectionManager()
-        {
-            if (_connectionManager != null && _createConnectionMethod != null)
-                return true;
-
-            lock (_connectionManagerLock)
-            {
-                if (_connectionManager != null && _createConnectionMethod != null)
-                    return true;
-
-                for (int attempt = 0; attempt < 3; attempt++)
-                {
-                    try
-                    {
-                        var itemRepo = Plugin.Instance.ApplicationHost.Resolve<IItemRepository>();
-                        var type = itemRepo.GetType();
-                        while (type != null)
-                        {
-                            foreach (var f in type.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public))
-                            {
-                                var val = f.GetValue(itemRepo);
-                                if (val == null) continue;
-                                var fn = f.Name;
-                                if (fn.Contains("ConnectionManager") || fn == "_connectionManager" || fn == "ConnectionManager")
-                                {
-                                    _connectionManager = val;
-                                    _createConnectionMethod = val.GetType().GetMethod(
-                                        "CreateConnection", new[] { typeof(bool), typeof(CancellationToken) });
-                                    _logger.Info("[IntroBackfill] Cached ConnectionManager ({0})", fn);
-                                    return true;
-                                }
-                            }
-                            type = type.BaseType;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Warn("[IntroBackfill] Attempt {0} to find ConnectionManager failed: {1}", attempt + 1, ex.Message);
-                    }
-
-                    if (attempt < 2)
-                        Thread.Sleep(500);
-                }
-
-                _logger.Error("[IntroBackfill] Could not find ConnectionManager after retries");
-                return false;
-            }
-        }
-
-        private IDatabaseConnection OpenConnection(bool readOnly)
-        {
-            if (!TryEnsureConnectionManager())
-                return null;
-
-            try
-            {
-                return (IDatabaseConnection)_createConnectionMethod.Invoke(
-                    _connectionManager, new object[] { readOnly, CancellationToken.None });
-            }
-            catch (Exception ex)
-            {
-                _logger.Error("[IntroBackfill] OpenConnection({0}) failed: {1}", readOnly, ex.Message);
-                return null;
-            }
-        }
-
-        private IDatabaseConnection OpenReadConnection() => OpenConnection(true);
-        private IDatabaseConnection OpenWriteConnection() => OpenConnection(false);
 
         // ── Backfill logic ──
 
@@ -110,7 +36,7 @@ namespace ViewMate.IntroSkip
 
             // Phase 1: read — discover series with existing markers
             var seriesIds = new List<long>();
-            using (var conn = OpenReadConnection())
+            using (var conn = _connectionCache.OpenReadConnection())
             {
                 if (conn == null) return 0;
 
@@ -140,7 +66,7 @@ namespace ViewMate.IntroSkip
             {
                 // Phase 2: read — get episodes for this series
                 var episodes = new List<Tuple<long, string, int?, int?>>();
-                using (var conn = OpenReadConnection())
+                using (var conn = _connectionCache.OpenReadConnection())
                 {
                     if (conn == null) continue;
 
@@ -193,7 +119,7 @@ namespace ViewMate.IntroSkip
 
                     foreach (var ep in eps)
                     {
-                        using (var conn = OpenReadConnection())
+                        using (var conn = _connectionCache.OpenReadConnection())
                         {
                             if (conn == null) break;
 
@@ -235,7 +161,7 @@ namespace ViewMate.IntroSkip
                     // Phase 4: write — backfill missing markers in the season
                     foreach (var ep in eps)
                     {
-                        using (var conn = OpenWriteConnection())
+                        using (var conn = _connectionCache.OpenWriteConnection())
                         {
                             if (conn == null) continue;
 

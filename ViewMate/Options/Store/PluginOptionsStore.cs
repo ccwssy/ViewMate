@@ -10,19 +10,11 @@ namespace ViewMate.Options.Store
 {
     public class PluginOptionsStore : SimpleFileStore<PluginOptions>
     {
-        private readonly ILogger _logger;
-
         public PluginOptionsStore(IApplicationHost applicationHost, ILogger logger, string pluginFullName)
             : base(applicationHost, logger, pluginFullName)
         {
-            _logger = logger;
-            FileSaved += OnFileSaved;
         }
 
         public PluginOptions PluginOptions => GetOptions();
-
-        private void OnFileSaved(object sender, FileSavedEventArgs e)
-        {
-        }
     }
 }
