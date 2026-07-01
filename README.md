@@ -303,10 +303,6 @@ docker start emby
 
 ## 注意事项
 
-### ARM64 Synology DSM 卡死（v1.2.12.0 及之前）
-
-**已修复**（v1.2.13.0）。根因：`ProcessAllPending()` 在 `Plugin.Run()` 中同步执行，使用 `TransactionMode.Immediate` 抢占 SQLite 写锁后一次性处理最多 5000 条并做 FTS rebuild。在 ARM64 慢 CPU 上锁持续 30~55 秒，阻塞 Emby HTTP → Web UI 卡死。修复后后台分批处理，每批 200 条提交释放锁，首页秒开。
-
 ### 卡点：SQLite ≥ 3.45 无 simple tokenizer
 
 旧版 EnhanceChineseSearch 依赖 `libsimple.so` 替换 FTS tokenizer。Emby 官方镜像使用 SQLite 3.49.2，`simple` 分词器已从 FTS5 内置列表中移除。即使在当前连接加载成功，其他连接的 FTS5 查询全部崩溃（`no such tokenizer: simple`）。
