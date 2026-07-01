@@ -205,6 +205,20 @@ namespace ViewMate.IntroSkip
                 data.LastBigJumpSourceTicks = data.PreviousPositionTicks;
                 data.LastBigJumpTargetTicks = currentTicks;
                 _logger.Info($"[IntroSkip] Big jump tracked: {TimeSpan.FromTicks(data.PreviousPositionTicks).TotalSeconds:F0}s → {TimeSpan.FromTicks(currentTicks).TotalSeconds:F0}s (elapsed={timeElapsed:F1}s)");
+
+                // ── Credits detection from big jump near end ──
+                if (!data.CreditsStart.HasValue && episode.RunTimeTicks.HasValue)
+                {
+                    long maxCreditsBigJump;
+                    lock (_configLock) { maxCreditsBigJump = _maxCreditsDurationTicks; }
+                    var nearEndFromPrev = episode.RunTimeTicks.Value - data.PreviousPositionTicks;
+                    if (nearEndFromPrev > 0 && nearEndFromPrev <= maxCreditsBigJump)
+                    {
+                        Plugin.ChapterMarkerApi.UpdateCredits(episode, nearEndFromPrev);
+                        data.CreditsStart = Plugin.ChapterMarkerApi.GetCreditsStart(episode);
+                        _logger.Info($"[IntroSkip] Credits detected from big jump: src={TimeSpan.FromTicks(data.PreviousPositionTicks).TotalSeconds:F0}s (creditsDur={TimeSpan.FromTicks(nearEndFromPrev).TotalSeconds:F0}s)");
+                    }
+                }
             }
 
             data.PreviousPositionTicks = currentTicks;
@@ -378,6 +392,19 @@ namespace ViewMate.IntroSkip
                     data.IntroStart = Plugin.ChapterMarkerApi.GetIntroStart(episode);
                     data.IntroEnd = Plugin.ChapterMarkerApi.GetIntroEnd(episode);
                     _logger.Info($"[IntroSkip] Intro detected: {new TimeSpan(introStart).ToString(@"hh\:mm\:ss\.fff")} – {new TimeSpan(introEnd).ToString(@"hh\:mm\:ss\.fff")} (dur={introDurationSeconds:F0}s)");
+                }
+            }
+            // ── Credits detection from seek ──
+            if (!data.CreditsStart.HasValue && episode.RunTimeTicks.HasValue)
+            {
+                long maxCredits;
+                lock (_configLock) { maxCredits = _maxCreditsDurationTicks; }
+                var nearEndFromSrc = episode.RunTimeTicks.Value - data.PreviousPositionTicks;
+                if (nearEndFromSrc > 0 && nearEndFromSrc <= maxCredits)
+                {
+                    Plugin.ChapterMarkerApi.UpdateCredits(episode, nearEndFromSrc);
+                    data.CreditsStart = Plugin.ChapterMarkerApi.GetCreditsStart(episode);
+                    _logger.Info($"[IntroSkip] Credits detected from seek: src={TimeSpan.FromTicks(data.PreviousPositionTicks).TotalSeconds:F0}s (creditsDur={TimeSpan.FromTicks(nearEndFromSrc).TotalSeconds:F0}s)");
                 }
             }
         }

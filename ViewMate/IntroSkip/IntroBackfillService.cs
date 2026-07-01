@@ -187,7 +187,9 @@ namespace ViewMate.IntroSkip
                     long refId = 0;
                     long refStart = 0;
                     long refEnd = 0;
+                    long refCreditsStart = 0;
                     bool foundRef = false;
+                    bool refHasCredits = false;
 
                     foreach (var ep in eps)
                     {
@@ -213,6 +215,11 @@ namespace ViewMate.IntroSkip
                                     refStart = markers[0].Item1;
                                     refEnd = markers[1].Item1;
                                     foundRef = true;
+                                    // Check for CreditsStart marker (3rd marker, if exists)
+                                    refHasCredits = markers.Count >= 3
+                                        && markers[2].Item2.StartsWith("CreditsStart");
+                                    if (refHasCredits)
+                                        refCreditsStart = markers[2].Item1;
                                     break;
                                 }
                             }
@@ -245,7 +252,27 @@ namespace ViewMate.IntroSkip
                                     has = (int)stmt.Current.GetInt64(0);
                                 }
 
-                                if (has >= 2) continue;
+                                if (has >= 2)
+                                {
+                                    // Episode already has Intro markers. Check if only CreditsStart is missing.
+                                    if (!refHasCredits || has >= 3)
+                                        continue;
+
+                                    // Only missing CreditsStart — just add it, skip intro backfill
+                                    int maxIdxCredits;
+                                    using (var stmt = conn.PrepareStatement(
+                                        $"SELECT MAX(ChapterIndex) FROM Chapters3 WHERE ItemId = {ep.Item1}"))
+                                    {
+                                        stmt.MoveNext();
+                                        maxIdxCredits = stmt.Current.IsDBNull(0) ? 0 : (int)stmt.Current.GetInt64(0);
+                                    }
+                                    conn.Execute(
+                                        $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
+                                        $"VALUES ({ep.Item1}, {maxIdxCredits + 1}, {refCreditsStart}, 'CreditsStart#ECS', 3)");
+                                    totalFixed++;
+                                    _logger.Info("[IntroBackfill] Credits-only backfill: Series={0} E{1} ({2})", sid, ep.Item3 ?? 0, ep.Item2);
+                                    continue;
+                                }
 
                                 // Get max ChapterIndex
                                 int maxIdx;
@@ -267,6 +294,14 @@ namespace ViewMate.IntroSkip
                                 conn.Execute(
                                     $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
                                     $"VALUES ({ep.Item1}, {maxIdx + 2}, {refEnd}, 'IntroEnd#ECS', 2)");
+
+                                // Also backfill CreditsStart if the reference episode has one
+                                if (refHasCredits)
+                                {
+                                    conn.Execute(
+                                        $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
+                                        $"VALUES ({ep.Item1}, {maxIdx + 3}, {refCreditsStart}, 'CreditsStart#ECS', 3)");
+                                }
 
                                 totalFixed++;
                                 _logger.Info("[IntroBackfill] Fixed: Series={0} E{1} ({2})", sid, ep.Item3 ?? 0, ep.Item2);
