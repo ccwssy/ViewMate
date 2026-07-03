@@ -16,3 +16,7 @@ build/
 libs/
 out/
 _lastScanId
+
+# Hermes Agent project-level config (superpowers-zh skills, etc.)
+.hermes/
+HERMES.md

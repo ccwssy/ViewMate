@@ -595,6 +595,14 @@ namespace ViewMate.Pinyin
 
             _logger.Info("[PinyinSearch] Catch-up scan complete: {0} items processed", totalProcessed);
             UpdateLastScanId();
+
+            // Clear processed-IDs tracker so stale items get retried next cycle.
+            // Items successfully processed will have pinyin in c0 and won't
+            // match the catch-up query again; items that legitimately have no
+            // pinyin will be re-skipped harmlessly.
+            lock (_processedCatchUpLock)
+                _processedCatchUpIds.Clear();
+
             return totalProcessed;
         }
 
