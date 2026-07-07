@@ -26,6 +26,7 @@ namespace ViewMate.Options.View
             PluginOptions.IntroSkipOptions.MaxIntroDurationSeconds = config.MaxIntroDurationSeconds;
             PluginOptions.IntroSkipOptions.MaxCreditsDurationSeconds = config.MaxCreditsDurationSeconds;
             PluginOptions.PinyinOptions.EnablePinyinSearch = config.EnablePinyinSearch;
+            PluginOptions.PinyinOptions.EnablePinyinSortName = config.EnablePinyinSortName;
             PluginOptions.IntroSkipOptions.EnableIntroBackfill = config.EnableIntroBackfill;
             PluginOptions.VersionCheckOptions.EnableVersionCheck = config.EnableVersionCheck;
         }
@@ -42,9 +43,13 @@ namespace ViewMate.Options.View
             config.MaxIntroDurationSeconds = PluginOptions.IntroSkipOptions.MaxIntroDurationSeconds;
             config.MaxCreditsDurationSeconds = PluginOptions.IntroSkipOptions.MaxCreditsDurationSeconds;
             config.EnablePinyinSearch = PluginOptions.PinyinOptions.EnablePinyinSearch;
+            config.EnablePinyinSortName = PluginOptions.PinyinOptions.EnablePinyinSortName;
             config.EnableIntroBackfill = PluginOptions.IntroSkipOptions.EnableIntroBackfill;
             config.EnableVersionCheck = PluginOptions.VersionCheckOptions.EnableVersionCheck;
             Plugin.Instance.UpdateConfiguration(config);
+
+            // ── Runtime toggle for PinyinSortName ──
+            Plugin.SetPinyinSortNameEnabled(config.EnablePinyinSortName);
 
             // ── Manual version check ──
             if (PluginOptions.VersionCheckOptions.TriggerManualCheck)

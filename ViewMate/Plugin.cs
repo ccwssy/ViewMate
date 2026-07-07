@@ -49,6 +49,37 @@ namespace ViewMate
         // ── PinyinSearch ──
         public static PinyinSearchService PinyinSearch { get; private set; }
 
+        // ── PinyinSortName ──
+        public static PinyinSortNameService PinyinSortName { get; private set; }
+
+        /// <summary>
+        /// Runtime toggle for PinyinSortName. Called from config save.
+        /// Safe to call multiple times — handles create/dispose internally.
+        /// </summary>
+        public static void SetPinyinSortNameEnabled(bool enable)
+        {
+            if (enable && PinyinSortName == null)
+            {
+                var logger = Instance?.Logger;
+                var libMgr = Instance?.LibraryManager;
+                if (logger == null || libMgr == null) return;
+                logger.Info("[PinyinSortName] Enabling from config save...");
+                PinyinSortName = new PinyinSortNameService(libMgr, logger);
+                PinyinSortName.BackfillAll();
+            }
+            else if (!enable && PinyinSortName != null)
+            {
+                PinyinSortName.SetEnabled(false);
+                PinyinSortName.Dispose();
+                PinyinSortName = null;
+            }
+            else if (enable && PinyinSortName != null)
+            {
+                // Already enabled — re-apply if needed
+                PinyinSortName.SetEnabled(true);
+            }
+        }
+
         // ── IntroBackfill ──
         public static IntroBackfillService IntroBackfill { get; private set; }
 
@@ -100,6 +131,7 @@ namespace ViewMate
         {
             PlaySessionMonitor?.Dispose();
             PinyinSearch?.Dispose();
+            PinyinSortName?.Dispose();
         }
 
         private void Initialize()
@@ -132,6 +164,19 @@ namespace ViewMate
             {
                 Logger.Info("[PinyinSearch] Disabled by configuration");
                 PinyinSearch = null;
+            }
+
+            // ── Start PinyinSortName (if enabled) ──
+            if (config.EnablePinyinSortName)
+            {
+                Logger.Info("[PinyinSortName] Starting PinyinSortNameService...");
+                PinyinSortName = new PinyinSortNameService(LibraryManager, Logger);
+                PinyinSortName.BackfillAll(startupDelayMs: 60000); // delay 60s for Emby startup
+            }
+            else
+            {
+                Logger.Info("[PinyinSortName] Disabled by configuration");
+                PinyinSortName = null;
             }
 
             // ── Start IntroBackfill (if enabled) ──
@@ -271,6 +316,9 @@ namespace ViewMate
 
         // ── PinyinSearch configuration ──
         public bool EnablePinyinSearch { get; set; } = true;
+
+        // ── PinyinSortName configuration ──
+        public bool EnablePinyinSortName { get; set; } = true;
 
         // ── IntroBackfill configuration ──
         public bool EnableIntroBackfill { get; set; } = false;

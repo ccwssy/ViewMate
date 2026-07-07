@@ -20,3 +20,7 @@ _lastScanId
 # Hermes Agent project-level config (superpowers-zh skills, etc.)
 .hermes/
 HERMES.md
+.env
+*.bak*
+*.release
+@
