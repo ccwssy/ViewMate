@@ -2,7 +2,7 @@
 
 | 版本 | 日期 | 变更内容 |
 |------|------|---------|
-| **v1.2.16.19** | 2026-07-07 | **新增拼音排序名功能** — 通过直接 SQL UPDATE MediaItems.SortName 将中文媒体排序名改为拼音首字母（如「功夫」→「GF」），A-Z 侧边栏正常显示字母。无 Harmony 依赖。启动时 backfill 12,626 条。新增 `PinyinSortNameService`，配置页作为拼音搜索的子项（`VisibleCondition`）。 |
+| **v1.2.16.19** | 2026-07-07 | **新增拼音排序名功能** — 通过直接 SQL UPDATE MediaItems.SortName 将中文媒体排序名改为拼音首字母（如「功夫」→「GF」），A-Z 侧边栏正常显示字母。启动时 backfill 12,626 条。新增 `PinyinSortNameService`，配置页作为拼音搜索的子项（`VisibleCondition`）。 |
 | **v1.2.16.18** | 2026-07-02 | **修复 CatchUp 黑名单永不清理导致 stale 条目永久跳过** — `_processedCatchUpIds` HashSet 在 `ProcessCatchUpBatched` 末尾清空，每个 catch-up 周期重试所有无拼音条目，避免写入失败后永久黑名单。 |
 | **v1.2.16.17** | 2026-07-01 | **添加周期性后台扫描定时器** — `ProcessPeriodicScan()` 每5分钟触发，先跑 CatchUp 全量补漏（低ID老旧FTS条目）再跑增量；修复 `ProcessCatchUpBatch` 中 `_processedCatchUpIds` 在 GeneratePinyin 前就添加ID导致拼音失败的条目永不重试的 bug。 |
 | **v1.2.16.16** | 2026-06-30 | **代码洁癖 — 死代码清理、线程安全、连接提取** — PinyinSearchService 清理死代码和注释；ProcessCatchUpBatch 提取为单独方法；`Volatile.Read/Write` 保护 `_lastScanId`；`ConnectionManagerCache` 提取到 Common 命名空间与 IntroBackfill 共享。 |
