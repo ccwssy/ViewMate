@@ -318,7 +318,7 @@ namespace ViewMate
         public bool EnablePinyinSearch { get; set; } = true;
 
         // ── PinyinSortName configuration ──
-        public bool EnablePinyinSortName { get; set; } = true;
+        public bool EnablePinyinSortName { get; set; } = false;
 
         // ── IntroBackfill configuration ──
         public bool EnableIntroBackfill { get; set; } = false;

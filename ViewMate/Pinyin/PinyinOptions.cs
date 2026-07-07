@@ -17,6 +17,6 @@ namespace ViewMate.Pinyin
         [Description("将中文媒体的排序名替换为拼音首字母（如「功夫」→「GF」），字母排序区 A-Z 正常显示")]
         [Required]
         [VisibleCondition("EnablePinyinSearch", SimpleCondition.IsTrue)]
-        public bool EnablePinyinSortName { get; set; } = true;
+        public bool EnablePinyinSortName { get; set; } = false;
     }
 }

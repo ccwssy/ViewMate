@@ -29,8 +29,18 @@ namespace ViewMate.Pinyin
         private static readonly Regex ChineseRegex = new Regex(@"[\u4e00-\u9fff]", RegexOptions.Compiled);
         private const string BackupTable = "PinyinSortNameBackup";
 
-        private static Func<char, string> _getPinyin;
-        private static bool _pinyinLoaded;
+        // Lazy: deferred until first actual use, by which time TinyPinyin.dll
+        // is guaranteed to be loaded by Emby's assembly scanner.
+        private static readonly Lazy<Func<char, string>> _getPinyinLazy =
+            new Lazy<Func<char, string>>(LoadPinyinFunc, LazyThreadSafetyMode.ExecutionAndPublication);
+        private static bool IsPinyinLoaded
+        {
+            get
+            {
+                try { return _getPinyinLazy.Value != null; }
+                catch { return false; }
+            }
+        }
 
         private int _enabledItemCount = -1; // -1 = not initialized
         private int _disposed;
@@ -44,54 +54,48 @@ namespace ViewMate.Pinyin
             _logger = logger;
             _connectionCache = new ConnectionManagerCache(logger, "PinyinSortName");
 
-            LoadPinyinOnce();
+            // Do NOT call LoadPinyinOnce() here — TinyPinyin.dll hasn't been
+            // scanned by Emby yet. Deferred loading via _getPinyinLazy handles
+            // the timing correctly, matching PinyinSearchService's approach.
             EnsureBackupTable();
 
             _libraryManager.ItemAdded += OnItemChanged;
             _libraryManager.ItemUpdated += OnItemChanged;
         }
 
-        private static void LoadPinyinOnce()
+        private static Func<char, string> LoadPinyinFunc()
         {
-            if (_pinyinLoaded) return;
-            try
+            string[] probePaths =
             {
-                string[] probePaths =
-                {
-                    "/config/plugins/TinyPinyin.dll",
-                    "/system/TinyPinyin.dll",
-                    "plugins/TinyPinyin.dll",
-                    "../plugins/TinyPinyin.dll",
-                };
+                "/config/plugins/TinyPinyin.dll",
+                "/system/TinyPinyin.dll",
+                "plugins/TinyPinyin.dll",
+                "../plugins/TinyPinyin.dll",
+            };
 
-                Assembly asm = null;
-                foreach (var path in probePaths)
+            Assembly asm = null;
+            foreach (var path in probePaths)
+            {
+                if (System.IO.File.Exists(path))
                 {
-                    if (System.IO.File.Exists(path))
-                    {
-                        asm = Assembly.Load(System.IO.File.ReadAllBytes(path));
-                        break;
-                    }
+                    asm = Assembly.Load(System.IO.File.ReadAllBytes(path));
+                    break;
                 }
-
-                if (asm == null)
-                    throw new System.IO.FileNotFoundException("TinyPinyin.dll not found");
-
-                var helperType = asm.GetType("TinyPinyin.PinyinHelper");
-                var method = helperType?.GetMethod("GetPinyin", new[] { typeof(char) });
-                if (method == null)
-                    throw new MissingMethodException("GetPinyin not found");
-
-                _getPinyin = (Func<char, string>)Delegate.CreateDelegate(
-                    typeof(Func<char, string>), null, method);
-                _pinyinLoaded = true;
             }
-            catch (Exception ex)
-            {
-                _pinyinLoaded = false;
-                var staticLogger = Plugin.Instance?.Logger;
-                staticLogger?.Warn("[PinyinSortName] TinyPinyin init failed: {0}", ex.Message);
-            }
+
+            if (asm == null)
+                throw new System.IO.FileNotFoundException("TinyPinyin.dll not found in any probe path");
+
+            var helperType = asm.GetType("TinyPinyin.PinyinHelper");
+            if (helperType == null)
+                throw new System.IO.FileNotFoundException("TinyPinyin.PinyinHelper type not found");
+
+            var method = helperType.GetMethod("GetPinyin", new[] { typeof(char) });
+            if (method == null)
+                throw new MissingMethodException("GetPinyin method not found");
+
+            return (Func<char, string>)Delegate.CreateDelegate(
+                typeof(Func<char, string>), null, method);
         }
 
         // ── Public toggle API ──
@@ -103,7 +107,7 @@ namespace ViewMate.Pinyin
         /// </summary>
         public void SetEnabled(bool enable)
         {
-            if (!_pinyinLoaded)
+            if (!IsPinyinLoaded)
             {
                 _logger.Warn("[PinyinSortName] TinyPinyin not available, cannot toggle");
                 return;
@@ -143,16 +147,26 @@ namespace ViewMate.Pinyin
         /// </summary>
         public void BackfillAll(int startupDelayMs = 0)
         {
-            if (!_pinyinLoaded || IsDisposed) return;
+            if (IsDisposed) return;
 
             Task.Run(async () =>
             {
                 if (startupDelayMs > 0)
-                {
-                    _logger.Info("[PinyinSortName] Delaying backfill {0}ms for Emby startup...", startupDelayMs);
                     await Task.Delay(startupDelayMs);
-                    if (IsDisposed) return;
+
+                // Lazy: defer TinyPinyin loading until after Emby startup,
+                // by which time Emby's assembly scanner has loaded TinyPinyin.dll.
+                Func<char, string> getPinyin;
+                try { getPinyin = _getPinyinLazy.Value; }
+                catch
+                {
+                    _logger.Warn("[PinyinSortName] TinyPinyin not available, skipping backfill");
+                    return;
                 }
+
+                _logger.Info("[PinyinSortName] Delaying backfill {0}ms for Emby startup...", startupDelayMs);
+                await Task.Delay(startupDelayMs);
+                if (IsDisposed) return;
 
                 try
                 {
@@ -452,7 +466,7 @@ namespace ViewMate.Pinyin
 
         private void OnItemChanged(object sender, ItemChangeEventArgs e)
         {
-            if (IsDisposed || !_pinyinLoaded) return;
+            if (IsDisposed || !IsPinyinLoaded) return;
             if (e.Item == null || string.IsNullOrEmpty(e.Item.Name)) return;
             if (!IsEligibleItem(e.Item)) return;
             if (!ChineseRegex.IsMatch(e.Item.Name)) return;
@@ -515,7 +529,7 @@ namespace ViewMate.Pinyin
             if (string.IsNullOrEmpty(source) || !ChineseRegex.IsMatch(source))
                 return null;
 
-            if (!_pinyinLoaded) return null;
+            if (!IsPinyinLoaded) return null;
 
             var sb = new StringBuilder(source.Length);
             bool hasChinese = false;
@@ -527,7 +541,7 @@ namespace ViewMate.Pinyin
                 {
                     try
                     {
-                        var pinyin = _getPinyin(ch);
+                        var pinyin = _getPinyinLazy.Value(ch);
                         if (!string.IsNullOrEmpty(pinyin) && pinyin.Length > 0)
                         {
                             sb.Append(char.ToUpperInvariant(pinyin[0]));
