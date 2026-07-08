@@ -3,12 +3,12 @@
 | 版本 | 日期 | 变更内容 |
 |------|------|---------|
 | **v1.2.16.20** | 2026-07-08 | **修复 PinyinSortName 启动时序** — 移除构造时 `LoadPinyinOnce()`，改用 `Lazy<T>` 惰性加载 TinyPinyin。Emby 按字母序扫描 DLL（V > T），此时 TinyPinyin 尚未被加载到程序集上下文，导致 `File.Exists` 返回假、`_pinyinLoaded` 永久锁死。`EnablePinyinSortName` 默认值改为 `false`。 |
-| **v1.2.16.19** | 2026-07-07 | **新增拼音排序名功能** — 通过直接 SQL UPDATE MediaItems.SortName 将中文媒体排序名改为拼音首字母（如「功夫」→「GF」），A-Z 侧边栏正常显示字母。无 Harmony 依赖。启动时 backfill 12,626 条。新增 `PinyinSortNameService`，配置页作为拼音搜索的子项（`VisibleCondition`）。 |
+| **v1.2.16.19** | 2026-07-07 | **新增拼音排序名功能** — 通过直接 SQL UPDATE MediaItems.SortName 将中文媒体排序名改为拼音首字母（如「功夫」→「GF」），A-Z 侧边栏正常显示字母。启动时 backfill 12,626 条。新增 `PinyinSortNameService`，配置页作为拼音搜索的子项（`VisibleCondition`）。 |
 | **v1.2.16.18** | 2026-07-02 | **修复 CatchUp 黑名单永不清理导致 stale 条目永久跳过** — `_processedCatchUpIds` HashSet 在 `ProcessCatchUpBatched` 末尾清空，每个 catch-up 周期重试所有无拼音条目，避免写入失败后永久黑名单。 |
 | **v1.2.16.17** | 2026-07-01 | **添加周期性后台扫描定时器** — `ProcessPeriodicScan()` 每5分钟触发，先跑 CatchUp 全量补漏（低ID老旧FTS条目）再跑增量；修复 `ProcessCatchUpBatch` 中 `_processedCatchUpIds` 在 GeneratePinyin 前就添加ID导致拼音失败的条目永不重试的 bug。 |
 | **v1.2.16.16** | 2026-06-30 | **代码洁癖 — 死代码清理、线程安全、连接提取** — PinyinSearchService 清理死代码和注释；ProcessCatchUpBatch 提取为单独方法；`Volatile.Read/Write` 保护 `_lastScanId`；`ConnectionManagerCache` 提取到 Common 命名空间与 IntroBackfill 共享。 |
-| **v1.2.16.6** | 2026-06-30 | **修复 ChineseRegex 正则错误** — `@"[\\u4e00-\\u9fff]"` 的双反斜杠导致 regex 匹配的是 ASCII 范围 `0`–`\`（数字和英文大写），而非真正的 CJK 范围。纯中文名条目被 `IsCjkItem()` 误判为 false，不入事件队列；有年份数字的条目入队后 `GeneratePinyin()` 因正确硬编码判断无中文而返回 null → SKIP。现修正为 `@"[\u4e00-\u9fff]"`。 |
-| **v1.2.16.4** | 2026-06-30 | **修复陈旧 FTS 条目检测遗漏** — `GetMissingMediaItemsCount()` 和 `CatchUpQuery`/`CatchUpCountQuery` 增加 `c.c0 NOT GLOB '*[A-Z]*'` 检测，可识别"有 FTS 但无拼音"的陈旧条目并触发重新注入；CatchUp 查询从 `FTS_content JOIN MediaItems` 改为 `MediaItems LEFT JOIN FTS_content`，确保完全未被 FTS 覆盖的条目也能被扫描到。|
+| **v1.2.16.6** | 2026-06-30 | **修复 ChineseRegex 正则错误** — `@\"[\\\\u4e00-\\\\u9fff]\"` 的双反斜杠导致 regex 匹配的是 ASCII 范围 `0`–`\\`（数字和英文大写），而非真正的 CJK 范围。纯中文名条目被 `IsCjkItem()` 误判为 false，不入事件队列；有年份数字的条目入队后 `GeneratePinyin()` 因正确硬编码判断无中文而返回 null → SKIP。现修正为 `@\"[\\u4e00-\\u9fff]\"`。 |
+| **v1.2.16.4** | 2026-06-30 | **修复陈旧 FTS 条目检测遗漏** — `GetMissingMediaItemsCount()` 和 `CatchUpQuery`/`CatchUpCountQuery` 增加 `c.c0 NOT GLOB '*[A-Z]*'` 检测，可识别\"有 FTS 但无拼音\"的陈旧条目并触发重新注入；CatchUp 查询从 `FTS_content JOIN MediaItems` 改为 `MediaItems LEFT JOIN FTS_content`，确保完全未被 FTS 覆盖的条目也能被扫描到。|
 | **v1.2.16.3** | 2026-06-30 | **修复 Plugin.Run() 同步阻塞致首页卡死** — 删除 `ProcessAllPendingDeferred()` 中残留的 sync retry 循环（120 次 × 1s + `ProcessFullReindex()` 同步执行），全部交由后台 Thread 处理。后台 Thread 已使用 `Thread.Sleep` + `IsDisposed` 检查，不会被 Dispose 杀死。`Plugin.Run()` 耗时从 30~120s 降至 0.065s。 |
 | **v1.2.16.2** | 2026-06-30 | **修复后台线程被 Dispose 杀死 + FTS 为空检测修正** — `Task.Delay` 改为 `Thread.Sleep` 避免 Emby 单线程上下文死锁；`GetFtsTotalCount()` 失败时返回 -1，`<=0` 检测代替 `==0` 确保空 FTS 触发重建。 |
 | **v1.2.15.0** | 2026-06-28 | **基于 v1.2.14.4 重构 — 重写 PinyinSearchService** — 全量重构 PinyinSearchService（365 行插入/350 行删除）；`_disposed` 改为 `int` + `Interlocked` 原子操作；连接管理器反射缓存重构（Create/OpenRead/OpenWrite 统一管理）；词组多音字校正重构为 `Lazy<T>` 加载；合并 v1.2.14.5 连接泄漏修复。 |
@@ -20,7 +20,7 @@
 | **v1.2.13.2** | 2026-06-25 | **添加 SQLite WAL checkpoint** — PinyinScan 完成 FTS 重建后执行 `PRAGMA wal_checkpoint(TRUNCATE)`，防止 WAL 持续膨胀导致首页搜索卡死；GLOB 查询继承 `[一-龥]` 修复（v1.2.13.0）。 |
 | **v1.2.13.0** | 2026-06-24 | **修复 ARM64 Synology DSM 卡死** — ProcessAllPending 改为后台分批执行，每批 200 条释放写锁，首页秒开；新增词组级多音字校正（pinyin-overrides.json） |
 | v1.2.12.0 | 2026-06-24 | 词组级多音字校正：外部 JSON 配置，支持词组跳过 TinyPinyin |
-| v1.2.11.0 | 2026-06-24 | 新增中文子串搜索：FTS c0 中注入单 CJK 字 + CJK 双字 bigram token，搜"金刚"能找到"变形金刚" |
+| v1.2.11.0 | 2026-06-24 | 新增中文子串搜索：FTS c0 中注入单 CJK 字 + CJK 双字 bigram token，搜\"金刚\"能找到\"变形金刚\" |
 | v1.2.10.0 | 2026-06-24 | 修复 TinyPinyin 加载（反射替代编译引用）；修复 SQL GLOB 中文字符范围 bug |
 | v1.2.9.1 | 2026-06-23 | 修复 GetDbConnection（适配 Emby 4.8 PooledDatabaseConnectionManager） |
 | v1.2.9.0 | 2026-06-23 | 清理死代码 — 删 Lib.Harmony、scripts/、ITaskManager |
