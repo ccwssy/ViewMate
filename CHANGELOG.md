@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 变更内容 |
 |------|------|---------|
+| **v1.2.16.21** | 2026-07-12 | **恢复 WAL checkpoint（v1.2.13.2 修复在 v1.2.14.4 重构中遗失）** — 回填/周期性扫描后显式 `PRAGMA wal_checkpoint(TRUNCATE/PASSIVE)`，防止 FTS5 写放大导致 WAL 膨胀到 40MB。PinyinSearchService: 初始扫描后 TRUNCATE + 周期性扫描有写入时 PASSIVE。PinyinSortNameService: backfill 完成后 TRUNCATE。 |
 | **v1.2.16.20** | 2026-07-08 | **修复 PinyinSortName 启动时序** — 移除构造时 `LoadPinyinOnce()`，改用 `Lazy<T>` 惰性加载 TinyPinyin。Emby 按字母序扫描 DLL（V > T），此时 TinyPinyin 尚未被加载到程序集上下文，导致 `File.Exists` 返回假、`_pinyinLoaded` 永久锁死。`EnablePinyinSortName` 默认值改为 `false`。 |
 | **v1.2.16.19** | 2026-07-07 | **新增拼音排序名功能** — 通过直接 SQL UPDATE MediaItems.SortName 将中文媒体排序名改为拼音首字母（如「功夫」→「GF」），A-Z 侧边栏正常显示字母。启动时 backfill 12,626 条。新增 `PinyinSortNameService`，配置页作为拼音搜索的子项（`VisibleCondition`）。 |
 | **v1.2.16.18** | 2026-07-02 | **修复 CatchUp 黑名单永不清理导致 stale 条目永久跳过** — `_processedCatchUpIds` HashSet 在 `ProcessCatchUpBatched` 末尾清空，每个 catch-up 周期重试所有无拼音条目，避免写入失败后永久黑名单。 |
