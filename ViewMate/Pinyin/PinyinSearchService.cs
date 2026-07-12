@@ -160,6 +160,10 @@ namespace ViewMate.Pinyin
                         _logger.Error("[PinyinSearch] Catch-up scan failed", ex);
                     }
 
+                    // Recover WAL space after initial scan: full checkpoint waits for
+                    // active readers to drain, then truncates the WAL to prevent bloat.
+                    TryTruncateCheckpoint();
+
                     // Start periodic timer for catch-up scans after initial scan completes.
                     // This catches items added by library scans that don't fire ItemAdded/Updated events.
                     if (!IsDisposed)
@@ -305,7 +309,12 @@ namespace ViewMate.Pinyin
                 total += incremental;
 
                 if (total > 0)
+                {
                     _logger.Info("[PinyinSearch] Periodic scan: {0} items processed", total);
+                    // Passive checkpoint after write-heavy periodic scan — clears
+                    // what it can without blocking concurrent readers.
+                    TryPassiveCheckpoint();
+                }
             }
             catch (Exception ex)
             {
@@ -517,6 +526,45 @@ namespace ViewMate.Pinyin
             {
                 _logger.Warn("[PinyinSearch] Failed to update last scan ID: {0}", ex.Message);
             }
+        }
+
+        // ── WAL checkpoint helpers ──
+
+        /// <summary>
+        /// Full WAL checkpoint (TRUNCATE). Waits for active readers to drain,
+        /// then truncates the WAL to reclaim disk space. Safe on background
+        /// threads — blocks only briefly while readers finish their current query.
+        /// Call after bulk write operations (initial catch-up, backfill).
+        /// </summary>
+        private void TryTruncateCheckpoint()
+        {
+            try
+            {
+                using (var conn = _connectionCache.OpenWriteConnection())
+                {
+                    if (conn == null) return;
+                    conn.Execute("PRAGMA wal_checkpoint(TRUNCATE)");
+                    _logger.Debug("[PinyinSearch] TRUNCATE checkpoint done");
+                }
+            }
+            catch { /* checkpoint failures are benign — WAL will recover on next write */ }
+        }
+
+        /// <summary>
+        /// Passive WAL checkpoint. Checkpoints pages that no active reader needs,
+        /// without waiting. Call after moderate write operations (periodic scans).
+        /// </summary>
+        private void TryPassiveCheckpoint()
+        {
+            try
+            {
+                using (var conn = _connectionCache.OpenWriteConnection())
+                {
+                    if (conn == null) return;
+                    conn.Execute("PRAGMA wal_checkpoint(PASSIVE)");
+                }
+            }
+            catch { }
         }
 
         private void CleanOrphanedFtsEntries()

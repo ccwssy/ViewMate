@@ -176,6 +176,10 @@ namespace ViewMate.Pinyin
                         _logger.Info("[PinyinSortName] Backfill complete: {0} items updated", total);
                     else
                         _logger.Info("[PinyinSortName] Backfill: no items needed updating");
+
+                    // Recover WAL space after backfill — TRUNCATE waits for readers
+                    // to drain, then fully resets the WAL to prevent bloat.
+                    TryTruncateCheckpoint();
                 }
                 catch (Exception ex)
                 {
@@ -560,6 +564,22 @@ namespace ViewMate.Pinyin
             }
 
             return hasChinese ? sb.ToString() : null;
+        }
+
+        // ── WAL checkpoint ──
+
+        private void TryTruncateCheckpoint()
+        {
+            try
+            {
+                using (var conn = _connectionCache.OpenWriteConnection())
+                {
+                    if (conn == null) return;
+                    conn.Execute("PRAGMA wal_checkpoint(TRUNCATE)");
+                    _logger.Debug("[PinyinSortName] TRUNCATE checkpoint done");
+                }
+            }
+            catch { }
         }
 
         // ── Helpers ──
