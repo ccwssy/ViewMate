@@ -82,8 +82,8 @@ namespace ViewMate.Pinyin
             SELECT c.id, mi.Name
             FROM {FtsTableName}_content c
             JOIN MediaItems mi ON c.id = mi.RowId
-            WHERE c.c0 NOT GLOB '*[a-zA-Z]*'
-              AND c.c0 GLOB '*[一-龥]*'
+            WHERE c.c0 = mi.Name
+              AND mi.Name GLOB '*[一-龥]*'
               AND mi.Name NOT GLOB '*Season*'
               AND mi.Name NOT GLOB '*Episode*'
               AND mi.Name NOT GLOB '*Media Folder*'
@@ -94,8 +94,8 @@ namespace ViewMate.Pinyin
             SELECT COUNT(*)
             FROM {FtsTableName}_content c
             JOIN MediaItems mi ON c.id = mi.RowId
-            WHERE c.c0 NOT GLOB '*[a-zA-Z]*'
-              AND c.c0 GLOB '*[一-龥]*'
+            WHERE c.c0 = mi.Name
+              AND mi.Name GLOB '*[一-龥]*'
               AND mi.Name NOT GLOB '*Season*'
               AND mi.Name NOT GLOB '*Episode*'
               AND mi.Name NOT GLOB '*Media Folder*'
@@ -106,8 +106,8 @@ namespace ViewMate.Pinyin
             SELECT c.id, mi.Name
             FROM {FtsTableName}_content c
             JOIN MediaItems mi ON c.id = mi.RowId
-            WHERE c.c0 NOT GLOB '*[a-zA-Z]*'
-              AND c.c0 GLOB '*[一-龥]*'
+            WHERE c.c0 = mi.Name
+              AND mi.Name GLOB '*[一-龥]*'
               AND mi.Name NOT GLOB '*Season*'
               AND mi.Name NOT GLOB '*Episode*'
               AND mi.Name NOT GLOB '*Media Folder*'
@@ -117,8 +117,8 @@ namespace ViewMate.Pinyin
             SELECT COUNT(*)
             FROM {FtsTableName}_content c
             JOIN MediaItems mi ON c.id = mi.RowId
-            WHERE c.c0 NOT GLOB '*[a-zA-Z]*'
-              AND c.c0 GLOB '*[一-龥]*'
+            WHERE c.c0 = mi.Name
+              AND mi.Name GLOB '*[一-龥]*'
               AND mi.Name NOT GLOB '*Season*'
               AND mi.Name NOT GLOB '*Episode*'
               AND mi.Name NOT GLOB '*Media Folder*'";
