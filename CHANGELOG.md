@@ -2,7 +2,7 @@
 
 | 版本 | 日期 | 变更内容 |
 |------|------|---------|
-| **v1.2.16.22** | 2026-07-31 | **修复含英文字母的中文名条目拼音盲区** — 扫描查询「未注入」判断从 `c.c0 NOT GLOB '*[a-zA-Z]*'` 改为 `c.c0 = mi.Name`。原名含字母的条目（如「杀戮都市：O」）未注入时 c0 已含字母，被 `NOT GLOB` 永久排除，补不上拼音（142 条受影响）。改 4 处查询：PendingQuery / PendingCountQuery / CatchUpQuery / CatchUpCountQuery。 |
+| **v1.2.16.23** | 2026-07-31 | **修复双延迟 + IntroBackfill 原子性** — ① PinyinSortName `BackfillAll()` 重构残留导致 `Task.Delay(60000)` 执行两次，启动回填实际延迟 120s 而非 60s，删除重复延迟。② IntroBackfill DELETE+INSERT 改为事务包裹（崩溃不再丢该集片头片尾标记）。③ IntroBackfill 批量写入后补 `wal_checkpoint(TRUNCATE)`。 |
 | **v1.2.16.21** | 2026-07-12 | **恢复 WAL checkpoint（v1.2.13.2 修复在 v1.2.14.4 重构中遗失）** — 回填/周期性扫描后显式 `PRAGMA wal_checkpoint(TRUNCATE/PASSIVE)`，防止 FTS5 写放大导致 WAL 膨胀到 40MB。PinyinSearchService: 初始扫描后 TRUNCATE + 周期性扫描有写入时 PASSIVE。PinyinSortNameService: backfill 完成后 TRUNCATE。 |
 | **v1.2.16.20** | 2026-07-08 | **修复 PinyinSortName 启动时序** — 移除构造时 `LoadPinyinOnce()`，改用 `Lazy<T>` 惰性加载 TinyPinyin。Emby 按字母序扫描 DLL（V > T），此时 TinyPinyin 尚未被加载到程序集上下文，导致 `File.Exists` 返回假、`_pinyinLoaded` 永久锁死。`EnablePinyinSortName` 默认值改为 `false`。 |
 | **v1.2.16.19** | 2026-07-07 | **新增拼音排序名功能** — 通过直接 SQL UPDATE MediaItems.SortName 将中文媒体排序名改为拼音首字母（如「功夫」→「GF」），A-Z 侧边栏正常显示字母。启动时 backfill 12,626 条。新增 `PinyinSortNameService`，配置页作为拼音搜索的子项（`VisibleCondition`）。 |
