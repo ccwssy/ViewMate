@@ -668,7 +668,7 @@ namespace ViewMate.Pinyin
 
         // ── Catch-up scan (no id filter) ──
         // Thread-safe tracking of already-processed catch-up items to avoid re-processing
-        private readonly HashSet<int> _processedCatchUpIds = new HashSet<int>();
+        private readonly HashSet<long> _processedCatchUpIds = new HashSet<long>();
         private readonly object _processedCatchUpLock = new object();
 
         private int ProcessCatchUpBatched()
@@ -722,7 +722,7 @@ namespace ViewMate.Pinyin
                     // Filter out already-processed items
                     lock (_processedCatchUpLock)
                     {
-                        rows.RemoveAll(r => _processedCatchUpIds.Contains((int)r.Item1));
+                        rows.RemoveAll(r => _processedCatchUpIds.Contains(r.Item1));
                     }
 
                     if (rows.Count == 0) return 0;
@@ -745,13 +745,13 @@ namespace ViewMate.Pinyin
                                 if (string.IsNullOrEmpty(spaced))
                                 {
                                     lock (_processedCatchUpLock)
-                                        _processedCatchUpIds.Add((int)id);
+                                        _processedCatchUpIds.Add(id);
                                     continue;
                                 }
 
                                 bool alreadyProcessed;
                                 lock (_processedCatchUpLock)
-                                    alreadyProcessed = _processedCatchUpIds.Contains((int)id);
+                                    alreadyProcessed = _processedCatchUpIds.Contains(id);
                                 if (alreadyProcessed)
                                 {
                                     _logger.Debug("[PinyinSearch] CatchUp skip already processed: id={0}", id);
@@ -759,7 +759,7 @@ namespace ViewMate.Pinyin
                                 }
 
                                 lock (_processedCatchUpLock)
-                                    _processedCatchUpIds.Add((int)id);
+                                    _processedCatchUpIds.Add(id);
 
                                 string origTitle = "", seriesName = "", album = "";
                                 try
@@ -809,80 +809,6 @@ namespace ViewMate.Pinyin
             }
         }
 
-        public bool ProcessItem(BaseItem item)
-        {
-            if (!Plugin.Instance.Configuration.EnablePinyinSearch) return false;
-            if (!IsCjkItem(item)) return false;
-
-            var name = item.Name;
-            if (string.IsNullOrEmpty(name)) return false;
-
-            var (spaced, connected, bigrams, singleChars, cjkBigrams) = GeneratePinyin(name);
-            if (string.IsNullOrEmpty(spaced)) return false;
-
-            using (var connection = _connectionCache.OpenWriteConnection())
-            {
-                if (connection == null) return false;
-
-                try
-                {
-                    string origTitle = "", seriesName = "", album = "";
-                    try
-                    {
-                        using (var stmt = connection.PrepareStatement(
-                            $"SELECT c1, c2, c3 FROM {FtsTableName}_content WHERE id = {item.InternalId}"))
-                        {
-                            if (stmt.MoveNext())
-                            {
-                                origTitle = (stmt.Current.GetString(0) ?? "");
-                                seriesName = (stmt.Current.GetString(1) ?? "");
-                                album = (stmt.Current.GetString(2) ?? "");
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Warn("[PinyinSearch] Read existing columns for item {0}: {1}", item.InternalId, ex.Message);
-                    }
-
-                    connection.BeginTransaction(TransactionMode.Deferred);
-                    try
-                    {
-                        var id = item.InternalId;
-                        var sql = BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album);
-                        _logger.Debug("[PinyinSearch] DEBUG SQL for {0} (len={1}): {2}", id, sql.Length, sql.Substring(0, Math.Min(sql.Length, 200)));
-                        connection.Execute(sql);
-                        connection.CommitTransaction();
-                    }
-                    catch
-                    {
-                        connection.RollbackTransaction();
-                        throw;
-                    }
-
-                    _logger.Info("[PinyinSearch] Injected '{0}'", name);
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warn("[PinyinSearch] '{0}': {1} [Type={2} HResult={3}]",
-                        name, ex.Message, ex.GetType().FullName, ex.HResult);
-                    if (ex.InnerException != null)
-                        _logger.Warn("[PinyinSearch] Inner: {0} [Type={1}]",
-                            ex.InnerException.Message, ex.InnerException.GetType().FullName);
-                    var st = ex.StackTrace;
-                    if (st != null)
-                    {
-                        var lines = st.Split('\n');
-                        var top = lines.Length > 4
-                            ? string.Join(" | ", lines[0], lines[1], lines[2], lines[3])
-                            : string.Join(" | ", lines);
-                        _logger.Warn("[PinyinSearch] Stack: {0}", top.Trim());
-                    }
-                    return false;
-                }
-            }
-        }
 
         public static (string spaced, string connected, string bigrams, string singleChars, string cjkBigrams) GeneratePinyin(string text)
         {

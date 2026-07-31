@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 变更内容 |
 |------|------|---------|
+| **v1.2.16.24** | 2026-07-31 | **清理死代码 + RowId 截断修复** — 删除未引用的 `DbConnectionHelper.cs`（310行）、`IntroBackfillOptions.cs`、`PinyinSearchService.ProcessItem()`（含残留 DEBUG SQL 日志）。`_processedCatchUpIds` 由 `HashSet<int>` 改为 `HashSet<long>`，消除 64 位 RowId 静默截断。 |
 | **v1.2.16.23** | 2026-07-31 | **修复双延迟 + IntroBackfill 原子性** — ① PinyinSortName `BackfillAll()` 重构残留导致 `Task.Delay(60000)` 执行两次，启动回填实际延迟 120s 而非 60s，删除重复延迟。② IntroBackfill DELETE+INSERT 改为事务包裹（崩溃不再丢该集片头片尾标记）。③ IntroBackfill 批量写入后补 `wal_checkpoint(TRUNCATE)`。 |
 | **v1.2.16.21** | 2026-07-12 | **恢复 WAL checkpoint（v1.2.13.2 修复在 v1.2.14.4 重构中遗失）** — 回填/周期性扫描后显式 `PRAGMA wal_checkpoint(TRUNCATE/PASSIVE)`，防止 FTS5 写放大导致 WAL 膨胀到 40MB。PinyinSearchService: 初始扫描后 TRUNCATE + 周期性扫描有写入时 PASSIVE。PinyinSortNameService: backfill 完成后 TRUNCATE。 |
 | **v1.2.16.20** | 2026-07-08 | **修复 PinyinSortName 启动时序** — 移除构造时 `LoadPinyinOnce()`，改用 `Lazy<T>` 惰性加载 TinyPinyin。Emby 按字母序扫描 DLL（V > T），此时 TinyPinyin 尚未被加载到程序集上下文，导致 `File.Exists` 返回假、`_pinyinLoaded` 永久锁死。`EnablePinyinSortName` 默认值改为 `false`。 |
