@@ -209,24 +209,38 @@ namespace ViewMate.IntroSkip
                                     maxIdx = stmt.Current.IsDBNull(0) ? 0 : (int)stmt.Current.GetInt64(0);
                                 }
 
-                                // Delete old ECS markers
-                                conn.Execute(
-                                    $"DELETE FROM Chapters3 WHERE ItemId = {ep.Item1} AND Name LIKE '%#ECS%'");
-
-                                conn.Execute(
-                                    $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
-                                    $"VALUES ({ep.Item1}, {maxIdx + 1}, {refStart}, 'IntroStart#ECS', 1)");
-
-                                conn.Execute(
-                                    $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
-                                    $"VALUES ({ep.Item1}, {maxIdx + 2}, {refEnd}, 'IntroEnd#ECS', 2)");
-
-                                // Also backfill CreditsStart if the reference episode has one
-                                if (refHasCredits)
+                                // Delete old ECS markers + re-insert atomically.
+                                // A crash between DELETE and INSERT would lose this
+                                // episode's markers entirely (v1.2.16.23 fix).
+                                conn.BeginTransaction(TransactionMode.Deferred);
+                                try
                                 {
                                     conn.Execute(
+                                        $"DELETE FROM Chapters3 WHERE ItemId = {ep.Item1} AND Name LIKE '%#ECS%'");
+
+                                    conn.Execute(
                                         $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
-                                        $"VALUES ({ep.Item1}, {maxIdx + 3}, {refCreditsStart}, 'CreditsStart#ECS', 3)");
+                                        $"VALUES ({ep.Item1}, {maxIdx + 1}, {refStart}, 'IntroStart#ECS', 1)");
+
+                                    conn.Execute(
+                                        $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
+                                        $"VALUES ({ep.Item1}, {maxIdx + 2}, {refEnd}, 'IntroEnd#ECS', 2)");
+
+                                    // Also backfill CreditsStart if the reference episode has one
+                                    if (refHasCredits)
+                                    {
+                                        conn.Execute(
+                                            $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
+                                            $"VALUES ({ep.Item1}, {maxIdx + 3}, {refCreditsStart}, 'CreditsStart#ECS', 3)");
+                                    }
+
+                                    conn.CommitTransaction();
+                                }
+                                catch
+                                {
+                                    try { conn.RollbackTransaction(); }
+                                    catch { }
+                                    throw;
                                 }
 
                                 totalFixed++;
@@ -242,7 +256,25 @@ namespace ViewMate.IntroSkip
             }
 
             _logger.Info("[IntroBackfill] Complete: {0} episodes fixed", totalFixed);
+            if (totalFixed > 0)
+                TryTruncateCheckpoint();
             return totalFixed;
+        }
+
+        // ── WAL checkpoint ──
+
+        private void TryTruncateCheckpoint()
+        {
+            try
+            {
+                using (var conn = _connectionCache.OpenWriteConnection())
+                {
+                    if (conn == null) return;
+                    conn.Execute("PRAGMA wal_checkpoint(TRUNCATE)");
+                    _logger.Info("[IntroBackfill] TRUNCATE checkpoint done");
+                }
+            }
+            catch { /* checkpoint failures are benign — WAL will recover on next write */ }
         }
     }
 }

@@ -152,7 +152,10 @@ namespace ViewMate.Pinyin
             Task.Run(async () =>
             {
                 if (startupDelayMs > 0)
+                {
+                    _logger.Info("[PinyinSortName] Delaying backfill {0}ms for Emby startup...", startupDelayMs);
                     await Task.Delay(startupDelayMs);
+                }
 
                 // Lazy: defer TinyPinyin loading until after Emby startup,
                 // by which time Emby's assembly scanner has loaded TinyPinyin.dll.
@@ -164,8 +167,6 @@ namespace ViewMate.Pinyin
                     return;
                 }
 
-                _logger.Info("[PinyinSortName] Delaying backfill {0}ms for Emby startup...", startupDelayMs);
-                await Task.Delay(startupDelayMs);
                 if (IsDisposed) return;
 
                 try
