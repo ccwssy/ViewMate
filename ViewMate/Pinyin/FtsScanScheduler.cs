@@ -635,10 +635,12 @@ namespace ViewMate.Pinyin
                 }
             }
 
+            // Release the re-arm guard, then re-arm if more items arrived while
+            // this batch was processing (prevents a stale guard from stalling
+            // the queue — same pattern as PinyinSortNameService).
+            Interlocked.Exchange(ref _eventTimerRunning, 0);
             if (!_pendingEventQueue.IsEmpty)
                 EnsureEventTimer();
-            else
-                Interlocked.Exchange(ref _eventTimerRunning, 0);
         }
 
         private void EnsureEventTimer(int delayMs = EventTimerIntervalMs)
