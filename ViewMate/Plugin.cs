@@ -178,9 +178,18 @@ namespace ViewMate
             if (config.EnableIntroBackfill)
             {
                 Logger.Info("[IntroBackfill] Starting IntroBackfillService...");
-                IntroBackfill = new IntroBackfillService(ChapterMarkerApi, Logger);
-                try { IntroBackfill.BackfillMissing(); }
-                catch (Exception ex) { Logger.Error("[IntroBackfill] Initial scan failed", ex); }
+                var introBackfill = new IntroBackfillService(ChapterMarkerApi, Logger);
+                IntroBackfill = introBackfill;
+                // Deferred background scan — non-blocking, full-library read+write,
+                // must not block Emby startup (same 60s pattern as PinyinSearch /
+                // PinyinSortName). IntroBackfillService has no internal delay, so
+                // this is the only delay — no double startup delay.
+                Task.Run(async () =>
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(60));
+                    try { introBackfill.BackfillMissing(); }
+                    catch (Exception ex) { Logger.Error("[IntroBackfill] Initial scan failed", ex); }
+                });
             }
             else
             {

@@ -5,6 +5,7 @@ using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Logging;
 using SQLitePCL.pretty;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
@@ -43,6 +44,16 @@ namespace ViewMate.Pinyin
 
         private const int BatchSize = 200;
 
+        // ── Event Queue (same pattern as FtsScanScheduler) ──
+        // ItemAdded/ItemUpdated are enqueued with zero SQL; a 30s one-shot timer
+        // drains the queue in one write transaction, so library-scan event bursts
+        // no longer open a write connection per event (SQLite write-lock contention).
+        private readonly ConcurrentQueue<Tuple<long, string>> _pendingEventQueue = new ConcurrentQueue<Tuple<long, string>>();
+        private Timer _eventTimer;
+        private int _eventTimerRunning;
+        private const int EventBatchSize = 50;
+        private const int EventTimerIntervalMs = 30000;
+
         public PinyinSortNameService(ILibraryManager libraryManager, ILogger logger)
         {
             _libraryManager = libraryManager;
@@ -56,6 +67,9 @@ namespace ViewMate.Pinyin
 
             _libraryManager.ItemAdded += OnItemChanged;
             _libraryManager.ItemUpdated += OnItemChanged;
+
+            // Timer starts in one-shot mode; EnsureEventTimer() fires it when queue is non-empty
+            _eventTimer = new Timer(_ => ProcessQueuedEvents(), null, Timeout.Infinite, Timeout.Infinite);
         }
 
         // ── Public toggle API ──
@@ -418,7 +432,7 @@ namespace ViewMate.Pinyin
             }
         }
 
-        // ── Event handler ──
+        // ── Event handler (zero-SQL, batched via timer — same pattern as FtsScanScheduler) ──
 
         private void OnItemChanged(object sender, ItemChangeEventArgs e)
         {
@@ -430,39 +444,101 @@ namespace ViewMate.Pinyin
             string desired = BuildPinyinSortName(e.Item.Name);
             if (desired == null) return;
 
-            Task.Run(() =>
+            // Enqueue only; all SQL happens in ProcessQueuedEvents inside one
+            // write transaction. Queue overflow/disposed items are dropped.
+            _pendingEventQueue.Enqueue(Tuple.Create(e.Item.InternalId, desired));
+            EnsureEventTimer();
+        }
+
+        private void ProcessQueuedEvents()
+        {
+            if (IsDisposed) return;
+
+            var items = new List<Tuple<long, string>>(EventBatchSize);
+            while (items.Count < EventBatchSize && _pendingEventQueue.TryDequeue(out var entry))
+                items.Add(entry);
+
+            if (items.Count == 0)
             {
+                Interlocked.Exchange(ref _eventTimerRunning, 0);
+                return;
+            }
+
+            int updated = 0;
+            using (var conn = _connectionCache.OpenWriteConnection())
+            {
+                if (conn == null)
+                {
+                    foreach (var entry in items)
+                        _pendingEventQueue.Enqueue(entry);
+                    Interlocked.Exchange(ref _eventTimerRunning, 0);
+                    return;
+                }
+
+                conn.BeginTransaction(TransactionMode.Deferred);
                 try
                 {
-                    using (var conn = _connectionCache.OpenWriteConnection())
+                    foreach (var entry in items)
                     {
-                        if (conn == null) return;
-
-                        // Read current SortName
-                        string current = null;
-                        using (var stmt = conn.PrepareStatement(
-                            $"SELECT SortName FROM MediaItems WHERE RowId = {e.Item.InternalId}"))
+                        long id = entry.Item1;
+                        string desired = entry.Item2;
+                        try
                         {
-                            if (stmt.MoveNext() && !stmt.Current.IsDBNull(0))
-                                current = stmt.Current.GetString(0);
+                            if (IsDisposed) break;
+
+                            // Read current SortName
+                            string current = null;
+                            using (var stmt = conn.PrepareStatement(
+                                $"SELECT SortName FROM MediaItems WHERE RowId = {id}"))
+                            {
+                                if (stmt.MoveNext() && !stmt.Current.IsDBNull(0))
+                                    current = stmt.Current.GetString(0);
+                            }
+
+                            if (string.Equals(current, desired, StringComparison.Ordinal))
+                                continue;
+
+                            // Backup original if not already backed up
+                            SaveOriginalSortName(conn, id, current);
+
+                            conn.Execute(
+                                $"UPDATE MediaItems SET SortName = '{TextUtil.Escape(desired)}' WHERE RowId = {id}");
+                            updated++;
+                            _logger.Debug("[PinyinSortName] Updated sort: RowId={0} -> '{1}'", id, desired);
                         }
-
-                        if (string.Equals(current, desired, StringComparison.Ordinal))
-                            return;
-
-                        // Backup original if not already backed up
-                        SaveOriginalSortName(conn, e.Item.InternalId, current);
-
-                        conn.Execute(
-                            $"UPDATE MediaItems SET SortName = '{TextUtil.Escape(desired)}' WHERE RowId = {e.Item.InternalId}");
-                        _logger.Debug("[PinyinSortName] Updated sort: '{0}' -> '{1}'", e.Item.Name, desired);
+                        catch (Exception ex)
+                        {
+                            _logger.Warn("[PinyinSortName] Queue batch item {0}: {1}", id, ex.Message);
+                        }
                     }
+                    conn.CommitTransaction();
+                    _logger.Debug("[PinyinSortName] Queue batch: {0} items processed", items.Count);
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warn("[PinyinSortName] Event update failed for '{0}': {1}", e.Item.Name, ex.Message);
+                    conn.RollbackTransaction();
+                    _logger.Error("[PinyinSortName] Queue batch transaction failed, rolled back: {0}", ex.Message);
+                    foreach (var entry in items)
+                        _pendingEventQueue.Enqueue(entry);
                 }
-            });
+            }
+
+            // Recover WAL space after batch writes — TRUNCATE waits for readers
+            // to drain, then fully resets the WAL to prevent bloat.
+            if (updated > 0)
+                WalCheckpointHelper.TryTruncateCheckpoint(_connectionCache, _logger, "PinyinSortName");
+
+            // Release the re-arm guard, then re-arm if more items arrived while
+            // this batch was processing (prevents a stale guard from stalling the queue).
+            Interlocked.Exchange(ref _eventTimerRunning, 0);
+            if (!_pendingEventQueue.IsEmpty)
+                EnsureEventTimer();
+        }
+
+        private void EnsureEventTimer(int delayMs = EventTimerIntervalMs)
+        {
+            if (Interlocked.CompareExchange(ref _eventTimerRunning, 1, 0) == 0)
+                _eventTimer?.Change(delayMs, Timeout.Infinite);
         }
 
         // ── Eligibility ──
@@ -523,6 +599,10 @@ namespace ViewMate.Pinyin
         public void Dispose()
         {
             if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0) return;
+
+            _eventTimer?.Dispose();
+            _eventTimer = null;
+
             _libraryManager.ItemAdded -= OnItemChanged;
             _libraryManager.ItemUpdated -= OnItemChanged;
         }
