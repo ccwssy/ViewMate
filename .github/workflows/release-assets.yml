@@ -1,0 +1,61 @@
+name: Build and Attach DLL Assets
+
+# 触发：push tag v* 自动构建并上传 DLL；也可 workflow_dispatch 手动为历史 tag 补资产
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '目标 tag（如 v1.2.17.0），留空则用当前 ref'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Restore & Build (Release)
+        run: |
+          cd ViewMate
+          dotnet build -c Release --nologo
+
+      - name: Verify artifacts
+        run: |
+          ls -la ViewMate/bin/Release/net6.0/ViewMate.dll
+          ls -la ViewMate/bin/Release/net6.0/TinyPinyin.dll
+
+      - name: Attach DLLs to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG="${{ github.event.inputs.tag }}"
+          if [[ -z "$TAG" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          echo "Target tag: $TAG"
+          DLL1="ViewMate/bin/Release/net6.0/ViewMate.dll"
+          DLL2="ViewMate/bin/Release/net6.0/TinyPinyin.dll"
+          # release 不存在 → 创建；存在 → 只上传资产（--clobber 覆盖重传）
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$DLL1" "$DLL2" --clobber
+          else
+            gh release create "$TAG" "$DLL1" "$DLL2" --title "$TAG" --generate-notes
+          fi
+          echo "Assets attached to $TAG:"
+          gh release view "$TAG" --json assets -q '.assets[].name'
