@@ -15,6 +15,23 @@ namespace ViewMate.IntroSkip
         private readonly ChapterMarkerApi _chapterMarkerApi;
         private readonly ConnectionManagerCache _connectionCache;
 
+        // Raw MarkerType values stored in Chapters3 by this backfill service.
+        // Deliberately NOT MediaBrowser.Model.Entities.MarkerType (whose numeric
+        // ordering differs) — these literal DB values must be preserved.
+        private enum BackfillMarkerType
+        {
+            IntroStart = 1,
+            IntroEnd = 2,
+            CreditsStart = 3,
+        }
+
+        // MediaItems.Type value for episodes (Emby BaseItemKind.Episode).
+        private const long EpisodeType = 8;
+
+        // Name filter: markers whose names contain this string are ignored
+        // (e.g. plot/chapter-style markers that are not intro/credits).
+        private const string PlotFilter = "plot";
+
         public IntroBackfillService(ChapterMarkerApi chapterMarkerApi, ILogger logger)
         {
             _chapterMarkerApi = chapterMarkerApi;
@@ -43,9 +60,9 @@ namespace ViewMate.IntroSkip
                 try
                 {
                     using (var stmt = conn.PrepareStatement(
-                        @"SELECT DISTINCT m.SeriesId FROM MediaItems m
+                        $@"SELECT DISTINCT m.SeriesId FROM MediaItems m
                           JOIN Chapters3 c ON c.ItemId = m.Id
-                          WHERE c.Name LIKE '%#ECS%' AND c.Name NOT LIKE '%plot%'"))
+                          WHERE c.Name LIKE '%{ChapterMarkerApi.MarkerSuffix}%' AND c.Name NOT LIKE '%{PlotFilter}%'"))
                     {
                         while (stmt.MoveNext())
                             seriesIds.Add(stmt.Current.GetInt64(0));
@@ -73,7 +90,7 @@ namespace ViewMate.IntroSkip
                     try
                     {
                         var epQuery = $@"SELECT Id, Name, IndexNumber, ParentIndexNumber FROM MediaItems
-                                         WHERE SeriesId = {sid} AND Type = 8 ORDER BY IndexNumber";
+                                         WHERE SeriesId = {sid} AND Type = {EpisodeType} ORDER BY IndexNumber";
                         using (var stmt = conn.PrepareStatement(epQuery))
                         {
                             while (stmt.MoveNext())
@@ -126,7 +143,7 @@ namespace ViewMate.IntroSkip
                             try
                             {
                                 var markerQuery = $@"SELECT StartPositionTicks, Name FROM Chapters3
-                                                   WHERE ItemId = {ep.Item1} AND Name LIKE '%#ECS%'
+                                                   WHERE ItemId = {ep.Item1} AND Name LIKE '%{ChapterMarkerApi.MarkerSuffix}%'
                                                    ORDER BY StartPositionTicks";
                                 var markers = new List<Tuple<long, string>>();
                                 using (var stmt = conn.PrepareStatement(markerQuery))
@@ -169,8 +186,8 @@ namespace ViewMate.IntroSkip
                             {
                                 // Check existing ECS marker count
                                 var countQuery = $@"SELECT COUNT(*) FROM Chapters3
-                                                  WHERE ItemId = {ep.Item1} AND Name LIKE '%#ECS%'
-                                                  AND Name NOT LIKE '%plot%'";
+                                                  WHERE ItemId = {ep.Item1} AND Name LIKE '%{ChapterMarkerApi.MarkerSuffix}%'
+                                                  AND Name NOT LIKE '%{PlotFilter}%'";
                                 int has;
                                 using (var stmt = conn.PrepareStatement(countQuery))
                                 {
@@ -194,7 +211,7 @@ namespace ViewMate.IntroSkip
                                     }
                                     conn.Execute(
                                         $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
-                                        $"VALUES ({ep.Item1}, {maxIdxCredits + 1}, {refCreditsStart}, 'CreditsStart#ECS', 3)");
+                                        $"VALUES ({ep.Item1}, {maxIdxCredits + 1}, {refCreditsStart}, 'CreditsStart{ChapterMarkerApi.MarkerSuffix}', {(int)BackfillMarkerType.CreditsStart})");
                                     totalFixed++;
                                     _logger.Info("[IntroBackfill] Credits-only backfill: Series={0} E{1} ({2})", sid, ep.Item3 ?? 0, ep.Item2);
                                     continue;
@@ -216,22 +233,22 @@ namespace ViewMate.IntroSkip
                                 try
                                 {
                                     conn.Execute(
-                                        $"DELETE FROM Chapters3 WHERE ItemId = {ep.Item1} AND Name LIKE '%#ECS%'");
+                                        $"DELETE FROM Chapters3 WHERE ItemId = {ep.Item1} AND Name LIKE '%{ChapterMarkerApi.MarkerSuffix}%'");
 
                                     conn.Execute(
                                         $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
-                                        $"VALUES ({ep.Item1}, {maxIdx + 1}, {refStart}, 'IntroStart#ECS', 1)");
+                                        $"VALUES ({ep.Item1}, {maxIdx + 1}, {refStart}, 'IntroStart{ChapterMarkerApi.MarkerSuffix}', {(int)BackfillMarkerType.IntroStart})");
 
                                     conn.Execute(
                                         $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
-                                        $"VALUES ({ep.Item1}, {maxIdx + 2}, {refEnd}, 'IntroEnd#ECS', 2)");
+                                        $"VALUES ({ep.Item1}, {maxIdx + 2}, {refEnd}, 'IntroEnd{ChapterMarkerApi.MarkerSuffix}', {(int)BackfillMarkerType.IntroEnd})");
 
                                     // Also backfill CreditsStart if the reference episode has one
                                     if (refHasCredits)
                                     {
                                         conn.Execute(
                                             $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
-                                            $"VALUES ({ep.Item1}, {maxIdx + 3}, {refCreditsStart}, 'CreditsStart#ECS', 3)");
+                                            $"VALUES ({ep.Item1}, {maxIdx + 3}, {refCreditsStart}, 'CreditsStart{ChapterMarkerApi.MarkerSuffix}', {(int)BackfillMarkerType.CreditsStart})");
                                     }
 
                                     conn.CommitTransaction();
@@ -257,24 +274,8 @@ namespace ViewMate.IntroSkip
 
             _logger.Info("[IntroBackfill] Complete: {0} episodes fixed", totalFixed);
             if (totalFixed > 0)
-                TryTruncateCheckpoint();
+                WalCheckpointHelper.TryTruncateCheckpoint(_connectionCache, _logger, "IntroBackfill", LogSeverity.Info);
             return totalFixed;
-        }
-
-        // ── WAL checkpoint ──
-
-        private void TryTruncateCheckpoint()
-        {
-            try
-            {
-                using (var conn = _connectionCache.OpenWriteConnection())
-                {
-                    if (conn == null) return;
-                    conn.Execute("PRAGMA wal_checkpoint(TRUNCATE)");
-                    _logger.Info("[IntroBackfill] TRUNCATE checkpoint done");
-                }
-            }
-            catch { /* checkpoint failures are benign — WAL will recover on next write */ }
         }
     }
 }

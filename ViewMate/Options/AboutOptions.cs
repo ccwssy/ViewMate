@@ -15,18 +15,6 @@ namespace ViewMate.Options
 
         public GenericItemList VersionInfoList { get; set; } = new GenericItemList();
 
-        [Browsable(false)]
-        public string DefaultUICulture { get; set; } = "zh-CN";
-
-        [Browsable(false)]
-        public bool DebugMode { get; set; } = true;
-
-        [Browsable(false)]
-        public string GitHubToken { get; set; } = string.Empty;
-
-        [Browsable(false)]
-        public string GitHubProxy { get; set; } = string.Empty;
-        
         private static string GetVersionHash()
         {
             var assembly = Assembly.GetExecutingAssembly();

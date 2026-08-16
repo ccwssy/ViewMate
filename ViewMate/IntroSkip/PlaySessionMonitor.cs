@@ -8,6 +8,7 @@ using MediaBrowser.Model.Session;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
+using ViewMate.Common;
 
 namespace ViewMate.IntroSkip
 {
@@ -16,9 +17,7 @@ namespace ViewMate.IntroSkip
     /// by watching for manual seek jumps. When a pattern is recognised,
     /// writes Chapter markers via ChapterMarkerApi.
     ///
-    /// Two detection modes:
-    ///   1. Auto-detect (default) — watches seek-forward behaviour
-    ///   2. Manual-teach (NoDetectionButReset) — user pause-unpause at boundary
+    /// Detection mode: auto-detect (default) — watches seek-forward behaviour.
     /// </summary>
     public class PlaySessionMonitor : IDisposable
     {
@@ -35,8 +34,8 @@ namespace ViewMate.IntroSkip
 
         // ── config overrides (thread-safe via _configLock) ──
 
-        private long _maxIntroDurationTicks = TimeSpan.FromSeconds(150).Ticks;
-        private long _maxCreditsDurationTicks = TimeSpan.FromSeconds(180).Ticks;
+        private long _maxIntroDurationTicks = TimeSpan.FromSeconds(IntroSkipDefaults.MaxIntroDurationSeconds).Ticks;
+        private long _maxCreditsDurationTicks = TimeSpan.FromSeconds(IntroSkipDefaults.MaxCreditsDurationSeconds).Ticks;
         private string _clientFilter = "";
 
         public long MaxIntroDurationTicks
@@ -49,12 +48,6 @@ namespace ViewMate.IntroSkip
         {
             get { lock (_configLock) return _maxCreditsDurationTicks; }
             set { lock (_configLock) _maxCreditsDurationTicks = value; }
-        }
-
-        public string ClientFilter
-        {
-            get { lock (_configLock) return _clientFilter ?? ""; }
-            set { lock (_configLock) _clientFilter = value ?? ""; }
         }
 
         public PlaySessionMonitor(ILibraryManager libraryManager, ISessionManager sessionManager, ILogger logger)
@@ -106,20 +99,11 @@ namespace ViewMate.IntroSkip
 
             _sessions.TryRemove(e.PlaySessionId, out _);
 
-            long maxIntro, maxCredits;
-            lock (_configLock)
-            {
-                maxIntro = _maxIntroDurationTicks;
-                maxCredits = _maxCreditsDurationTicks;
-            }
-
             var data = new PlaySessionData(episode)
             {
                 PlaybackStartTicks = e.PlaybackPositionTicks.Value,
                 PreviousPositionTicks = e.PlaybackPositionTicks.Value,
                 PreviousEventTime = DateTime.UtcNow,
-                MaxIntroDurationTicks = maxIntro,
-                MaxCreditsDurationTicks = maxCredits,
             };
             _sessions[e.PlaySessionId] = data;
 
@@ -141,19 +125,16 @@ namespace ViewMate.IntroSkip
             // ── detect seek-jump (manual skip forward) ──
             // Include Pause for mobile tap-to-seek (mobile Emby Web sends Pause, not TimeUpdate)
             // Always track jumps regardless of existing markers, enabling auto-healing
-            if ((e.EventName == ProgressEvent.TimeUpdate || e.EventName == ProgressEvent.Unpause || e.EventName == ProgressEvent.Pause)
-                && !data.NoDetectionButReset)
+            if (e.EventName == ProgressEvent.TimeUpdate || e.EventName == ProgressEvent.Unpause || e.EventName == ProgressEvent.Pause)
             {
                 DetectJump(episode, e.Session, data, currentTicks, now);
             }
 
             // ── detect manual pause-unpause → credits (user teaching) ──
             long maxCredits;
-            long maxIntro;
             lock (_configLock)
             {
                 maxCredits = _maxCreditsDurationTicks;
-                maxIntro = _maxIntroDurationTicks;
             }
 
             if (e.EventName == ProgressEvent.Unpause && data.LastPauseEventTime.HasValue && episode.RunTimeTicks.HasValue)
@@ -172,27 +153,17 @@ namespace ViewMate.IntroSkip
                             data.CreditsStart = Plugin.ChapterMarkerApi.GetCreditsStart(episode);
                         }
                     }
-
-                    // User paused near beginning → teach intro boundary (NoDetectionButReset mode)
-                    if (data.NoDetectionButReset && !data.IntroStart.HasValue && currentTicks < maxIntro)
-                    {
-                        Plugin.ChapterMarkerApi.UpdateIntro(episode, 0, currentTicks);
-                        data.IntroStart = Plugin.ChapterMarkerApi.GetIntroStart(episode);
-                        data.IntroEnd = Plugin.ChapterMarkerApi.GetIntroEnd(episode);
-                    }
                 }
             }
 
             // ── track pause / rate-change timestamps ──
             if (e.EventName == ProgressEvent.Pause)
                 data.LastPauseEventTime = now;
-            if (e.EventName == ProgressEvent.PlaybackRateChange)
-                data.LastPlaybackRateChangeEventTime = now;
 
             // ── track manual forward jumps (≥20s to avoid normal ~10s progress) ──
             var timeElapsed = (now - data.PreviousEventTime).TotalSeconds;
             var posDelta = TimeSpan.FromTicks(currentTicks - data.PreviousPositionTicks).TotalSeconds;
-            if (posDelta >= 20 && !data.NoDetectionButReset)
+            if (posDelta >= 20)
             {
                 data.LastBigJumpSourceTicks = data.PreviousPositionTicks;
                 data.LastBigJumpTargetTicks = currentTicks;
@@ -253,61 +224,58 @@ namespace ViewMate.IntroSkip
             // FirstJumpTargetTicks = first seek target (never overwritten — where user actually started watching)
             // LastJumpPositionTicks = last seek target (updates on each seek in the sequence)
             // LastBigJumpSourceTicks / LastBigJumpTargetTicks are fallbacks for older single-jump scenario
-            if (!data.NoDetectionButReset)
+            long? jumpSrc = data.FirstJumpPositionTicks ?? data.LastBigJumpSourceTicks;
+            long? jumpTgt = data.FirstJumpTargetTicks ?? data.LastJumpPositionTicks ?? data.LastBigJumpTargetTicks;
+
+            if (jumpSrc.HasValue && jumpTgt.HasValue)
             {
-                long? jumpSrc = data.FirstJumpPositionTicks ?? data.LastBigJumpSourceTicks;
-                long? jumpTgt = data.FirstJumpTargetTicks ?? data.LastJumpPositionTicks ?? data.LastBigJumpTargetTicks;
-
-                if (jumpSrc.HasValue && jumpTgt.HasValue)
+                // Yamby (and most mobile clients) report progress infrequently (~20s intervals).
+                // The detected jump source is often the LAST REPORTED position, not the actual
+                // pre-jump position. If the user started from 0s (PlaybackStartTicks=0) and the
+                // jump source is within maxIntro, the intro genuinely starts at 0, not at some
+                // intermediate position Yamby finally reported.
+                if (data.PlaybackStartTicks == 0 && jumpSrc.Value > 0
+                    && jumpSrc.Value <= maxIntro)
                 {
-                    // Yamby (and most mobile clients) report progress infrequently (~20s intervals).
-                    // The detected jump source is often the LAST REPORTED position, not the actual
-                    // pre-jump position. If the user started from 0s (PlaybackStartTicks=0) and the
-                    // jump source is within maxIntro, the intro genuinely starts at 0, not at some
-                    // intermediate position Yamby finally reported.
-                    if (data.PlaybackStartTicks == 0 && jumpSrc.Value > 0
-                        && jumpSrc.Value <= maxIntro)
-                    {
-                        jumpSrc = 0;
-                    }
+                    jumpSrc = 0;
+                }
 
-                    // Determine intro end: use FirstJumpTargetTicks when client reports timely
-                    // (unreported gap ≤10s), fall back to skipDistance when Yamby combines events.
-                    // Hills reports frequently (~5s gap) → FirstJumpTargetTicks=45s ✅
-                    // Yamby reports rarely (~21s gap) → skipDistance=39s≈40s ✅
-                    if (data.PlaybackStartTicks == 0
-                        && data.FirstJumpPositionTicks.HasValue && data.LastJumpPositionTicks.HasValue)
+                // Determine intro end: use FirstJumpTargetTicks when client reports timely
+                // (unreported gap ≤10s), fall back to skipDistance when Yamby combines events.
+                // Hills reports frequently (~5s gap) → FirstJumpTargetTicks=45s ✅
+                // Yamby reports rarely (~21s gap) → skipDistance=39s≈40s ✅
+                if (data.PlaybackStartTicks == 0
+                    && data.FirstJumpPositionTicks.HasValue && data.LastJumpPositionTicks.HasValue)
+                {
+                    var unreportedGap = data.FirstJumpPositionTicks.Value - data.PlaybackStartTicks;
+                    var skipDistance = data.LastJumpPositionTicks.Value - data.FirstJumpPositionTicks.Value;
+                    if (skipDistance > 0 && skipDistance <= maxIntro)
                     {
-                        var unreportedGap = data.FirstJumpPositionTicks.Value - data.PlaybackStartTicks;
-                        var skipDistance = data.LastJumpPositionTicks.Value - data.FirstJumpPositionTicks.Value;
-                        if (skipDistance > 0 && skipDistance <= maxIntro)
-                        {
-                            var reliableTarget = data.FirstJumpTargetTicks ?? (skipDistance);
-                            jumpTgt = unreportedGap > TimeSpan.FromSeconds(10).Ticks
-                                ? skipDistance    // Yamby: use skip distance from 0
-                                : reliableTarget; // Hills: use first FF target
-                        }
+                        var reliableTarget = data.FirstJumpTargetTicks ?? (skipDistance);
+                        jumpTgt = unreportedGap > TimeSpan.FromSeconds(10).Ticks
+                            ? skipDistance    // Yamby: use skip distance from 0
+                            : reliableTarget; // Hills: use first FF target
                     }
+                }
 
-                    // User may overshoot first FF and correct backward (FF to 60s, scrub back to 40s, FF again).
-                    // In that case LastJumpPositionTicks is closer to the actual watching start.
-                    if (data.FirstJumpTargetTicks.HasValue && data.LastJumpPositionTicks.HasValue
-                        && data.LastJumpPositionTicks.Value < data.FirstJumpTargetTicks.Value)
-                    {
-                        jumpTgt = data.LastJumpPositionTicks.Value;
-                    }
+                // User may overshoot first FF and correct backward (FF to 60s, scrub back to 40s, FF again).
+                // In that case LastJumpPositionTicks is closer to the actual watching start.
+                if (data.FirstJumpTargetTicks.HasValue && data.LastJumpPositionTicks.HasValue
+                    && data.LastJumpPositionTicks.Value < data.FirstJumpTargetTicks.Value)
+                {
+                    jumpTgt = data.LastJumpPositionTicks.Value;
+                }
 
-                    var jumpSrcSec = TimeSpan.FromTicks(jumpSrc.Value).TotalSeconds;
-                    var jumpTgtSec = TimeSpan.FromTicks(jumpTgt.Value).TotalSeconds;
-                    if (jumpSrcSec <= maxIntroSec)
-                    {
-                        Plugin.ChapterMarkerApi.UpdateIntro(episode, jumpSrc.Value, jumpTgt.Value);
-                        _logger.Info($"[IntroSkip] Intro detected: {jumpSrcSec:F0}s → {jumpTgtSec:F0}s (src={jumpSrcSec:F0}s)");
-                    }
-                    else
-                    {
-                        _logger.Info($"[IntroSkip] Tracked jump ignored: src={jumpSrcSec:F0}s exceeds maxIntro={maxIntroSec:F0}s");
-                    }
+                var jumpSrcSec = TimeSpan.FromTicks(jumpSrc.Value).TotalSeconds;
+                var jumpTgtSec = TimeSpan.FromTicks(jumpTgt.Value).TotalSeconds;
+                if (jumpSrcSec <= maxIntroSec)
+                {
+                    Plugin.ChapterMarkerApi.UpdateIntro(episode, jumpSrc.Value, jumpTgt.Value);
+                    _logger.Info($"[IntroSkip] Intro detected: {jumpSrcSec:F0}s → {jumpTgtSec:F0}s (src={jumpSrcSec:F0}s)");
+                }
+                else
+                {
+                    _logger.Info($"[IntroSkip] Tracked jump ignored: src={jumpSrcSec:F0}s exceeds maxIntro={maxIntroSec:F0}s");
                 }
             }
             if (!data.IntroEnd.HasValue && !data.FirstJumpPositionTicks.HasValue && !data.LastBigJumpSourceTicks.HasValue)
@@ -316,7 +284,7 @@ namespace ViewMate.IntroSkip
             }
 
             // Detect credits from stop position (requires RunTimeTicks)
-            if (episode.RunTimeTicks.HasValue && !data.CreditsStart.HasValue && !data.NoDetectionButReset)
+            if (episode.RunTimeTicks.HasValue && !data.CreditsStart.HasValue)
             {
                 var nearEnd = episode.RunTimeTicks.Value - maxCredits;
                 if (e.PlaybackPositionTicks.Value > nearEnd)
@@ -409,11 +377,6 @@ namespace ViewMate.IntroSkip
             lock (_configLock) { filter = _clientFilter ?? ""; }
             if (string.IsNullOrEmpty(filter)) return true;
             return clientName != null && clientName.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
-        public bool IsLibraryInScope(BaseItem item)
-        {
-            return item is Episode;
         }
     }
 }

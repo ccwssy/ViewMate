@@ -10,7 +10,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using ViewMate.Common;
@@ -41,8 +40,6 @@ namespace ViewMate.Pinyin
         // ── Periodic background scan ──
         private Timer? _periodicTimer;
 
-        private static readonly Regex ChineseRegex = new Regex(@"[\u4e00-\u9fff]", RegexOptions.Compiled);
-
         // ── ConnectionManager cache ──
         private readonly ConnectionManagerCache _connectionCache;
 
@@ -61,7 +58,6 @@ namespace ViewMate.Pinyin
 
         // ── Batch state ──
         private long _lastScanId;
-        private DateTime _lastOrphanCleanup = DateTime.MinValue;
 
         public PinyinSearchService(ILibraryManager libraryManager, ILogger logger)
         {
@@ -162,7 +158,7 @@ namespace ViewMate.Pinyin
 
                     // Recover WAL space after initial scan: full checkpoint waits for
                     // active readers to drain, then truncates the WAL to prevent bloat.
-                    TryTruncateCheckpoint();
+                    WalCheckpointHelper.TryTruncateCheckpoint(_connectionCache, _logger, "PinyinSearch");
 
                     // Start periodic timer for catch-up scans after initial scan completes.
                     // This catches items added by library scans that don't fire ItemAdded/Updated events.
@@ -180,8 +176,6 @@ namespace ViewMate.Pinyin
             scanThread.IsBackground = true;
             scanThread.Start();
         }
-
-        public int ProcessAllPending() => ProcessAllPendingBatched();
 
         private bool TryGetPendingCount(out long count)
         {
@@ -313,7 +307,7 @@ namespace ViewMate.Pinyin
                     _logger.Info("[PinyinSearch] Periodic scan: {0} items processed", total);
                     // Passive checkpoint after write-heavy periodic scan — clears
                     // what it can without blocking concurrent readers.
-                    TryPassiveCheckpoint();
+                    WalCheckpointHelper.TryPassiveCheckpoint(_connectionCache);
                 }
             }
             catch (Exception ex)
@@ -492,19 +486,18 @@ namespace ViewMate.Pinyin
         }
 
         // ── SQL helpers ──
-        private static string Escape(string s) => s?.Replace("'", "''") ?? "";
 
         private string BuildFtsInsertSql(long id, string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string origTitle = "", string seriesName = "", string album = "")
         {
-            string esc = Escape(name);
-            string s = Escape(spaced);
-            string c = Escape(connected);
-            string b = Escape(bigrams);
-            string sc = Escape(singleChars);
-            string cb = Escape(cjkBigrams);
-            string ot = Escape(origTitle);
-            string sn = Escape(seriesName);
-            string al = Escape(album);
+            string esc = TextUtil.Escape(name);
+            string s = TextUtil.Escape(spaced);
+            string c = TextUtil.Escape(connected);
+            string b = TextUtil.Escape(bigrams);
+            string sc = TextUtil.Escape(singleChars);
+            string cb = TextUtil.Escape(cjkBigrams);
+            string ot = TextUtil.Escape(origTitle);
+            string sn = TextUtil.Escape(seriesName);
+            string al = TextUtil.Escape(album);
             return $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{esc} {s} {c} {b} {sc} {cb}','{ot}','{sn}','{al}')";
         }
 
@@ -525,63 +518,6 @@ namespace ViewMate.Pinyin
             catch (Exception ex)
             {
                 _logger.Warn("[PinyinSearch] Failed to update last scan ID: {0}", ex.Message);
-            }
-        }
-
-        // ── WAL checkpoint helpers ──
-
-        /// <summary>
-        /// Full WAL checkpoint (TRUNCATE). Waits for active readers to drain,
-        /// then truncates the WAL to reclaim disk space. Safe on background
-        /// threads — blocks only briefly while readers finish their current query.
-        /// Call after bulk write operations (initial catch-up, backfill).
-        /// </summary>
-        private void TryTruncateCheckpoint()
-        {
-            try
-            {
-                using (var conn = _connectionCache.OpenWriteConnection())
-                {
-                    if (conn == null) return;
-                    conn.Execute("PRAGMA wal_checkpoint(TRUNCATE)");
-                    _logger.Debug("[PinyinSearch] TRUNCATE checkpoint done");
-                }
-            }
-            catch { /* checkpoint failures are benign — WAL will recover on next write */ }
-        }
-
-        /// <summary>
-        /// Passive WAL checkpoint. Checkpoints pages that no active reader needs,
-        /// without waiting. Call after moderate write operations (periodic scans).
-        /// </summary>
-        private void TryPassiveCheckpoint()
-        {
-            try
-            {
-                using (var conn = _connectionCache.OpenWriteConnection())
-                {
-                    if (conn == null) return;
-                    conn.Execute("PRAGMA wal_checkpoint(PASSIVE)");
-                }
-            }
-            catch { }
-        }
-
-        private void CleanOrphanedFtsEntries()
-        {
-            try
-            {
-                using (var conn = _connectionCache.OpenWriteConnection())
-                {
-                    if (conn == null) return;
-                    conn.Execute(
-                        $"DELETE FROM {FtsTableName} WHERE rowid NOT IN (SELECT RowId FROM MediaItems)");
-                    _logger.Debug("[PinyinSearch] Orphan cleanup done");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Warn("[PinyinSearch] Orphan cleanup failed: {0}", ex.Message);
             }
         }
 
@@ -904,7 +840,7 @@ namespace ViewMate.Pinyin
         {
             if (item == null || string.IsNullOrEmpty(item.Name)) return false;
             if (item.IsDisplayedAsFolder && !(item is Series)) return false;
-            return ChineseRegex.IsMatch(item.Name);
+            return TextUtil.ChineseRegex.IsMatch(item.Name);
         }
 
         // ── Zero-SQL Event Handlers ──

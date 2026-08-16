@@ -1,4 +1,4 @@
-﻿using Emby.Web.GenericEdit.PropertyDiff;
+using Emby.Web.GenericEdit.PropertyDiff;
 using MediaBrowser.Common;
 using MediaBrowser.Model.Logging;
 using ViewMate.Options.UIBaseClasses.Store;
@@ -14,7 +14,5 @@ namespace ViewMate.Options.Store
             : base(applicationHost, logger, pluginFullName)
         {
         }
-
-        public PluginOptions PluginOptions => GetOptions();
     }
 }

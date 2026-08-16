@@ -612,9 +612,6 @@
   <data name="ModOptions_ExcludeOriginalTitle_Exclude_original_title_from_search__Default_is_OFF_" xml:space="preserve">
     <value>排除原語言標題搜索，預設為關閉。</value>
   </data>
-  <data name="IntroSkipPreference_NoDetectionButReset_NoDetectionButReset" xml:space="preserve">
-    <value>無自動偵測僅暫停操作設定片頭片尾標記</value>
-  </data>
   <data name="PluginOptions_IsHarmonyModFailed_Harmony_Mod_Failed" xml:space="preserve">
     <value>魔改失敗，請啟用調試模式日誌，重新啟動後查看日誌排查問題。</value>
   </data>

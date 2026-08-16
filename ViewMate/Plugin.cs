@@ -39,8 +39,6 @@ namespace ViewMate
         public new readonly IApplicationPaths ApplicationPaths;
         public readonly IServerConfigurationManager ConfigurationManager;
         public readonly ILibraryManager LibraryManager;
-        private readonly IXmlSerializer _xmlSerializer;
-        private readonly IItemRepository _itemRepository;
 
         // ── IntroSkip ──
         public static ChapterMarkerApi ChapterMarkerApi { get; private set; }
@@ -116,8 +114,6 @@ namespace ViewMate
             MainOptionsStore = new PluginOptionsStore(applicationHost, Logger, Name);
 
             LibraryManager = libraryManager;
-            _xmlSerializer = xmlSerializer;
-            _itemRepository = itemRepository;
 
             DefaultUICulture = new CultureInfo(configurationManager.Configuration.UICulture);
 
@@ -144,8 +140,7 @@ namespace ViewMate
                 Logger.Info("[IntroSkip] Starting PlaySessionMonitor...");
                 PlaySessionMonitor.MaxIntroDurationTicks = TimeSpan.FromSeconds(config.MaxIntroDurationSeconds).Ticks;
                 PlaySessionMonitor.MaxCreditsDurationTicks = TimeSpan.FromSeconds(config.MaxCreditsDurationSeconds).Ticks;
-                PlaySessionMonitor.Start();
-            }
+                PlaySessionMonitor.Start();            }
             else
             {
                 Logger.Info("[IntroSkip] Disabled by configuration");
@@ -264,11 +259,6 @@ namespace ViewMate
             Instance?.Logger?.Info($"[VersionCheck] All {maxRetries} attempts failed — giving up");
         }
 
-        public override void OnUninstalling()
-        {
-            base.OnUninstalling();
-        }
-
         public ImageFormat ThumbImageFormat => ImageFormat.Png;
         public override string Description => $"观影助手 v{Assembly.GetExecutingAssembly().GetName().Version} — 拼音搜索、中文子串搜索、词组级多音字校正、片头片尾跳过、漏集补打、WAL checkpoint";
         public override Guid Id => _id;
@@ -311,8 +301,8 @@ namespace ViewMate
     {
         // ── IntroSkip configuration ──
         public bool EnableIntroSkip { get; set; } = false;
-        public int MaxIntroDurationSeconds { get; set; } = 150;
-        public int MaxCreditsDurationSeconds { get; set; } = 180;
+        public int MaxIntroDurationSeconds { get; set; } = IntroSkipDefaults.MaxIntroDurationSeconds;
+        public int MaxCreditsDurationSeconds { get; set; } = IntroSkipDefaults.MaxCreditsDurationSeconds;
 
         // ── PinyinSearch configuration ──
         public bool EnablePinyinSearch { get; set; } = true;

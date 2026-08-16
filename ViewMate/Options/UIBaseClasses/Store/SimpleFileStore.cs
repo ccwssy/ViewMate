@@ -1,4 +1,4 @@
-﻿namespace ViewMate.Options.UIBaseClasses.Store
+namespace ViewMate.Options.UIBaseClasses.Store
 {
     using System;
     using System.IO;
@@ -40,10 +40,6 @@
 
             this.OptionsFileName = string.Format("{0}.json", pluginFullName);
         }
-
-        public event EventHandler<FileSavingEventArgs> FileSaving;
-
-        public event EventHandler<FileSavedEventArgs> FileSaved;
 
         public virtual string OptionsFileName { get; }
 
@@ -99,14 +95,6 @@
                 throw new ArgumentNullException(nameof(newOptions));
             }
 
-            var savingArgs = new FileSavingEventArgs(newOptions);
-            this.FileSaving?.Invoke(this, savingArgs);
-
-            if (savingArgs.Cancel)
-            {
-                return;
-            }
-
             lock (this.lockObj)
             {
                 using (var stream = this.fileSystem.GetFileStream(this.OptionsFilePath, FileOpenMode.Create, FileAccessMode.Write))
@@ -119,9 +107,6 @@
             {
                 this.options = newOptions;
             }
-
-            var savedArgs = new FileSavedEventArgs(newOptions);
-            this.FileSaved?.Invoke(this, savedArgs);
         }
     }
 }

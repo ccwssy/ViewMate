@@ -8,7 +8,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using ViewMate.Common;
@@ -26,9 +25,7 @@ namespace ViewMate.Pinyin
         private readonly ILibraryManager _libraryManager;
         private readonly ConnectionManagerCache _connectionCache;
 
-        private static readonly Regex ChineseRegex = new Regex(@"[\u4e00-\u9fff]", RegexOptions.Compiled);
         private const string BackupTable = "PinyinSortNameBackup";
-
         // Lazy: deferred until first actual use, by which time TinyPinyin.dll
         // is guaranteed to be loaded by Emby's assembly scanner.
         private static readonly Lazy<Func<char, string>> _getPinyinLazy =
@@ -42,7 +39,6 @@ namespace ViewMate.Pinyin
             }
         }
 
-        private int _enabledItemCount = -1; // -1 = not initialized
         private int _disposed;
         private bool IsDisposed => Interlocked.CompareExchange(ref _disposed, 0, 0) == 1;
 
@@ -180,7 +176,7 @@ namespace ViewMate.Pinyin
 
                     // Recover WAL space after backfill — TRUNCATE waits for readers
                     // to drain, then fully resets the WAL to prevent bloat.
-                    TryTruncateCheckpoint();
+                    WalCheckpointHelper.TryTruncateCheckpoint(_connectionCache, _logger, "PinyinSortName");
                 }
                 catch (Exception ex)
                 {
@@ -218,7 +214,7 @@ namespace ViewMate.Pinyin
         {
             try
             {
-                string escaped = Escape(originalSortName);
+                string escaped = TextUtil.Escape(originalSortName);
                 if (originalSortName == null)
                     conn.Execute($"INSERT OR IGNORE INTO {BackupTable}(ItemId,OriginalSortName) VALUES({itemId},NULL)");
                 else
@@ -278,7 +274,7 @@ namespace ViewMate.Pinyin
                         if (entry.Item2 == null)
                             conn.Execute($"UPDATE MediaItems SET SortName = NULL WHERE RowId = {entry.Item1}");
                         else
-                            conn.Execute($"UPDATE MediaItems SET SortName = '{Escape(entry.Item2)}' WHERE RowId = {entry.Item1}");
+                            conn.Execute($"UPDATE MediaItems SET SortName = '{TextUtil.Escape(entry.Item2)}' WHERE RowId = {entry.Item1}");
                         restored++;
                     }
 
@@ -330,7 +326,7 @@ namespace ViewMate.Pinyin
                 {
                     // All items already processed — just update any that got changed
                     _logger.Info("[PinyinSortName] All items already backed up, re-applying pending updates...");
-                    return ProcessPendingUpdates(conn);
+                    return 0;
                 }
 
                 _logger.Info("[PinyinSortName] {0} new Chinese-named items to process", total);
@@ -351,15 +347,6 @@ namespace ViewMate.Pinyin
 
                 return processed;
             }
-        }
-
-        /// <summary>
-        /// Re-apply pinyin to items whose SortName has drifted from the expected value.
-        /// </summary>
-        private int ProcessPendingUpdates(IDatabaseConnection conn)
-        {
-            // Everything already backed up and applied — skip
-            return 0;
         }
 
         /// <summary>
@@ -444,7 +431,7 @@ namespace ViewMate.Pinyin
 
                         // Apply pinyin sort name
                         conn.Execute(
-                            $"UPDATE MediaItems SET SortName = '{Escape(desired)}' WHERE RowId = {row.Item1}");
+                            $"UPDATE MediaItems SET SortName = '{TextUtil.Escape(desired)}' WHERE RowId = {row.Item1}");
                         count++;
                     }
                     conn.CommitTransaction();
@@ -474,7 +461,7 @@ namespace ViewMate.Pinyin
             if (IsDisposed || !IsPinyinLoaded) return;
             if (e.Item == null || string.IsNullOrEmpty(e.Item.Name)) return;
             if (!IsEligibleItem(e.Item)) return;
-            if (!ChineseRegex.IsMatch(e.Item.Name)) return;
+            if (!TextUtil.ChineseRegex.IsMatch(e.Item.Name)) return;
 
             string desired = BuildPinyinSortName(e.Item.Name);
             if (desired == null) return;
@@ -503,7 +490,7 @@ namespace ViewMate.Pinyin
                         SaveOriginalSortName(conn, e.Item.InternalId, current);
 
                         conn.Execute(
-                            $"UPDATE MediaItems SET SortName = '{Escape(desired)}' WHERE RowId = {e.Item.InternalId}");
+                            $"UPDATE MediaItems SET SortName = '{TextUtil.Escape(desired)}' WHERE RowId = {e.Item.InternalId}");
                         _logger.Debug("[PinyinSortName] Updated sort: '{0}' -> '{1}'", e.Item.Name, desired);
                     }
                 }
@@ -531,7 +518,7 @@ namespace ViewMate.Pinyin
 
         public static string BuildPinyinSortName(string source)
         {
-            if (string.IsNullOrEmpty(source) || !ChineseRegex.IsMatch(source))
+            if (string.IsNullOrEmpty(source) || !TextUtil.ChineseRegex.IsMatch(source))
                 return null;
 
             if (!IsPinyinLoaded) return null;
@@ -567,25 +554,7 @@ namespace ViewMate.Pinyin
             return hasChinese ? sb.ToString() : null;
         }
 
-        // ── WAL checkpoint ──
-
-        private void TryTruncateCheckpoint()
-        {
-            try
-            {
-                using (var conn = _connectionCache.OpenWriteConnection())
-                {
-                    if (conn == null) return;
-                    conn.Execute("PRAGMA wal_checkpoint(TRUNCATE)");
-                    _logger.Debug("[PinyinSortName] TRUNCATE checkpoint done");
-                }
-            }
-            catch { }
-        }
-
         // ── Helpers ──
-
-        private static string Escape(string s) => s?.Replace("'", "''") ?? "";
 
         public void Dispose()
         {

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net6.0</TargetFrameworks>
 <Version>1.2.16.24</Version>
@@ -15,7 +15,7 @@
 	  <Deterministic>false</Deterministic>
 	  
 	<LangVersion>8.0</LangVersion>
-	<NoWarn>0162;0414</NoWarn>
+
 	  
 	  <RootNamespace>ViewMate</RootNamespace>
 	  <AssemblyName>ViewMate</AssemblyName>

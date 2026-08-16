@@ -16,18 +16,13 @@ namespace ViewMate.Common
         private readonly IItemRepository _itemRepository;
         private readonly ILibraryManager _libraryManager;
 
-        private const string MarkerSuffix = "#ECS"; // sentinel suffix — IntroBackfillService depends on this via LIKE '%#ECS%'
+        internal const string MarkerSuffix = "#ECS";
 
         public ChapterMarkerApi(ILibraryManager libraryManager, IItemRepository itemRepository, ILogger logger)
         {
             _logger = logger;
             _itemRepository = itemRepository;
             _libraryManager = libraryManager;
-        }
-
-        public bool HasIntro(BaseItem item)
-        {
-            return GetChapters(item).Any(c => c.MarkerType == MarkerType.IntroStart);
         }
 
         public long? GetIntroStart(BaseItem item)
