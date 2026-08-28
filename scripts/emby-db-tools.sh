@@ -1,4 +1,5 @@
 #!/bin/bash
+# emby-db-tools.sh V1.0.0
 # emby-db-tools.sh — Emby 数据库维护工具集
 # 用法:
 #   ./emby-db-tools.sh check-pinyin [容器名]  — 验证拼音录入
