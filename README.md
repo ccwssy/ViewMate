@@ -4,7 +4,7 @@
 
 Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头片尾跳过** + **漏集补打**。
 
-适配 Emby **4.9.5.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll ~172KB + TinyPinyin.dll ~40KB）。
+适配 Emby **4.9.5.0 / 4.10.0.40**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll ~172KB + TinyPinyin.dll ~40KB）。
 
 ## 支持平台
 
@@ -79,6 +79,7 @@ Seek detected: 00:00:05 → 00:00:45 (jump=40s elapsed=0.6s)  # 累计跳转
 
 ### 要求
 - Emby 4.9.3.0+（.NET 6 容器）
+- **4.10.0.40 已实测适配**（2026-09-09，v1.2.17.0）：插件加载 / EntryPoint / 拼音搜索（FTS5 注入）/ 拼音排序名（SQL 直连）/ 片头片尾跳过 / 漏集补打全部正常。4.10 仅迁移了授权相关内部类（`HardwareAccelerationRequiresPremiere` → `ApplicationHost` 等），ViewMate 不依赖这些 API，无需为 4.10 单独出包
 
 ### 升级安装（覆盖已有插件）
 
