@@ -47,7 +47,7 @@ namespace ViewMate.Pinyin
         /// </summary>
         public static Func<char, string> GetPinyinFunc => _getPinyinLazy.Value;
 
-        public static (string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsBigrams) GeneratePinyin(string text)
+        public static (string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsSuffixes) GeneratePinyin(string text)
         {
             if (string.IsNullOrEmpty(text)) return (null!, null!, null!, null!, null!, null!, null!);
 
@@ -143,16 +143,18 @@ namespace ViewMate.Pinyin
             }
             string initials = sbInitials.ToString();
 
-            // 在首字母序列上做相邻两字母的滑动窗口（"GFNZ" →
-            // "GF FZ ZN NZ"），以便命中名称中部的两字母搜索。
-            var sbInitialBigram = new StringBuilder();
-            for (int i = 0; i + 1 < initials.Length; i++)
-                sbInitialBigram.Append(initials[i]).Append(initials[i + 1]).Append(' ');
+            // 首字母整串的全部后缀（"ALTZDTS" →
+            // "LTZDTS TZDTS ZDTS DTS TS"），长度为 1 的后缀省略。
+            // 任意长度、任意位置的缩写都是某个后缀的前缀，配合 Emby 的
+            // 前缀查询即可命中（如 "zdts" 命中后缀 "ZDTS"）。
+            var sbInitialSuffix = new StringBuilder();
+            for (int i = 1; i + 1 < initials.Length; i++)
+                sbInitialSuffix.Append(initials.Substring(i)).Append(' ');
 
             return (sbSpaced.ToString().TrimEnd(), sbConnected.ToString(),
                     sbBigram.ToString().TrimEnd(),
                     sbSingle.ToString().TrimEnd(), sbCjkBigram.ToString().TrimEnd(),
-                    initials, sbInitialBigram.ToString().TrimEnd());
+                    initials, sbInitialSuffix.ToString().TrimEnd());
         }
 
         public static bool IsCjkItem(BaseItem item)

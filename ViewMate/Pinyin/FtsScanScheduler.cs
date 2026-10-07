@@ -296,7 +296,7 @@ namespace ViewMate.Pinyin
                             long id = stmt.Current.GetInt64(0);
                             string name = stmt.Current.GetString(1);
                             string currentC0 = stmt.Current.GetString(2);
-                            var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams) =
+                            var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsSuffixes) =
                                 TinyPinyinLoader.GeneratePinyin(name);
 
                             // TinyPinyin 不可用 → 放弃整轮，
@@ -317,8 +317,8 @@ namespace ViewMate.Pinyin
                                 SingleChars = singleChars,
                                 CjkBigrams = cjkBigrams,
                                 Initials = initials,
-                                InitialsBigrams = initialsBigrams,
-                                ExpectedC0 = FtsIndexWriter.BuildFtsNameColumn(name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams),
+                                InitialsSuffixes = initialsSuffixes,
+                                ExpectedC0 = FtsIndexWriter.BuildFtsNameColumn(name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsSuffixes),
                                 CurrentC0 = currentC0,
                             });
                         }
@@ -357,7 +357,7 @@ namespace ViewMate.Pinyin
                                 "[PinyinSearch] Backfill read existing columns for id {0}: {1}",
                                 out string origTitle, out string seriesName, out string album);
                             _writer.ExecuteInsert(conn, row.Id, row.Name, row.Spaced, row.Connected,
-                                row.Bigrams, row.SingleChars, row.CjkBigrams, row.Initials, row.InitialsBigrams,
+                                row.Bigrams, row.SingleChars, row.CjkBigrams, row.Initials, row.InitialsSuffixes,
                                 origTitle, seriesName, album);
                             updated++;
                         }
@@ -455,7 +455,7 @@ namespace ViewMate.Pinyin
             public string SingleChars = "";
             public string CjkBigrams = "";
             public string Initials = "";
-            public string InitialsBigrams = "";
+            public string InitialsSuffixes = "";
             public string ExpectedC0 = "";
             public string CurrentC0 = "";
         }
@@ -713,7 +713,7 @@ namespace ViewMate.Pinyin
                                 string name = row.Item2;
 
                                 // 记入已处理，避免下一轮重复处理
-                                var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams) = TinyPinyinLoader.GeneratePinyin(name);
+                                var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsSuffixes) = TinyPinyinLoader.GeneratePinyin(name);
                                 if (string.IsNullOrEmpty(spaced))
                                 {
                                     lock (_processedCatchUpLock)
@@ -737,7 +737,7 @@ namespace ViewMate.Pinyin
                                     "[PinyinSearch] Catch-up batch read existing columns for id {0}: {1}",
                                     out string origTitle, out string seriesName, out string album);
 
-                                _writer.ExecuteInsert(conn, id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams, origTitle, seriesName, album);
+                                _writer.ExecuteInsert(conn, id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsSuffixes, origTitle, seriesName, album);
                                 processed++;
                             }
                             catch (Exception ex)
@@ -824,10 +824,10 @@ namespace ViewMate.Pinyin
                                 "[PinyinSearch] Queue batch read columns for id {0}: {1}",
                                 out string origTitle, out string seriesName, out string album);
 
-                            var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams) = TinyPinyinLoader.GeneratePinyin(name);
+                            var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsSuffixes) = TinyPinyinLoader.GeneratePinyin(name);
                             if (string.IsNullOrEmpty(spaced)) continue;
 
-                            _writer.ExecuteInsert(connection, id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams, origTitle, seriesName, album);
+                            _writer.ExecuteInsert(connection, id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsSuffixes, origTitle, seriesName, album);
                         }
                         catch (Exception ex)
                         {

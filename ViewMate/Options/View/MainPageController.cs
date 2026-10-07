@@ -1,4 +1,4 @@
-﻿using MediaBrowser.Model.Plugins;
+using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Plugins.UI;
 using MediaBrowser.Model.Plugins.UI.Views;
 using ViewMate.Options.Store;
@@ -25,7 +25,7 @@ namespace ViewMate.Options.View
             {
                 Name = "Settings",
                 EnableInMainMenu = true,
-                DisplayName = Resources.ResourceManager.GetString("PluginOptions_EditorTitle_PinyinSearch",
+                DisplayName = Resources.ResourceManager.GetString("PluginOptions_EditorTitle_Strm_Assistant",
                     Plugin.Instance.DefaultUICulture),
                 MenuIcon = "video_settings",
                 IsMainConfigPage = false,
@@ -33,8 +33,11 @@ namespace ViewMate.Options.View
 
             // tab 顺序即此列表顺序。框架通过 UIPageControllers 链注册这些页面；
             // 不要把各 tab 直接注册到顶层。
+            // 主控制器自身固定为第 0 个 tab（「观影助手」总览页，见
+            // UIPagesManager.UpdateTabPageInfo），因此这里只列其余三个 tab。
             _tabPageControllers = new List<IPluginUIPageController>
             {
+                new PinyinSearchPageController(pluginInfo, mainOptionsStore),
                 new IntroSkipPageController(pluginInfo, mainOptionsStore),
                 new AboutPageController(pluginInfo, mainOptionsStore),
             };
@@ -46,7 +49,7 @@ namespace ViewMate.Options.View
 
         public override Task<IPluginUIView> CreateDefaultPageView()
         {
-            IPluginUIView view = new HomePageView(_pluginInfo, _mainOptionsStore);
+            IPluginUIView view = new OverviewPageView(_pluginInfo, _mainOptionsStore);
             return Task.FromResult(view);
         }
 

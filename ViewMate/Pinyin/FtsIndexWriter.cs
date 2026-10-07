@@ -125,14 +125,14 @@ namespace ViewMate.Pinyin
         /// 六段拼音 token。在此处转义，使 INSERT 路径与
         /// 回填比较使用完全相同的字符串。
         /// </summary>
-        public static string BuildFtsNameColumn(string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsBigrams)
+        public static string BuildFtsNameColumn(string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsSuffixes)
         {
-            return $"{TextUtil.Escape(name)} {TextUtil.Escape(spaced)} {TextUtil.Escape(connected)} {TextUtil.Escape(bigrams)} {TextUtil.Escape(singleChars)} {TextUtil.Escape(cjkBigrams)} {TextUtil.Escape(initials)} {TextUtil.Escape(initialsBigrams)}";
+            return $"{TextUtil.Escape(name)} {TextUtil.Escape(spaced)} {TextUtil.Escape(connected)} {TextUtil.Escape(bigrams)} {TextUtil.Escape(singleChars)} {TextUtil.Escape(cjkBigrams)} {TextUtil.Escape(initials)} {TextUtil.Escape(initialsSuffixes)}";
         }
 
-        public static string BuildFtsInsertSql(long id, string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsBigrams, string origTitle = "", string seriesName = "", string album = "")
+        public static string BuildFtsInsertSql(long id, string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsSuffixes, string origTitle = "", string seriesName = "", string album = "")
         {
-            string c0 = BuildFtsNameColumn(name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams);
+            string c0 = BuildFtsNameColumn(name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsSuffixes);
             string ot = TextUtil.Escape(origTitle);
             string sn = TextUtil.Escape(seriesName);
             string al = TextUtil.Escape(album);
@@ -140,9 +140,9 @@ namespace ViewMate.Pinyin
         }
 
         // ── 单行写入 ──
-        public void ExecuteInsert(IDatabaseConnection conn, long id, string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsBigrams, string origTitle = "", string seriesName = "", string album = "")
+        public void ExecuteInsert(IDatabaseConnection conn, long id, string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsSuffixes, string origTitle = "", string seriesName = "", string album = "")
         {
-            conn.Execute(BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams, origTitle, seriesName, album));
+            conn.Execute(BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsSuffixes, origTitle, seriesName, album));
         }
 
         /// <summary>
@@ -206,14 +206,14 @@ namespace ViewMate.Pinyin
 
                         long id = row.Item1;
                         string name = row.Item2;
-                        var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams) = TinyPinyinLoader.GeneratePinyin(name);
+                        var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsSuffixes) = TinyPinyinLoader.GeneratePinyin(name);
                         if (string.IsNullOrEmpty(spaced)) continue;
 
                         string origTitle = "", seriesName = "", album = "";
                         if (readExistingColumns)
                             ReadExistingColumns(conn, id, readColumnsLogFormat, out origTitle, out seriesName, out album);
 
-                        ExecuteInsert(conn, id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams, origTitle, seriesName, album);
+                        ExecuteInsert(conn, id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsSuffixes, origTitle, seriesName, album);
                         processed++;
                     }
                     catch (Exception ex) when (itemLogFormat != null)

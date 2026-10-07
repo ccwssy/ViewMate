@@ -47,7 +47,7 @@ namespace ViewMate.Pinyin
 
         // ── 拼音生成（公开静态 API，委托给共用加载器） ──
 
-        public static (string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsBigrams) GeneratePinyin(string text)
+        public static (string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsSuffixes) GeneratePinyin(string text)
             => TinyPinyinLoader.GeneratePinyin(text);
 
         public static bool IsCjkItem(BaseItem item)

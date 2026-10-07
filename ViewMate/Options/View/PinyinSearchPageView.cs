@@ -1,4 +1,4 @@
-﻿using MediaBrowser.Model.Plugins;
+using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Plugins.UI.Views;
 using ViewMate.Options.Store;
 using ViewMate.Options.UIBaseClasses.Views;
@@ -12,11 +12,11 @@ namespace ViewMate.Options.View
     /// 整个 JSON 容器，替换自己那一段后写回，
     /// 然后同步 PluginConfiguration（XML）中对应的字段。
     /// </summary>
-    internal class HomePageView : PluginPageView
+    internal class PinyinSearchPageView : PluginPageView
     {
         private readonly PluginOptionsStore _store;
 
-        public HomePageView(PluginInfo pluginInfo, PluginOptionsStore store)
+        public PinyinSearchPageView(PluginInfo pluginInfo, PluginOptionsStore store)
             : base(pluginInfo.Id)
         {
             _store = store;
