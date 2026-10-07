@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 namespace ViewMate.Options.View
 {
     /// <summary>
-    /// 关于 tab. ContentData is the flattened AboutTabOptions; save reloads the
-    /// whole JSON container, writes the version-check fields and about list back
-    /// into their sections, then syncs PluginConfiguration (XML).
+    /// 关于 tab。ContentData 是扁平化后的 AboutTabOptions；保存时会重新加载
+    /// 整个 JSON 容器，把版本检查字段与关于列表写回各自的段，
+    /// 然后同步 PluginConfiguration（XML）。
     /// </summary>
     internal class AboutPageView : PluginPageView
     {
@@ -42,12 +42,12 @@ namespace ViewMate.Options.View
             options.AboutOptions.VersionInfoList = Options.VersionInfoList;
             _store.SetOptions(options);
 
-            // Sync values to PluginConfiguration
+            // 把取值同步到 PluginConfiguration
             var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
             config.EnableVersionCheck = Options.EnableVersionCheck;
             Plugin.Instance.UpdateConfiguration(config);
 
-            // ── Manual version check ──
+            // ── 手动版本检查 ──
             if (Options.TriggerManualCheck)
             {
                 Options.TriggerManualCheck = false;

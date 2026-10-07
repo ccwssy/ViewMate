@@ -13,11 +13,11 @@ using ViewMate.Common;
 namespace ViewMate.IntroSkip
 {
     /// <summary>
-    /// Monitors user playback behaviour to detect intro/credits boundaries
-    /// by watching for manual seek jumps. When a pattern is recognised,
-    /// writes Chapter markers via ChapterMarkerApi.
+    /// 监视用户的播放行为，通过捕捉手动 seek 跳跃
+    /// 来识别片头/片尾边界。一旦识别出规律，
+    /// 就经 ChapterMarkerApi 写入章节标记。
     ///
-    /// Detection mode: auto-detect (default) — watches seek-forward behaviour.
+    /// 检测模式：自动检测（默认）—— 观察前跳（seek-forward）行为。
     /// </summary>
     public class PlaySessionMonitor : IDisposable
     {
@@ -32,7 +32,7 @@ namespace ViewMate.IntroSkip
         private int _disposed;
         private bool IsDisposed => Interlocked.CompareExchange(ref _disposed, 0, 0) == 1;
 
-        // ── config overrides (thread-safe via _configLock) ──
+        // ── 配置覆盖值（经 _configLock 保证线程安全） ──
 
         private long _maxIntroDurationTicks = TimeSpan.FromSeconds(IntroSkipDefaults.MaxIntroDurationSeconds).Ticks;
         private long _maxCreditsDurationTicks = TimeSpan.FromSeconds(IntroSkipDefaults.MaxCreditsDurationSeconds).Ticks;
@@ -84,7 +84,7 @@ namespace ViewMate.IntroSkip
             _logger.Info("[IntroSkip] PlaySessionMonitor stopped");
         }
 
-        // ── event handlers ──
+        // ── 事件处理器 ──
 
         private void OnPlaybackStart(object sender, PlaybackProgressEventArgs e)
         {
@@ -122,15 +122,15 @@ namespace ViewMate.IntroSkip
             var now = DateTime.UtcNow;
             var episode = (Episode)e.Item;
 
-            // ── detect seek-jump (manual skip forward) ──
-            // Include Pause for mobile tap-to-seek (mobile Emby Web sends Pause, not TimeUpdate)
-            // Always track jumps regardless of existing markers, enabling auto-healing
+            // ── 检测 seek 跳跃（手动向前跳过） ──
+            // 把 Pause 也算进来，以支持移动端点按跳转（移动端 Emby Web 发的是 Pause 而非 TimeUpdate）
+            // 无论是否已有标记都持续跟踪跳跃，以支持自动修复
             if (e.EventName == ProgressEvent.TimeUpdate || e.EventName == ProgressEvent.Unpause || e.EventName == ProgressEvent.Pause)
             {
                 DetectJump(episode, e.Session, data, currentTicks, now);
             }
 
-            // ── detect manual pause-unpause → credits (user teaching) ──
+            // ── 由手动暂停-继续推断片尾（用户示教） ──
             long maxCredits;
             lock (_configLock)
             {
@@ -142,7 +142,7 @@ namespace ViewMate.IntroSkip
                 var pauseDuration = (now - data.LastPauseEventTime.Value).TotalMilliseconds;
                 if (pauseDuration > 500 && pauseDuration < 5000)
                 {
-                    // User paused near end → likely credits boundary
+                    // 用户在临近结尾处暂停 → 很可能是片尾边界
                     var nearEnd = episode.RunTimeTicks.Value - maxCredits;
                     if (!data.CreditsStart.HasValue && currentTicks > nearEnd)
                     {
@@ -156,11 +156,11 @@ namespace ViewMate.IntroSkip
                 }
             }
 
-            // ── track pause / rate-change timestamps ──
+            // ── 记录暂停/倍速变化的时间戳 ──
             if (e.EventName == ProgressEvent.Pause)
                 data.LastPauseEventTime = now;
 
-            // ── track manual forward jumps (≥20s to avoid normal ~10s progress) ──
+            // ── 跟踪手动前跳（≥20 秒，以排除正常约 10 秒的进度上报） ──
             var timeElapsed = (now - data.PreviousEventTime).TotalSeconds;
             var posDelta = TimeSpan.FromTicks(currentTicks - data.PreviousPositionTicks).TotalSeconds;
             if (posDelta >= 20)
@@ -169,7 +169,7 @@ namespace ViewMate.IntroSkip
                 data.LastBigJumpTargetTicks = currentTicks;
                 _logger.Info($"[IntroSkip] Big jump tracked: {TimeSpan.FromTicks(data.PreviousPositionTicks).TotalSeconds:F0}s → {TimeSpan.FromTicks(currentTicks).TotalSeconds:F0}s (elapsed={timeElapsed:F1}s)");
 
-                // ── Credits detection from big jump near end ──
+                // ── 由临近结尾的大跨度跳跃推断片尾 ──
                 if (!data.CreditsStart.HasValue && episode.RunTimeTicks.HasValue)
                 {
                     long maxCreditsBigJump;
@@ -219,31 +219,31 @@ namespace ViewMate.IntroSkip
 
             _logger.Info($"[IntroSkip] OnPlaybackStopped: pos={curSec:F0}s prev={prevSec:F0}s jump={jumpForward:F0}s maxIntro={maxIntroSec:F0}s");
 
-            // Detect intro from seek tracking (DetectJump tracks cumulative multi-tap fast-forward)
-            // FirstJumpPositionTicks = first seek source (never overwritten after first seek)
-            // FirstJumpTargetTicks = first seek target (never overwritten — where user actually started watching)
-            // LastJumpPositionTicks = last seek target (updates on each seek in the sequence)
-            // LastBigJumpSourceTicks / LastBigJumpTargetTicks are fallbacks for older single-jump scenario
+            // 由 seek 跟踪推断片头（DetectJump 会累积多次点按的快进）
+            // FirstJumpPositionTicks = 首次 seek 的起点（首次 seek 之后不再被覆盖）
+            // FirstJumpTargetTicks = 首次 seek 的落点（不再被覆盖 —— 用户实际开始观看的位置）
+            // LastJumpPositionTicks = 末次 seek 的落点（序列中每次 seek 都会更新）
+            // LastBigJumpSourceTicks / LastBigJumpTargetTicks 是旧的单次跳跃场景的兜底
             long? jumpSrc = data.FirstJumpPositionTicks ?? data.LastBigJumpSourceTicks;
             long? jumpTgt = data.FirstJumpTargetTicks ?? data.LastJumpPositionTicks ?? data.LastBigJumpTargetTicks;
 
             if (jumpSrc.HasValue && jumpTgt.HasValue)
             {
-                // Yamby (and most mobile clients) report progress infrequently (~20s intervals).
-                // The detected jump source is often the LAST REPORTED position, not the actual
-                // pre-jump position. If the user started from 0s (PlaybackStartTicks=0) and the
-                // jump source is within maxIntro, the intro genuinely starts at 0, not at some
-                // intermediate position Yamby finally reported.
+                // Yamby（以及多数移动端）上报进度的间隔很长（约 20 秒）。
+                // 检测到的跳跃起点往往是「最后一次上报的位置」，而不是真正的
+                // 跳跃前位置。如果用户从 0 秒开始（PlaybackStartTicks=0），且跳跃起点
+                // 落在 maxIntro 之内，那么片头确实从 0 秒开始，而不是 Yamby 最终
+                // 上报的那个中间位置。
                 if (data.PlaybackStartTicks == 0 && jumpSrc.Value > 0
                     && jumpSrc.Value <= maxIntro)
                 {
                     jumpSrc = 0;
                 }
 
-                // Determine intro end: use FirstJumpTargetTicks when client reports timely
-                // (unreported gap ≤10s), fall back to skipDistance when Yamby combines events.
-                // Hills reports frequently (~5s gap) → FirstJumpTargetTicks=45s ✅
-                // Yamby reports rarely (~21s gap) → skipDistance=39s≈40s ✅
+                // 确定片头终点：客户端上报及时时用 FirstJumpTargetTicks
+                // （未上报缺口 ≤10 秒）；Yamby 会把事件合并，此时退回用 skipDistance。
+                // Hills 上报频繁（缺口约 5 秒）→ FirstJumpTargetTicks=45s ✅
+                // Yamby 上报稀疏（缺口约 21 秒）→ skipDistance=39s≈40s ✅
                 if (data.PlaybackStartTicks == 0
                     && data.FirstJumpPositionTicks.HasValue && data.LastJumpPositionTicks.HasValue)
                 {
@@ -253,13 +253,13 @@ namespace ViewMate.IntroSkip
                     {
                         var reliableTarget = data.FirstJumpTargetTicks ?? (skipDistance);
                         jumpTgt = unreportedGap > TimeSpan.FromSeconds(10).Ticks
-                            ? skipDistance    // Yamby: use skip distance from 0
-                            : reliableTarget; // Hills: use first FF target
+                            ? skipDistance    // Yamby：使用从 0 起算的跳跃距离
+                            : reliableTarget; // Hills：使用首次快进的落点
                     }
                 }
 
-                // User may overshoot first FF and correct backward (FF to 60s, scrub back to 40s, FF again).
-                // In that case LastJumpPositionTicks is closer to the actual watching start.
+                // 用户可能第一次快进过头再往回拖（快进到 60 秒，拖回 40 秒，再快进）。
+                // 这种情况下 LastJumpPositionTicks 更接近实际开始观看的位置。
                 if (data.FirstJumpTargetTicks.HasValue && data.LastJumpPositionTicks.HasValue
                     && data.LastJumpPositionTicks.Value < data.FirstJumpTargetTicks.Value)
                 {
@@ -283,7 +283,7 @@ namespace ViewMate.IntroSkip
                 _logger.Debug("[IntroSkip] OnPlaybackStopped: no tracked jump available");
             }
 
-            // Detect credits from stop position (requires RunTimeTicks)
+            // 由停止位置推断片尾（需要 RunTimeTicks）
             if (episode.RunTimeTicks.HasValue && !data.CreditsStart.HasValue)
             {
                 var nearEnd = episode.RunTimeTicks.Value - maxCredits;
@@ -298,7 +298,7 @@ namespace ViewMate.IntroSkip
             }
         }
 
-        // ── jump detection core ──
+        // ── 跳跃检测核心 ──
 
         private void DetectJump(Episode episode, SessionInfo session, PlaySessionData data,
             long currentTicks, DateTime now)
@@ -307,27 +307,27 @@ namespace ViewMate.IntroSkip
             var previousSeconds = TimeSpan.FromTicks(data.PreviousPositionTicks).TotalSeconds;
             var elapsedSeconds = (now - data.PreviousEventTime).TotalSeconds;
 
-            // Seek detection: position jumped forward ≥10 seconds in ≤3 real seconds
-            // (3s threshold for mobile tap-to-seek; Web clients report every ~10s)
+            // seek 判定：位置在 ≤3 秒真实时间内前跳 ≥10 秒
+            // （3 秒阈值针对移动端点按跳转；Web 客户端约每 10 秒上报一次）
             var jumpForward = currentSeconds - previousSeconds;
             var isSeek = jumpForward >= 10 && elapsedSeconds >= 0.1 && elapsedSeconds <= 3.0;
 
             if (!isSeek)
             {
-                // Reset last-jump tracking only (not FirstJumpPositionTicks)
-                // FirstJumpPositionTicks marks the origin of the very first seek sequence
-                // in this session and must survive non-seek events (e.g. Yamby sends Pause
-                // with a large position delta as a single event, which is not a real seek).
-                // Clearing it here would lose the true intro origin on the next FF event.
+                // 只重置「末次跳跃」跟踪（不动 FirstJumpPositionTicks）
+                // FirstJumpPositionTicks 标记本会话中第一个 seek 序列的原点，
+                // 它必须能在非 seek 事件中存活（例如 Yamby 会把一次大位移的
+                // Pause 作为单个事件发来，而那不是真正的 seek）。
+                // 在这里清掉它，下一次快进事件就会丢失真正的片头起点。
                 if (elapsedSeconds > 10)
                     data.LastJumpPositionTicks = null;
                 return;
             }
 
-            // Track the first and last seek positions
+            // 跟踪首次与末次 seek 位置
             if (!data.FirstJumpPositionTicks.HasValue)
             {
-                // New jump sequence — keep the original source position and first target
+                // 新的跳跃序列 —— 保留最初的起点与首个落点
                 data.FirstJumpPositionTicks = data.PreviousPositionTicks;
                 data.FirstJumpTargetTicks = currentTicks;
             }
@@ -335,7 +335,7 @@ namespace ViewMate.IntroSkip
 
             _logger.Debug($"[IntroSkip] Seek detected: {new TimeSpan(data.PreviousPositionTicks).ToString(@"hh\:mm\:ss")} → {new TimeSpan(currentTicks).ToString(@"hh\:mm\:ss")} (jump={jumpForward}s elapsed={elapsedSeconds:F1}s)");
 
-            // Analyse: if end of jump within MaxIntro → it's the intro
+            // 分析：若跳跃终点落在 MaxIntro 之内 → 判定为片头
             if (data.FirstJumpPositionTicks.HasValue && data.LastJumpPositionTicks.HasValue)
             {
                 var introStart = data.FirstJumpPositionTicks.Value;
@@ -354,7 +354,7 @@ namespace ViewMate.IntroSkip
                     _logger.Info($"[IntroSkip] Intro detected: {new TimeSpan(introStart).ToString(@"hh\:mm\:ss\.fff")} – {new TimeSpan(introEnd).ToString(@"hh\:mm\:ss\.fff")} (dur={introDurationSeconds:F0}s)");
                 }
             }
-            // ── Credits detection from seek ──
+            // ── 由 seek 推断片尾 ──
             if (!data.CreditsStart.HasValue && episode.RunTimeTicks.HasValue)
             {
                 long maxCredits;
@@ -369,7 +369,7 @@ namespace ViewMate.IntroSkip
             }
         }
 
-        // ── scope helpers ──
+        // ── 作用域辅助方法 ──
 
         private bool IsClientInScope(string clientName)
         {

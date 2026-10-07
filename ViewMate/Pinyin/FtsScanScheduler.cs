@@ -15,13 +15,13 @@ using ViewMate.Common;
 namespace ViewMate.Pinyin
 {
     /// <summary>
-    /// Scan scheduler (phase-2 split of PinyinSearchService): owns the event
-    /// queue (OnItemAdded/OnItemUpdated + ProcessQueuedEvents), the dual timers
-    /// (event batch timer + 5-minute periodic timer), and the four scan paths —
-    /// incremental (ProcessAllPendingBatched), full reindex, catch-up and
-    /// periodic. FTS writes are delegated to FtsIndexWriter, pinyin generation to
-    /// TinyPinyinLoader; WAL checkpoint timing (TRUNCATE after bulk write,
-    /// PASSIVE after periodic scan) is preserved here.
+    /// 扫描调度器（PinyinSearchService 的第二阶段拆分）：持有事件
+    /// 队列（OnItemAdded/OnItemUpdated + ProcessQueuedEvents）、两个定时器
+    /// （事件批量定时器 + 5 分钟周期定时器），以及四条扫描路径 ——
+    /// 增量（ProcessAllPendingBatched）、全量重建索引、追赶与
+    /// 周期扫描。FTS 写入委托给 FtsIndexWriter，拼音生成委托给
+    /// TinyPinyinLoader；WAL checkpoint 的时机（批量写入后用 TRUNCATE，
+    /// 周期扫描后用 PASSIVE）在此保持原样。
     /// </summary>
     public class FtsScanScheduler : IDisposable
     {
@@ -30,31 +30,31 @@ namespace ViewMate.Pinyin
         private readonly ConnectionManagerCache _connectionCache;
         private readonly FtsIndexWriter _writer;
 
-        // Thread-safe disposal flag
+        // 线程安全的销毁标志
         private int _disposed;
         private bool IsDisposed => Interlocked.CompareExchange(ref _disposed, 0, 0) == 1;
 
-        // ── Event Queue ──
+        // ── 事件队列 ──
         private readonly ConcurrentQueue<Tuple<long, string>> _pendingEventQueue = new ConcurrentQueue<Tuple<long, string>>();
         private Timer? _eventTimer;
         private int _eventTimerRunning;
         private const int EventBatchSize = 50;
         private const int EventTimerIntervalMs = 30000;
-        private const int PeriodicScanIntervalMs = 300000; // 5 minutes
+        private const int PeriodicScanIntervalMs = 300000; // 5 分钟
 
-        // ── Periodic background scan ──
+        // ── 周期性的后台扫描 ──
         private Timer? _periodicTimer;
 
-        // ── Batch state ──
+        // ── 批量状态 ──
         private long _lastScanId;
 
-        // ── Initials backfill state (cursor-paged, rides the periodic scan) ──
+        // ── 首字母回填状态（按游标分页，搭周期扫描的车） ──
         private long _backfillCursor;
         private const int BackfillLimit = 1000;
         private const int BackfillBatchSize = 200;
 
-        // Cursor persistence: probe-path style, same precedent as TinyPinyinLoader's
-        // pinyin-overrides.json (first directory that exists wins).
+        // 游标持久化：探测路径式，与 TinyPinyinLoader 的
+        // pinyin-overrides.json 同一先例（第一个存在的目录胜出）。
         private const string BackfillCursorFileName = "pinyin-backfill-cursor.txt";
         private static readonly string[] BackfillCursorProbeDirs = { "/config/plugins/", "plugins/", "../plugins/" };
         private int _cursorPersistDirWarned;
@@ -69,24 +69,24 @@ namespace ViewMate.Pinyin
             _libraryManager.ItemAdded += OnItemAdded;
             _libraryManager.ItemUpdated += OnItemUpdated;
 
-            // Timer starts in one-shot mode; EnsureEventTimer() fires it when queue is non-empty
+            // 定时器以一次性模式启动；队列非空时由 EnsureEventTimer() 触发
             _eventTimer = new Timer(_ => ProcessQueuedEvents(), null, Timeout.Infinite, Timeout.Infinite);
 
-            // Restore the backfill cursor before the first backfill round runs.
+            // 在第一轮回填运行之前先恢复回填游标。
             LoadBackfillCursor();
         }
 
-        // ── Deferred background scan ──
+        // ── 延后的后台扫描 ──
 
         public void ProcessAllPendingDeferred()
         {
-            // All FTS operations run on a background thread to avoid blocking
-            // Plugin.Run() and delaying Emby HTTP server startup.
-            // Previously a sync retry loop blocked Plugin.Run() for up to 120s,
-            // causing the home page to hang — a recurring bug across 5 releases.
-            // Background thread uses Thread.Sleep (not Task.Delay) to avoid
-            // deadlock on Emby 4.9.5.0's single-threaded sync context, and
-            // checks IsDisposed at every iteration for clean shutdown.
+            // 所有 FTS 操作都在后台线程上执行，以免阻塞
+            // Plugin.Run() 并拖慢 Emby HTTP 服务的启动。
+            // 此前用同步重试循环会阻塞 Plugin.Run() 长达 120 秒，
+            // 导致首页卡死 —— 这个 bug 在 5 个版本里反复出现。
+            // 后台线程用 Thread.Sleep（而非 Task.Delay），以避开
+            // Emby 4.9.5.0 单线程同步上下文上的死锁，并
+            // 在每轮迭代时检查 IsDisposed，以便干净退出。
             var scanThread = new Thread(() =>
             {
                 _logger.Info("[PinyinSearch] Background thread started, waiting 60s...");
@@ -108,12 +108,12 @@ namespace ViewMate.Pinyin
                         _logger.Error("[PinyinSearch] Catch-up scan failed", ex);
                     }
 
-                    // Recover WAL space after initial scan: full checkpoint waits for
-                    // active readers to drain, then truncates the WAL to prevent bloat.
+                    // 首次扫描后回收 WAL 空间：完整 checkpoint 会等待
+                    // 活跃读者退出，然后截断 WAL 以防其膨胀。
                     WalCheckpointHelper.TryTruncateCheckpoint(_connectionCache, _logger, "PinyinSearch");
 
-                    // Start periodic timer for catch-up scans after initial scan completes.
-                    // This catches items added by library scans that don't fire ItemAdded/Updated events.
+                    // 首次扫描完成后启动周期定时器做追赶扫描。
+                    // 用于兜住媒体库扫描新增、却没有触发 ItemAdded/Updated 事件的条目。
                     if (!IsDisposed)
                     {
                         _logger.Info("[PinyinSearch] Starting periodic scan every 5 minutes...");
@@ -179,7 +179,7 @@ namespace ViewMate.Pinyin
 
         private int ProcessAllPendingBatched()
         {
-            // Phase 0: FTS empty → MediaItems full scan
+            // 阶段 0：FTS 为空 → 全表扫描 MediaItems
             long ftsTotal = GetFtsTotalCount();
             if (ftsTotal == 0)
             {
@@ -187,7 +187,7 @@ namespace ViewMate.Pinyin
                 return ProcessFullReindex();
             }
 
-            // Phase 0.5: Missing MediaItems → full reindex
+            // 阶段 0.5：存在缺失的 MediaItems → 全量重建索引
             long missingCount = GetMissingMediaItemsCount();
             if (missingCount > 0)
             {
@@ -198,7 +198,7 @@ namespace ViewMate.Pinyin
             if (!TryGetPendingCount(out long totalPending) || totalPending == 0)
             {
                 _logger.Info("[PinyinSearch] No pending items, checking for catch-up items...");
-                // Run catch-up scan only when incremental scan finds 0 items
+                // 仅当增量扫描发现 0 个条目时才做追赶扫描
                 if (TryGetCatchUpCount(out long catchUpTotal) && catchUpTotal > 0)
                 {
                     _logger.Info("[PinyinSearch] Found {0} catch-up items (missing from incremental scan)", catchUpTotal);
@@ -232,9 +232,9 @@ namespace ViewMate.Pinyin
             return totalProcessed;
         }
 
-        // ── Periodic background scan callback ──
-        // Runs catch-up scan first (catches ALL stale entries regardless of ID),
-        // then incremental scan for any new items added since the last run.
+        // ── 周期后台扫描回调 ──
+        // 先跑追赶扫描（不论 ID 一律兜住所有过期条目），
+        // 再跑增量扫描，处理上次运行之后新增的条目。
         private void ProcessPeriodicScan()
         {
             if (IsDisposed) return;
@@ -243,26 +243,26 @@ namespace ViewMate.Pinyin
             {
                 int total = 0;
 
-                // Phase 1: catch-up scan — processes all stale entries (any ID)
+                // 阶段 1：追赶扫描 —— 处理所有过期条目（不限 ID）
                 if (TryGetCatchUpCount(out long catchUpCount) && catchUpCount > 0)
                 {
                     _logger.Info("[PinyinSearch] Periodic catch-up: {0} stale entries", catchUpCount);
                     total += ProcessCatchUpBatched();
                 }
 
-                // Phase 2: incremental scan — new items since last scan
+                // 阶段 2：增量扫描 —— 上次扫描之后的新条目
                 int incremental = ProcessAllPendingBatched();
                 total += incremental;
 
-                // Phase 3: backfill — rows written by older releases lack the
-                // initials token (or drifted); rewrite them by cursor.
+                // 阶段 3：回填 —— 旧版本写入的行缺少
+                // 首字母 token（或已漂移）；按游标把它们重写一遍。
                 total += ProcessBackfill();
 
                 if (total > 0)
                 {
                     _logger.Info("[PinyinSearch] Periodic scan: {0} items processed", total);
-                    // Passive checkpoint after write-heavy periodic scan — clears
-                    // what it can without blocking concurrent readers.
+                    // 写操作密集的周期扫描之后做被动 checkpoint —— 在不阻塞
+                    // 并发读者的前提下尽量清理。
                     WalCheckpointHelper.TryPassiveCheckpoint(_connectionCache);
                 }
             }
@@ -272,12 +272,12 @@ namespace ViewMate.Pinyin
             }
         }
 
-        // ── Initials backfill (cursor-paged, rides the periodic scan) ──
-        // Walks fts_search9_content by id in 1000-row pages and rewrites every row
-        // whose c0 differs from the freshly built full value (missing initials,
-        // leading-pinyin drift, Emby trigger overwrites — anything). Comparison is
-        // a whole-string compare on the C# side by design: a SQL marker like
-        // c0 NOT GLOB '*[a-z]*' misses originals that contain lowercase letters.
+        // ── 首字母回填（按游标分页，搭周期扫描的车） ──
+        // 按 id 以 1000 行一页遍历 fts_search9_content，重写所有
+        // c0 与新构建的完整值不一致的行（缺首字母、
+        // 首拼音漂移、被 Emby 触发器覆盖 —— 任何情况）。比较刻意
+        // 放在 C# 侧做整串比较：像 c0 NOT GLOB '*[a-z]*'
+        // 这样的 SQL 判据会漏掉含小写字母的原始名称。
         private int ProcessBackfill()
         {
             long cursor = Volatile.Read(ref _backfillCursor);
@@ -299,8 +299,8 @@ namespace ViewMate.Pinyin
                             var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams) =
                                 TinyPinyinLoader.GeneratePinyin(name);
 
-                            // TinyPinyin unavailable → abandon the whole round and
-                            // leave the cursor put; never rewrite a row without pinyin.
+                            // TinyPinyin 不可用 → 放弃整轮，
+                            // 游标原地不动；绝不在没有拼音的情况下重写任何行。
                             if (string.IsNullOrEmpty(spaced))
                             {
                                 _logger.Warn("[PinyinSearch] Backfill abandoned: no pinyin for id {0}", id);
@@ -371,8 +371,8 @@ namespace ViewMate.Pinyin
                     }
                 }
 
-                // Advance only after the batch committed, then persist so a restart
-                // resumes from here instead of re-walking the table from id 0.
+                // 仅在批次提交之后才前进游标并持久化，这样重启后
+                // 从这里继续，而不是从 id 0 重新遍历整张表。
                 Volatile.Write(ref _backfillCursor, maxId);
                 PersistBackfillCursor(maxId);
 
@@ -387,10 +387,10 @@ namespace ViewMate.Pinyin
             return updated;
         }
 
-        // ── Backfill cursor persistence ──
-        // Memory-only cursor meant every Emby restart re-walked the FTS table from
-        // id 0: the full backfill (~85 min) never completed on a server restarted
-        // more often than that. One long, UTF-8 without BOM, trailing newline.
+        // ── 回填游标持久化 ──
+        // 游标只存内存时，每次 Emby 重启都会从 id 0 重新遍历 FTS 表：
+        // 在重启间隔短于完整回填耗时（约 85 分钟）的服务器上，
+        // 回填永远跑不完。格式：单个 long 值，UTF-8 无 BOM，末尾带换行。
         private void LoadBackfillCursor()
         {
             foreach (var dir in BackfillCursorProbeDirs)
@@ -410,7 +410,7 @@ namespace ViewMate.Pinyin
                         _logger.Warn("[PinyinSearch] Backfill cursor file unparsable, keeping cursor at 0: {0}", path);
                     }
 
-                    return; // File found — this is the authoritative location.
+                    return; // 找到文件 —— 这里就是权威位置。
                 }
                 catch (Exception ex)
                 {
@@ -460,7 +460,7 @@ namespace ViewMate.Pinyin
             public string CurrentC0 = "";
         }
 
-        // ── Empty-FTS fallback ──
+        // ── FTS 为空的兜底 ──
         private long GetFtsTotalCount()
         {
             try
@@ -638,8 +638,8 @@ namespace ViewMate.Pinyin
             }
         }
 
-        // ── Catch-up scan (no id filter) ──
-        // Thread-safe tracking of already-processed catch-up items to avoid re-processing
+        // ── 追赶扫描（不带 id 过滤） ──
+        // 线程安全地跟踪已处理的追赶条目，避免重复处理
         private readonly HashSet<long> _processedCatchUpIds = new HashSet<long>();
         private readonly object _processedCatchUpLock = new object();
 
@@ -663,10 +663,10 @@ namespace ViewMate.Pinyin
             _logger.Info("[PinyinSearch] Catch-up scan complete: {0} items processed", totalProcessed);
             UpdateLastScanId();
 
-            // Clear processed-IDs tracker so stale items get retried next cycle.
-            // Items successfully processed will have pinyin in c0 and won't
-            // match the catch-up query again; items that legitimately have no
-            // pinyin will be re-skipped harmlessly.
+            // 清空已处理 ID 跟踪表，让过期条目在下一轮重试。
+            // 处理成功的条目 c0 里已有拼音，不会再
+            // 命中追赶查询；而那些确实没有拼音的条目
+            // 会被无害地再次跳过。
             lock (_processedCatchUpLock)
                 _processedCatchUpIds.Clear();
 
@@ -691,7 +691,7 @@ namespace ViewMate.Pinyin
 
                     if (rows.Count == 0) return 0;
 
-                    // Filter out already-processed items
+                    // 过滤掉已处理的条目
                     lock (_processedCatchUpLock)
                     {
                         rows.RemoveAll(r => _processedCatchUpIds.Contains(r.Item1));
@@ -712,7 +712,7 @@ namespace ViewMate.Pinyin
                                 long id = row.Item1;
                                 string name = row.Item2;
 
-                                // Track processed to avoid re-processing on next cycle
+                                // 记入已处理，避免下一轮重复处理
                                 var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams) = TinyPinyinLoader.GeneratePinyin(name);
                                 if (string.IsNullOrEmpty(spaced))
                                 {
@@ -765,7 +765,7 @@ namespace ViewMate.Pinyin
             }
         }
 
-        // ── Zero-SQL Event Handlers ──
+        // ── 不碰 SQL 的事件处理器 ──
         private void OnItemAdded(object? sender, ItemChangeEventArgs e)
         {
             if (e.Item != null && !IsDisposed && TinyPinyinLoader.IsCjkItem(e.Item))
@@ -846,9 +846,9 @@ namespace ViewMate.Pinyin
                 }
             }
 
-            // Release the re-arm guard, then re-arm if more items arrived while
-            // this batch was processing (prevents a stale guard from stalling
-            // the queue — same pattern as PinyinSortNameService).
+            // 先释放重挂守卫；若本批处理期间又有条目进来，
+            // 则重新挂上（避免过期守卫把
+            // 队列卡死 —— 与 PinyinSortNameService 同一套路）。
             Interlocked.Exchange(ref _eventTimerRunning, 0);
             if (!_pendingEventQueue.IsEmpty)
                 EnsureEventTimer();

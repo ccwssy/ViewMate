@@ -26,10 +26,10 @@ namespace ViewMate.Pinyin
         private readonly ConnectionManagerCache _connectionCache;
 
         private const string BackupTable = "PinyinSortNameBackup";
-        // Shared with PinyinSearchService: TinyPinyinLoader keeps the Lazy
-        // (ExecutionAndPublication) so loading is deferred until first actual
-        // use, by which time TinyPinyin.dll is guaranteed to be loaded by
-        // Emby's assembly scanner.
+        // 与 PinyinSearchService 共用：TinyPinyinLoader 持有该 Lazy
+        // （ExecutionAndPublication），把加载推迟到首次真正
+        // 使用时，那时 TinyPinyin.dll 必定已被
+        // Emby 的程序集扫描器加载。
         private static bool IsPinyinLoaded
         {
             get
@@ -44,10 +44,10 @@ namespace ViewMate.Pinyin
 
         private const int BatchSize = 200;
 
-        // ── Event Queue (same pattern as FtsScanScheduler) ──
-        // ItemAdded/ItemUpdated are enqueued with zero SQL; a 30s one-shot timer
-        // drains the queue in one write transaction, so library-scan event bursts
-        // no longer open a write connection per event (SQLite write-lock contention).
+        // ── 事件队列（与 FtsScanScheduler 同一套路） ──
+        // ItemAdded/ItemUpdated 入队时不碰 SQL；由 30 秒的一次性定时器
+        // 在一个写事务里排空队列，这样媒体库扫描的事件洪峰
+        // 不再每个事件都开一个写连接（避免 SQLite 写锁争用）。
         private readonly ConcurrentQueue<Tuple<long, string>> _pendingEventQueue = new ConcurrentQueue<Tuple<long, string>>();
         private Timer _eventTimer;
         private int _eventTimerRunning;
@@ -60,24 +60,24 @@ namespace ViewMate.Pinyin
             _logger = logger;
             _connectionCache = new ConnectionManagerCache(logger, "PinyinSortName");
 
-            // Do NOT call LoadPinyinOnce() here — TinyPinyin.dll hasn't been
-            // scanned by Emby yet. Deferred loading via _getPinyinLazy handles
-            // the timing correctly, matching PinyinSearchService's approach.
+            // 不要在这里调用 LoadPinyinOnce() —— 此时 TinyPinyin.dll 尚未
+            // 被 Emby 扫描到。经 _getPinyinLazy 的延迟加载能正确处理
+            // 时序，与 PinyinSearchService 的做法一致。
             EnsureBackupTable();
 
             _libraryManager.ItemAdded += OnItemChanged;
             _libraryManager.ItemUpdated += OnItemChanged;
 
-            // Timer starts in one-shot mode; EnsureEventTimer() fires it when queue is non-empty
+            // 定时器以一次性模式启动；队列非空时由 EnsureEventTimer() 触发
             _eventTimer = new Timer(_ => ProcessQueuedEvents(), null, Timeout.Infinite, Timeout.Infinite);
         }
 
-        // ── Public toggle API ──
+        // ── 公开的开关 API ──
 
         /// <summary>
-        /// Enable: backup originals + apply pinyin initials.
-        /// Disable: restore originals + clear backup.
-        /// Safe to call multiple times.
+        /// 启用：备份原始值 + 应用拼音首字母。
+        /// 停用：还原原始值 + 清空备份。
+        /// 可安全重复调用。
         /// </summary>
         public void SetEnabled(bool enable)
         {
@@ -116,8 +116,8 @@ namespace ViewMate.Pinyin
         }
 
         /// <summary>
-        /// Full backfill of all existing Chinese-named items.
-        /// Call once on startup with delayMs > 0 to defer after Emby initial scan.
+        /// 对所有现有中文名条目做全量回填。
+        /// 在启动时调用一次，传 delayMs > 0 可推迟到 Emby 首次扫描之后。
         /// </summary>
         public void BackfillAll(int startupDelayMs = 0)
         {
@@ -131,8 +131,8 @@ namespace ViewMate.Pinyin
                     await Task.Delay(startupDelayMs);
                 }
 
-                // Lazy: defer TinyPinyin loading until after Emby startup,
-                // by which time Emby's assembly scanner has loaded TinyPinyin.dll.
+                // Lazy：把 TinyPinyin 的加载推迟到 Emby 启动之后，
+                // 那时 Emby 的程序集扫描器已加载 TinyPinyin.dll。
                 Func<char, string> getPinyin;
                 try { getPinyin = TinyPinyinLoader.GetPinyinFunc; }
                 catch
@@ -152,8 +152,8 @@ namespace ViewMate.Pinyin
                     else
                         _logger.Info("[PinyinSortName] Backfill: no items needed updating");
 
-                    // Recover WAL space after backfill — TRUNCATE waits for readers
-                    // to drain, then fully resets the WAL to prevent bloat.
+                    // 回填后回收 WAL 空间 —— TRUNCATE 会等待读者
+                    // 退出，然后完全重置 WAL 以防其膨胀。
                     WalCheckpointHelper.TryTruncateCheckpoint(_connectionCache, _logger, "PinyinSortName");
                 }
                 catch (Exception ex)
@@ -163,7 +163,7 @@ namespace ViewMate.Pinyin
             });
         }
 
-        // ── Backup table ──
+        // ── 备份表 ──
 
         private void EnsureBackupTable()
         {
@@ -186,7 +186,7 @@ namespace ViewMate.Pinyin
         }
 
         /// <summary>
-        /// Save original SortName to backup table before it gets overwritten.
+        /// 在被覆盖之前，把原始 SortName 存入备份表。
         /// </summary>
         private void SaveOriginalSortName(IDatabaseConnection conn, long itemId, string originalSortName)
         {
@@ -205,7 +205,7 @@ namespace ViewMate.Pinyin
         }
 
         /// <summary>
-        /// Restore all backed-up SortNames and clear the backup table.
+        /// 还原所有已备份的 SortName，并清空备份表。
         /// </summary>
         private int RestoreAll()
         {
@@ -213,7 +213,7 @@ namespace ViewMate.Pinyin
             {
                 if (conn == null) return 0;
 
-                // Count backup entries
+                // 统计备份条目数
                 long total;
                 using (var stmt = conn.PrepareStatement($"SELECT COUNT(*) FROM {BackupTable}"))
                 {
@@ -233,7 +233,7 @@ namespace ViewMate.Pinyin
                 int restored = 0;
                 try
                 {
-                    // Fetch all backup entries
+                    // 取出全部备份条目
                     var backupEntries = new List<Tuple<long, string>>();
                     using (var stmt = conn.PrepareStatement($"SELECT ItemId, OriginalSortName FROM {BackupTable}"))
                     {
@@ -256,7 +256,7 @@ namespace ViewMate.Pinyin
                         restored++;
                     }
 
-                    // Clear backup table
+                    // 清空备份表
                     conn.Execute($"DELETE FROM {BackupTable}");
                     conn.CommitTransaction();
                 }
@@ -271,7 +271,7 @@ namespace ViewMate.Pinyin
             }
         }
 
-        // ── Backfill processing ──
+        // ── 回填处理 ──
 
         private int ProcessBackfill()
         {
@@ -279,7 +279,7 @@ namespace ViewMate.Pinyin
             {
                 if (conn == null) return 0;
 
-                // Count eligible items NOT already in backup (not yet processed)
+                // 统计符合条件且尚未进备份表的条目（即还没处理过的）
                 long total;
                 try
                 {
@@ -302,7 +302,7 @@ namespace ViewMate.Pinyin
 
                 if (total == 0)
                 {
-                    // All items already processed — just update any that got changed
+                    // 所有条目都已处理过 —— 只更新发生变更的那些
                     _logger.Info("[PinyinSortName] All items already backed up, re-applying pending updates...");
                     return 0;
                 }
@@ -328,7 +328,7 @@ namespace ViewMate.Pinyin
         }
 
         /// <summary>
-        /// When no backup exists, set SortName to Name (Emby default for Chinese).
+        /// 若不存在备份，则把 SortName 置为 Name（Emby 对中文的默认行为）。
         /// </summary>
         private int ClearAllChineseSortNames(IDatabaseConnection conn)
         {
@@ -404,10 +404,10 @@ namespace ViewMate.Pinyin
                         string desired = BuildPinyinSortName(row.Item2);
                         if (desired == null) continue;
 
-                        // Save original SortName to backup first
+                        // 先把原始 SortName 存入备份
                         SaveOriginalSortName(conn, row.Item1, row.Item3);
 
-                        // Apply pinyin sort name
+                        // 应用拼音排序名
                         conn.Execute(
                             $"UPDATE MediaItems SET SortName = '{TextUtil.Escape(desired)}' WHERE RowId = {row.Item1}");
                         count++;
@@ -432,7 +432,7 @@ namespace ViewMate.Pinyin
             }
         }
 
-        // ── Event handler (zero-SQL, batched via timer — same pattern as FtsScanScheduler) ──
+        // ── 事件处理器（不碰 SQL，经定时器批量处理 —— 与 FtsScanScheduler 同一套路） ──
 
         private void OnItemChanged(object sender, ItemChangeEventArgs e)
         {
@@ -444,8 +444,8 @@ namespace ViewMate.Pinyin
             string desired = BuildPinyinSortName(e.Item.Name);
             if (desired == null) return;
 
-            // Enqueue only; all SQL happens in ProcessQueuedEvents inside one
-            // write transaction. Queue overflow/disposed items are dropped.
+            // 只入队；所有 SQL 都在 ProcessQueuedEvents 的同一个写事务
+            // 里执行。队列溢出或已销毁时条目会被丢弃。
             _pendingEventQueue.Enqueue(Tuple.Create(e.Item.InternalId, desired));
             EnsureEventTimer();
         }
@@ -486,7 +486,7 @@ namespace ViewMate.Pinyin
                         {
                             if (IsDisposed) break;
 
-                            // Read current SortName
+                            // 读出当前的 SortName
                             string current = null;
                             using (var stmt = conn.PrepareStatement(
                                 $"SELECT SortName FROM MediaItems WHERE RowId = {id}"))
@@ -498,7 +498,7 @@ namespace ViewMate.Pinyin
                             if (string.Equals(current, desired, StringComparison.Ordinal))
                                 continue;
 
-                            // Backup original if not already backed up
+                            // 若尚未备份，则备份原始值
                             SaveOriginalSortName(conn, id, current);
 
                             conn.Execute(
@@ -523,13 +523,13 @@ namespace ViewMate.Pinyin
                 }
             }
 
-            // Recover WAL space after batch writes — TRUNCATE waits for readers
-            // to drain, then fully resets the WAL to prevent bloat.
+            // 批量写入后回收 WAL 空间 —— TRUNCATE 会等待读者
+            // 退出，然后完全重置 WAL 以防其膨胀。
             if (updated > 0)
                 WalCheckpointHelper.TryTruncateCheckpoint(_connectionCache, _logger, "PinyinSortName");
 
-            // Release the re-arm guard, then re-arm if more items arrived while
-            // this batch was processing (prevents a stale guard from stalling the queue).
+            // 先释放重挂守卫；若本批处理期间又有条目进来，
+            // 则重新挂上（避免过期守卫把队列卡死）。
             Interlocked.Exchange(ref _eventTimerRunning, 0);
             if (!_pendingEventQueue.IsEmpty)
                 EnsureEventTimer();
@@ -541,7 +541,7 @@ namespace ViewMate.Pinyin
                 _eventTimer?.Change(delayMs, Timeout.Infinite);
         }
 
-        // ── Eligibility ──
+        // ── 资格判定 ──
 
         private static bool IsEligibleItem(BaseItem item)
         {
@@ -554,7 +554,7 @@ namespace ViewMate.Pinyin
             return item is Video || item is Audio || item is IItemByName || item is Folder;
         }
 
-        // ── Pinyin sort name generation ──
+        // ── 拼音排序名生成 ──
 
         public static string BuildPinyinSortName(string source)
         {
@@ -582,7 +582,7 @@ namespace ViewMate.Pinyin
                     }
                     catch
                     {
-                        // Skip chars that TinyPinyin can't handle
+                        // 跳过 TinyPinyin 处理不了的字符
                     }
                 }
                 else if (char.IsLetterOrDigit(ch))
@@ -594,7 +594,7 @@ namespace ViewMate.Pinyin
             return hasChinese ? sb.ToString() : null;
         }
 
-        // ── Helpers ──
+        // ── 辅助方法 ──
 
         public void Dispose()
         {

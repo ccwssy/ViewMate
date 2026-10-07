@@ -1,9 +1,9 @@
 namespace ViewMate.Common
 {
     /// <summary>
-    /// Single source of truth for the default intro/credits duration limits
-    /// (in seconds). Previously duplicated across PluginConfiguration,
-    /// IntroSkipOptions, PlaySessionMonitor and PlaySessionData.
+    /// 片头/片尾时长上限默认值（单位：秒）的唯一权威定义。
+    /// 此前在 PluginConfiguration、IntroSkipOptions、
+    /// PlaySessionMonitor 与 PlaySessionData 中各自重复。
     /// </summary>
     public static class IntroSkipDefaults
     {

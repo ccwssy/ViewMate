@@ -7,11 +7,11 @@ using ViewMate.Common;
 namespace ViewMate.Pinyin
 {
     /// <summary>
-    /// FTS5 index writer (phase-2 split of PinyinSearchService): builds all FTS
-    /// SQL (pending/catch-up/media-items queries + INSERT OR REPLACE), preserves
-    /// existing c1..c3 columns on re-insert, and runs batched writes inside a
-    /// single deferred transaction (commit on success, rollback on failure).
-    /// Text escaping lives in Common/TextUtil.
+    /// FTS5 索引写入器（PinyinSearchService 的第二阶段拆分）：构建全部 FTS
+    /// SQL（待处理/追赶/媒体项查询 + INSERT OR REPLACE），重新插入时保留
+    /// 原有的 c1..c3 列，并把批量写入放在单个
+    /// 延迟事务里执行（成功则提交，失败则回滚）。
+    /// 文本转义在 Common/TextUtil 中。
     /// </summary>
     public class FtsIndexWriter
     {
@@ -26,7 +26,7 @@ namespace ViewMate.Pinyin
             _logger = logger;
         }
 
-        // ── Pending-Item Query Builder ──
+        // ── 待处理项查询构建 ──
         public static string PendingQuery(long lastId) => $@"
             SELECT c.id, mi.Name
             FROM {FtsTableName}_content c
@@ -50,7 +50,7 @@ namespace ViewMate.Pinyin
               AND mi.Name NOT GLOB '*Media Folder*'
               AND c.id > {lastId}";
 
-        // ── Catch-up Query (no id filter) ──
+        // ── 追赶查询（不带 id 过滤） ──
         public static string CatchUpQuery() => $@"
             SELECT c.id, mi.Name
             FROM {FtsTableName}_content c
@@ -72,7 +72,7 @@ namespace ViewMate.Pinyin
               AND mi.Name NOT GLOB '*Episode*'
               AND mi.Name NOT GLOB '*Media Folder*'";
 
-        // ── Backfill query (cursor-paged, newest-pinyin rows get the initials token) ──
+        // ── 回填查询（按游标分页，写入拼音的行会带上首字母 token） ──
         public static string BackfillQuery(long cursor, int limit) => $@"
             SELECT c.id, mi.Name, c.c0
             FROM {FtsTableName}_content c
@@ -85,7 +85,7 @@ namespace ViewMate.Pinyin
             ORDER BY c.id
             LIMIT {limit}";
 
-        // ── Full reindex queries ──
+        // ── 全量重建索引查询 ──
         public static string FtsTotalCountQuery() => $"SELECT COUNT(*) FROM {FtsTableName}";
 
         public static string MissingMediaItemsCountQuery() => $@"
@@ -116,14 +116,14 @@ namespace ViewMate.Pinyin
             ORDER BY mi.RowId
             LIMIT {limit} OFFSET {offset}";
 
-        // ── Row-level SQL ──
+        // ── 行级 SQL ──
         public static string ExistingColumnsQuery(long id) =>
             $"SELECT c1, c2, c3 FROM {FtsTableName}_content WHERE id = {id}";
 
         /// <summary>
-        /// The `Name` column value (c0) for one row: original name followed by the
-        /// six pinyin token sections. Escaped here so both the INSERT path and the
-        /// backfill comparison use the exact same string.
+        /// 某一行 `Name` 列（c0）的取值：原始名称，后接
+        /// 六段拼音 token。在此处转义，使 INSERT 路径与
+        /// 回填比较使用完全相同的字符串。
         /// </summary>
         public static string BuildFtsNameColumn(string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsBigrams)
         {
@@ -139,17 +139,17 @@ namespace ViewMate.Pinyin
             return $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{c0}','{ot}','{sn}','{al}')";
         }
 
-        // ── Single-row write ──
+        // ── 单行写入 ──
         public void ExecuteInsert(IDatabaseConnection conn, long id, string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsBigrams, string origTitle = "", string seriesName = "", string album = "")
         {
             conn.Execute(BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams, origTitle, seriesName, album));
         }
 
         /// <summary>
-        /// Reads the existing c1/c2/c3 columns of a row so they survive
-        /// INSERT OR REPLACE. On failure the out values stay empty and the
-        /// failure is logged with warnLogFormat (caller-supplied message,
-        /// preserving per-site wording). Never throws.
+        /// 读出某一行已有的 c1/c2/c3 列，使其在
+        /// INSERT OR REPLACE 之后得以保留。失败时输出值保持为空，
+        /// 并按 warnLogFormat 记录日志（调用方提供的消息，
+        /// 以保留各调用点的措辞）。本方法从不抛异常。
         /// </summary>
         public void ReadExistingColumns(IDatabaseConnection conn, long id, string warnLogFormat,
             out string origTitle, out string seriesName, out string album)
@@ -176,13 +176,13 @@ namespace ViewMate.Pinyin
         }
 
         /// <summary>
-        /// Writes a batch of (id, name) rows inside one deferred transaction:
-        /// generates pinyin, optionally preserves existing c1..c3 columns, and
-        /// executes INSERT OR REPLACE per row. Returns the number of rows written.
-        /// Per-item exceptions are logged with itemLogFormat and swallowed when it
-        /// is non-null; when null (full-reindex path) they propagate and the whole
-        /// batch rolls back. Transaction failure rolls back and returns the
-        /// partially-counted value, matching the original loop semantics.
+        /// 在单个延迟事务里写入一批 (id, name) 行：
+        /// 生成拼音，可选地保留已有的 c1..c3 列，
+        /// 并逐行执行 INSERT OR REPLACE。返回已写入的行数。
+        /// 单项异常在 itemLogFormat 非空时记录日志并吞掉；
+        /// 为 null（全量重建索引路径）时则向上抛出，
+        /// 整批回滚。事务失败时回滚，并返回
+        /// 部分计数的结果，与原先循环的语义一致。
         /// </summary>
         public int WriteBatch(IDatabaseConnection conn,
             IReadOnlyList<Tuple<long, string>> rows,

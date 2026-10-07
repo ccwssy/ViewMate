@@ -25,14 +25,14 @@ namespace ViewMate.Options.View
             {
                 Name = "Settings",
                 EnableInMainMenu = true,
-                DisplayName = Resources.ResourceManager.GetString("PluginOptions_EditorTitle_Strm_Assistant",
+                DisplayName = Resources.ResourceManager.GetString("PluginOptions_EditorTitle_PinyinSearch",
                     Plugin.Instance.DefaultUICulture),
                 MenuIcon = "video_settings",
                 IsMainConfigPage = false,
             };
 
-            // Tab order follows this list. The framework registers these through
-            // the UIPageControllers chain; do not list them at the top level.
+            // tab 顺序即此列表顺序。框架通过 UIPageControllers 链注册这些页面；
+            // 不要把各 tab 直接注册到顶层。
             _tabPageControllers = new List<IPluginUIPageController>
             {
                 new IntroSkipPageController(pluginInfo, mainOptionsStore),

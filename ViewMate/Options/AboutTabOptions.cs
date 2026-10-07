@@ -6,9 +6,9 @@ using System.ComponentModel;
 namespace ViewMate.Options
 {
     /// <summary>
-    /// ContentData for the 关于 tab: version-check switches plus the runtime-built
-    /// about list, flattened so one tab binds one editable object while
-    /// PluginOptions (the single JSON container) keeps its four-section shape.
+    /// 关于 tab 的 ContentData：版本检查开关，外加运行时构建的
+    /// 关于列表；此处做了扁平化，使一个 tab 绑定一个可编辑对象，
+    /// 而 PluginOptions（唯一的 JSON 容器）保持其四段式结构。
     /// </summary>
     public class AboutTabOptions : EditableOptionsBase
     {

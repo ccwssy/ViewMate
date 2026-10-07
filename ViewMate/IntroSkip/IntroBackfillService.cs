@@ -15,9 +15,9 @@ namespace ViewMate.IntroSkip
         private readonly ChapterMarkerApi _chapterMarkerApi;
         private readonly ConnectionManagerCache _connectionCache;
 
-        // Raw MarkerType values stored in Chapters3 by this backfill service.
-        // Deliberately NOT MediaBrowser.Model.Entities.MarkerType (whose numeric
-        // ordering differs) — these literal DB values must be preserved.
+        // 本回填服务写入 Chapters3 的原始 MarkerType 取值。
+        // 刻意不用 MediaBrowser.Model.Entities.MarkerType（其枚举数值
+        // 顺序不同）—— 这些字面数据库取值必须保持不变。
         private enum BackfillMarkerType
         {
             IntroStart = 1,
@@ -25,11 +25,11 @@ namespace ViewMate.IntroSkip
             CreditsStart = 3,
         }
 
-        // MediaItems.Type value for episodes (Emby BaseItemKind.Episode).
+        // 剧中集在 MediaItems.Type 里的取值（Emby BaseItemKind.Episode）。
         private const long EpisodeType = 8;
 
-        // Name filter: markers whose names contain this string are ignored
-        // (e.g. plot/chapter-style markers that are not intro/credits).
+        // 名称过滤：名字含此字符串的标记一律忽略
+        // （例如 plot/章节式标记，它们并非片头/片尾）。
         private const string PlotFilter = "plot";
 
         public IntroBackfillService(ChapterMarkerApi chapterMarkerApi, ILogger logger)
@@ -39,7 +39,7 @@ namespace ViewMate.IntroSkip
             _connectionCache = new ConnectionManagerCache(logger, "IntroBackfill");
         }
 
-        // ── Backfill logic ──
+        // ── 回填逻辑 ──
 
         public int BackfillMissing()
         {
@@ -51,7 +51,7 @@ namespace ViewMate.IntroSkip
 
             _logger.Info("[IntroBackfill] Scanning...");
 
-            // Phase 1: read — discover series with existing markers
+            // 阶段 1：读 —— 找出已有标记的剧集系列
             var seriesIds = new List<long>();
             using (var conn = _connectionCache.OpenReadConnection())
             {
@@ -81,7 +81,7 @@ namespace ViewMate.IntroSkip
 
             foreach (var sid in seriesIds)
             {
-                // Phase 2: read — get episodes for this series
+                // 阶段 2：读 —— 取出该系列的各集
                 var episodes = new List<Tuple<long, string, int?, int?>>();
                 using (var conn = _connectionCache.OpenReadConnection())
                 {
@@ -112,7 +112,7 @@ namespace ViewMate.IntroSkip
 
                 if (episodes.Count == 0) continue;
 
-                // Group by season
+                // 按季分组
                 var seasons = new Dictionary<int, List<Tuple<long, string, int?>>>();
                 foreach (var ep in episodes)
                 {
@@ -126,7 +126,7 @@ namespace ViewMate.IntroSkip
                 {
                     var eps = kv.Value;
 
-                    // Phase 3: read — find reference episode with markers
+                    // 阶段 3：读 —— 找到带标记的参考剧集
                     long refId = 0;
                     long refStart = 0;
                     long refEnd = 0;
@@ -158,7 +158,7 @@ namespace ViewMate.IntroSkip
                                     refStart = markers[0].Item1;
                                     refEnd = markers[1].Item1;
                                     foundRef = true;
-                                    // Check for CreditsStart marker (3rd marker, if exists)
+                                    // 检查是否存在 CreditsStart 标记（若有，则为第 3 个标记）
                                     refHasCredits = markers.Count >= 3
                                         && markers[2].Item2.StartsWith("CreditsStart");
                                     if (refHasCredits)
@@ -175,7 +175,7 @@ namespace ViewMate.IntroSkip
 
                     if (!foundRef) continue;
 
-                    // Phase 4: write — backfill missing markers in the season
+                    // 阶段 4：写 —— 为该季补齐缺失的标记
                     foreach (var ep in eps)
                     {
                         using (var conn = _connectionCache.OpenWriteConnection())
@@ -184,7 +184,7 @@ namespace ViewMate.IntroSkip
 
                             try
                             {
-                                // Check existing ECS marker count
+                                // 检查已有 ECS 标记数量
                                 var countQuery = $@"SELECT COUNT(*) FROM Chapters3
                                                   WHERE ItemId = {ep.Item1} AND Name LIKE '%{ChapterMarkerApi.MarkerSuffix}%'
                                                   AND Name NOT LIKE '%{PlotFilter}%'";
@@ -197,11 +197,11 @@ namespace ViewMate.IntroSkip
 
                                 if (has >= 2)
                                 {
-                                    // Episode already has Intro markers. Check if only CreditsStart is missing.
+                                    // 该集已有片头标记。检查是否只缺 CreditsStart。
                                     if (!refHasCredits || has >= 3)
                                         continue;
 
-                                    // Only missing CreditsStart — just add it, skip intro backfill
+                                    // 只缺 CreditsStart —— 直接补上，跳过片头回填
                                     int maxIdxCredits;
                                     using (var stmt = conn.PrepareStatement(
                                         $"SELECT MAX(ChapterIndex) FROM Chapters3 WHERE ItemId = {ep.Item1}"))
@@ -217,7 +217,7 @@ namespace ViewMate.IntroSkip
                                     continue;
                                 }
 
-                                // Get max ChapterIndex
+                                // 取得最大 ChapterIndex
                                 int maxIdx;
                                 using (var stmt = conn.PrepareStatement(
                                     $"SELECT MAX(ChapterIndex) FROM Chapters3 WHERE ItemId = {ep.Item1}"))
@@ -226,9 +226,9 @@ namespace ViewMate.IntroSkip
                                     maxIdx = stmt.Current.IsDBNull(0) ? 0 : (int)stmt.Current.GetInt64(0);
                                 }
 
-                                // Delete old ECS markers + re-insert atomically.
-                                // A crash between DELETE and INSERT would lose this
-                                // episode's markers entirely (v1.2.16.23 fix).
+                                // 原子地删除旧 ECS 标记并重新插入。
+                                // 若在 DELETE 与 INSERT 之间崩溃，会彻底丢失该集
+                                // 的所有标记（v1.2.16.23 修复）。
                                 conn.BeginTransaction(TransactionMode.Deferred);
                                 try
                                 {
@@ -243,7 +243,7 @@ namespace ViewMate.IntroSkip
                                         $"INSERT INTO Chapters3 (ItemId, ChapterIndex, StartPositionTicks, Name, MarkerType) " +
                                         $"VALUES ({ep.Item1}, {maxIdx + 2}, {refEnd}, 'IntroEnd{ChapterMarkerApi.MarkerSuffix}', {(int)BackfillMarkerType.IntroEnd})");
 
-                                    // Also backfill CreditsStart if the reference episode has one
+                                    // 若参考剧集带 CreditsStart，也一并回填
                                     if (refHasCredits)
                                     {
                                         conn.Execute(

@@ -13,16 +13,16 @@ using ViewMate.Common;
 namespace ViewMate.Pinyin
 {
     /// <summary>
-    /// Shared pinyin engine (phase-2 split of PinyinSearchService):
-    /// reflection-loads TinyPinyin.dll via Lazy (ExecutionAndPublication, deferred
-    /// until first use — never in any constructor), caches the phrase
-    /// multi-pronunciation override table, and generates pinyin tokens.
-    /// Replaces the duplicated LoadPinyinFunc/拼音加载 implementations that used
-    /// to live in both PinyinSearchService and PinyinSortNameService.
+    /// 共用的拼音引擎（PinyinSearchService 的第二阶段拆分）：
+    /// 通过 Lazy 反射加载 TinyPinyin.dll（ExecutionAndPublication，
+    /// 延迟到首次使用 —— 绝不在任何构造函数中加载），缓存词组
+    /// 多音字覆盖表，并生成拼音 token。
+    /// 用于替代原先重复的 LoadPinyinFunc/拼音加载 实现，那些实现曾
+    /// 同时存在于 PinyinSearchService 与 PinyinSortNameService 中。
     /// </summary>
     public static class TinyPinyinLoader
     {
-        // Static logger for Lazy initializers — set by PinyinSearchService's ctor.
+        // 供 Lazy 初始化器使用的静态 logger —— 由 PinyinSearchService 的构造函数设置。
         private static ILogger _staticLogger = null!;
 
         public static void SetStaticLogger(ILogger logger)
@@ -30,10 +30,10 @@ namespace ViewMate.Pinyin
             _staticLogger = logger;
         }
 
-        // ── Static caches (Lazy<T>, thread-safe) ──
-        // Deferred loading: TinyPinyin.dll isn't guaranteed to be scanned by
-        // Emby's assembly scanner at construction time, so both lazies are only
-        // forced on first actual pinyin use.
+        // ── 静态缓存（Lazy<T>，线程安全） ──
+        // 延迟加载：无法保证 Emby 的程序集扫描器在构造时就扫到
+        // TinyPinyin.dll，因此这两个 Lazy 都只会在真正用到拼音时
+        // 才被强制求值。
         private static readonly Lazy<Dictionary<string, string>> _phraseOverridesLazy =
             new Lazy<Dictionary<string, string>>(LoadPhraseOverrides, LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -41,9 +41,9 @@ namespace ViewMate.Pinyin
             new Lazy<Func<char, string>>(LoadPinyinFunc, LazyThreadSafetyMode.ExecutionAndPublication);
 
         /// <summary>
-        /// The TinyPinyin GetPinyin(char) delegate. Forcing this value loads the
-        /// assembly; throws (FileNotFoundException etc.) when unavailable — callers
-        /// that must not fail (e.g. PinyinSortNameService) wrap access in try/catch.
+        /// TinyPinyin 的 GetPinyin(char) 委托。强制求值此属性会加载程序集；
+        /// 不可用时会抛异常（FileNotFoundException 等）—— 不能失败的调用方
+        /// （例如 PinyinSortNameService）需用 try/catch 包住访问。
         /// </summary>
         public static Func<char, string> GetPinyinFunc => _getPinyinLazy.Value;
 
@@ -132,9 +132,9 @@ namespace ViewMate.Pinyin
             for (int i = 0; i + 1 < cjkChars.Count; i++)
                 sbCjkBigram.Append(cjkChars[i]).Append(cjkChars[i + 1]).Append(' ');
 
-            // Initials: first letter of each CJK syllable, uppercased and joined
-            // without separator (syllables already carry pinyin-overrides phrase
-            // corrections, so 重庆 → CQ). Non-CJK input never reaches this list.
+            // 首字母：每个汉字音节的首字母，转大写后
+            // 不加分隔符直接拼接（音节已应用 pinyin-overrides 的词组
+            // 校正，因此 重庆 → CQ）。非中文输入不会走到这个列表。
             var sbInitials = new StringBuilder();
             foreach (var syllable in syllables)
             {
@@ -143,8 +143,8 @@ namespace ViewMate.Pinyin
             }
             string initials = sbInitials.ToString();
 
-            // Adjacent two-letter sliding window over the initials ("GFNZ" →
-            // "GF FZ ZN NZ") so a mid-name two-letter search matches.
+            // 在首字母序列上做相邻两字母的滑动窗口（"GFNZ" →
+            // "GF FZ ZN NZ"），以便命中名称中部的两字母搜索。
             var sbInitialBigram = new StringBuilder();
             for (int i = 0; i + 1 < initials.Length; i++)
                 sbInitialBigram.Append(initials[i]).Append(initials[i + 1]).Append(' ');
@@ -162,7 +162,7 @@ namespace ViewMate.Pinyin
             return TextUtil.ChineseRegex.IsMatch(item.Name);
         }
 
-        // ── Static Lazy initializers ──
+        // ── 静态 Lazy 初始化器 ──
         private static Dictionary<string, string> LoadPhraseOverrides()
         {
             var dict = new Dictionary<string, string>();

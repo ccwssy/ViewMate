@@ -8,9 +8,9 @@ using System.Threading;
 namespace ViewMate.Common
 {
     /// <summary>
-    /// Caches the Emby internal ConnectionManager and CreateConnection method
-    /// via reflection, so each call creates a new IDatabaseConnection on demand.
-    /// Duplicated in IntroBackfillService and PinyinSearchService — extracted here.
+    /// 通过反射缓存 Emby 内部的 ConnectionManager 与 CreateConnection 方法，
+    /// 使每次调用都能按需创建新的 IDatabaseConnection。
+    /// 原先在 IntroBackfillService 与 PinyinSearchService 中重复，现抽取到此处。
     /// </summary>
     public class ConnectionManagerCache
     {

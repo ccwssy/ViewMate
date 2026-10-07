@@ -9,8 +9,8 @@
 
     public abstract class ControllerBase : IPluginUIPageController
     {
-        /// <summary>Initializes a new instance of the <see cref="ControllerBase"/> class.</summary>
-        /// <param name="pluginId">The plugin identifier.</param>
+        /// <summary>初始化 <see cref="ControllerBase"/> 类的新实例。</summary>
+        /// <param name="pluginId">插件标识符。</param>
         protected ControllerBase(string pluginId)
         {
             this.PluginId = pluginId;

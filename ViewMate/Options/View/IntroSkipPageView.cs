@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 namespace ViewMate.Options.View
 {
     /// <summary>
-    /// 片头尾跳过 tab. ContentData carries only the IntroSkipOptions section; save
-    /// reloads the whole JSON container, replaces its own section, writes it back
-    /// and then syncs the matching PluginConfiguration (XML) fields.
+    /// 片头尾跳过 tab。ContentData 只承载 IntroSkipOptions 段；保存时会重新加载
+    /// 整个 JSON 容器，替换自己那一段后写回，
+    /// 然后同步 PluginConfiguration（XML）中对应的字段。
     /// </summary>
     internal class IntroSkipPageView : PluginPageView
     {
@@ -21,7 +21,7 @@ namespace ViewMate.Options.View
             _store = store;
 
             var options = store.GetOptions();
-            // PluginConfiguration (XML) is authoritative for the runtime switches.
+            // 运行时开关以 PluginConfiguration（XML）为准。
             var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
             options.IntroSkipOptions.EnableIntroSkip = config.EnableIntroSkip;
             options.IntroSkipOptions.MaxIntroDurationSeconds = config.MaxIntroDurationSeconds;
@@ -39,7 +39,7 @@ namespace ViewMate.Options.View
             options.IntroSkipOptions = Options;
             _store.SetOptions(options);
 
-            // Sync values to PluginConfiguration
+            // 把取值同步到 PluginConfiguration
             var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
             config.EnableIntroSkip = Options.EnableIntroSkip;
             config.MaxIntroDurationSeconds = Options.MaxIntroDurationSeconds;
