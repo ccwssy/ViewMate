@@ -47,9 +47,9 @@ namespace ViewMate.Pinyin
         /// </summary>
         public static Func<char, string> GetPinyinFunc => _getPinyinLazy.Value;
 
-        public static (string spaced, string connected, string bigrams, string singleChars, string cjkBigrams) GeneratePinyin(string text)
+        public static (string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsBigrams) GeneratePinyin(string text)
         {
-            if (string.IsNullOrEmpty(text)) return (null!, null!, null!, null!, null!);
+            if (string.IsNullOrEmpty(text)) return (null!, null!, null!, null!, null!, null!, null!);
 
             var sbSpaced = new StringBuilder();
             var sbConnected = new StringBuilder();
@@ -114,7 +114,7 @@ namespace ViewMate.Pinyin
                 i++;
             }
 
-            if (!hasChinese) return (null!, null!, null!, null!, null!);
+            if (!hasChinese) return (null!, null!, null!, null!, null!, null!, null!);
 
             var sbBigram = new StringBuilder();
             for (int i = 0; i + 1 < syllables.Count; i++)
@@ -132,9 +132,27 @@ namespace ViewMate.Pinyin
             for (int i = 0; i + 1 < cjkChars.Count; i++)
                 sbCjkBigram.Append(cjkChars[i]).Append(cjkChars[i + 1]).Append(' ');
 
+            // Initials: first letter of each CJK syllable, uppercased and joined
+            // without separator (syllables already carry pinyin-overrides phrase
+            // corrections, so 重庆 → CQ). Non-CJK input never reaches this list.
+            var sbInitials = new StringBuilder();
+            foreach (var syllable in syllables)
+            {
+                if (!string.IsNullOrEmpty(syllable))
+                    sbInitials.Append(char.ToUpperInvariant(syllable[0]));
+            }
+            string initials = sbInitials.ToString();
+
+            // Adjacent two-letter sliding window over the initials ("GFNZ" →
+            // "GF FZ ZN NZ") so a mid-name two-letter search matches.
+            var sbInitialBigram = new StringBuilder();
+            for (int i = 0; i + 1 < initials.Length; i++)
+                sbInitialBigram.Append(initials[i]).Append(initials[i + 1]).Append(' ');
+
             return (sbSpaced.ToString().TrimEnd(), sbConnected.ToString(),
                     sbBigram.ToString().TrimEnd(),
-                    sbSingle.ToString().TrimEnd(), sbCjkBigram.ToString().TrimEnd());
+                    sbSingle.ToString().TrimEnd(), sbCjkBigram.ToString().TrimEnd(),
+                    initials, sbInitialBigram.ToString().TrimEnd());
         }
 
         public static bool IsCjkItem(BaseItem item)

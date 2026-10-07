@@ -2,21 +2,20 @@
 using MediaBrowser.Model.Plugins.UI.Views;
 using ViewMate.Options.Store;
 using ViewMate.Options.UIBaseClasses.Views;
-using ViewMate.Pinyin;
 using System.Threading.Tasks;
 
 namespace ViewMate.Options.View
 {
     /// <summary>
-    /// 拼音搜索 tab. ContentData carries only the PinyinOptions section; save
+    /// 片头尾跳过 tab. ContentData carries only the IntroSkipOptions section; save
     /// reloads the whole JSON container, replaces its own section, writes it back
     /// and then syncs the matching PluginConfiguration (XML) fields.
     /// </summary>
-    internal class HomePageView : PluginPageView
+    internal class IntroSkipPageView : PluginPageView
     {
         private readonly PluginOptionsStore _store;
 
-        public HomePageView(PluginInfo pluginInfo, PluginOptionsStore store)
+        public IntroSkipPageView(PluginInfo pluginInfo, PluginOptionsStore store)
             : base(pluginInfo.Id)
         {
             _store = store;
@@ -24,28 +23,29 @@ namespace ViewMate.Options.View
             var options = store.GetOptions();
             // PluginConfiguration (XML) is authoritative for the runtime switches.
             var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
-            options.PinyinOptions.EnablePinyinSearch = config.EnablePinyinSearch;
-            options.PinyinOptions.EnablePinyinSortName = config.EnablePinyinSortName;
+            options.IntroSkipOptions.EnableIntroSkip = config.EnableIntroSkip;
+            options.IntroSkipOptions.MaxIntroDurationSeconds = config.MaxIntroDurationSeconds;
+            options.IntroSkipOptions.MaxCreditsDurationSeconds = config.MaxCreditsDurationSeconds;
+            options.IntroSkipOptions.EnableIntroBackfill = config.EnableIntroBackfill;
 
-            ContentData = options.PinyinOptions;
+            ContentData = options.IntroSkipOptions;
         }
 
-        private PinyinOptions Options => (PinyinOptions)ContentData;
+        private IntroSkipOptions Options => (IntroSkipOptions)ContentData;
 
         public override Task<IPluginUIView> OnSaveCommand(string itemId, string commandId, string data)
         {
             var options = _store.ReloadOptions();
-            options.PinyinOptions = Options;
+            options.IntroSkipOptions = Options;
             _store.SetOptions(options);
 
             // Sync values to PluginConfiguration
             var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
-            config.EnablePinyinSearch = Options.EnablePinyinSearch;
-            config.EnablePinyinSortName = Options.EnablePinyinSortName;
+            config.EnableIntroSkip = Options.EnableIntroSkip;
+            config.MaxIntroDurationSeconds = Options.MaxIntroDurationSeconds;
+            config.MaxCreditsDurationSeconds = Options.MaxCreditsDurationSeconds;
+            config.EnableIntroBackfill = Options.EnableIntroBackfill;
             Plugin.Instance.UpdateConfiguration(config);
-
-            // ── Runtime toggle for PinyinSortName ──
-            Plugin.SetPinyinSortNameEnabled(config.EnablePinyinSortName);
 
             return base.OnSaveCommand(itemId, commandId, data);
         }

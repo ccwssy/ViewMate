@@ -72,6 +72,19 @@ namespace ViewMate.Pinyin
               AND mi.Name NOT GLOB '*Episode*'
               AND mi.Name NOT GLOB '*Media Folder*'";
 
+        // ── Backfill query (cursor-paged, newest-pinyin rows get the initials token) ──
+        public static string BackfillQuery(long cursor, int limit) => $@"
+            SELECT c.id, mi.Name, c.c0
+            FROM {FtsTableName}_content c
+            JOIN MediaItems mi ON c.id = mi.RowId
+            WHERE c.id > {cursor}
+              AND mi.Name GLOB '*[一-龥]*'
+              AND mi.Name NOT GLOB '*Season*'
+              AND mi.Name NOT GLOB '*Episode*'
+              AND mi.Name NOT GLOB '*Media Folder*'
+            ORDER BY c.id
+            LIMIT {limit}";
+
         // ── Full reindex queries ──
         public static string FtsTotalCountQuery() => $"SELECT COUNT(*) FROM {FtsTableName}";
 
@@ -107,24 +120,29 @@ namespace ViewMate.Pinyin
         public static string ExistingColumnsQuery(long id) =>
             $"SELECT c1, c2, c3 FROM {FtsTableName}_content WHERE id = {id}";
 
-        public static string BuildFtsInsertSql(long id, string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string origTitle = "", string seriesName = "", string album = "")
+        /// <summary>
+        /// The `Name` column value (c0) for one row: original name followed by the
+        /// six pinyin token sections. Escaped here so both the INSERT path and the
+        /// backfill comparison use the exact same string.
+        /// </summary>
+        public static string BuildFtsNameColumn(string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsBigrams)
         {
-            string esc = TextUtil.Escape(name);
-            string s = TextUtil.Escape(spaced);
-            string c = TextUtil.Escape(connected);
-            string b = TextUtil.Escape(bigrams);
-            string sc = TextUtil.Escape(singleChars);
-            string cb = TextUtil.Escape(cjkBigrams);
+            return $"{TextUtil.Escape(name)} {TextUtil.Escape(spaced)} {TextUtil.Escape(connected)} {TextUtil.Escape(bigrams)} {TextUtil.Escape(singleChars)} {TextUtil.Escape(cjkBigrams)} {TextUtil.Escape(initials)} {TextUtil.Escape(initialsBigrams)}";
+        }
+
+        public static string BuildFtsInsertSql(long id, string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsBigrams, string origTitle = "", string seriesName = "", string album = "")
+        {
+            string c0 = BuildFtsNameColumn(name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams);
             string ot = TextUtil.Escape(origTitle);
             string sn = TextUtil.Escape(seriesName);
             string al = TextUtil.Escape(album);
-            return $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{esc} {s} {c} {b} {sc} {cb}','{ot}','{sn}','{al}')";
+            return $"INSERT OR REPLACE INTO {FtsTableName}(rowid,Name,OriginalTitle,SeriesName,Album) VALUES({id},'{c0}','{ot}','{sn}','{al}')";
         }
 
         // ── Single-row write ──
-        public void ExecuteInsert(IDatabaseConnection conn, long id, string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string origTitle = "", string seriesName = "", string album = "")
+        public void ExecuteInsert(IDatabaseConnection conn, long id, string name, string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsBigrams, string origTitle = "", string seriesName = "", string album = "")
         {
-            conn.Execute(BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album));
+            conn.Execute(BuildFtsInsertSql(id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams, origTitle, seriesName, album));
         }
 
         /// <summary>
@@ -188,14 +206,14 @@ namespace ViewMate.Pinyin
 
                         long id = row.Item1;
                         string name = row.Item2;
-                        var (spaced, connected, bigrams, singleChars, cjkBigrams) = TinyPinyinLoader.GeneratePinyin(name);
+                        var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams) = TinyPinyinLoader.GeneratePinyin(name);
                         if (string.IsNullOrEmpty(spaced)) continue;
 
                         string origTitle = "", seriesName = "", album = "";
                         if (readExistingColumns)
                             ReadExistingColumns(conn, id, readColumnsLogFormat, out origTitle, out seriesName, out album);
 
-                        ExecuteInsert(conn, id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album);
+                        ExecuteInsert(conn, id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams, origTitle, seriesName, album);
                         processed++;
                     }
                     catch (Exception ex) when (itemLogFormat != null)

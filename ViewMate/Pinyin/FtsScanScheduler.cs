@@ -5,6 +5,9 @@ using SQLitePCL.pretty;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Text;
 using System.Threading;
 using ViewMate.Common;
 
@@ -45,6 +48,17 @@ namespace ViewMate.Pinyin
         // ── Batch state ──
         private long _lastScanId;
 
+        // ── Initials backfill state (cursor-paged, rides the periodic scan) ──
+        private long _backfillCursor;
+        private const int BackfillLimit = 1000;
+        private const int BackfillBatchSize = 200;
+
+        // Cursor persistence: probe-path style, same precedent as TinyPinyinLoader's
+        // pinyin-overrides.json (first directory that exists wins).
+        private const string BackfillCursorFileName = "pinyin-backfill-cursor.txt";
+        private static readonly string[] BackfillCursorProbeDirs = { "/config/plugins/", "plugins/", "../plugins/" };
+        private int _cursorPersistDirWarned;
+
         public FtsScanScheduler(ILibraryManager libraryManager, ILogger logger)
         {
             _libraryManager = libraryManager;
@@ -57,6 +71,9 @@ namespace ViewMate.Pinyin
 
             // Timer starts in one-shot mode; EnsureEventTimer() fires it when queue is non-empty
             _eventTimer = new Timer(_ => ProcessQueuedEvents(), null, Timeout.Infinite, Timeout.Infinite);
+
+            // Restore the backfill cursor before the first backfill round runs.
+            LoadBackfillCursor();
         }
 
         // ── Deferred background scan ──
@@ -75,6 +92,8 @@ namespace ViewMate.Pinyin
                 _logger.Info("[PinyinSearch] Background thread started, waiting 60s...");
                 for (int i = 0; i < 60 && !IsDisposed; i++)
                     Thread.Sleep(1000);
+
+                _logger.Info("[PinyinSearch] Wait loop exited, IsDisposed={0}", IsDisposed);
 
                 if (!IsDisposed)
                 {
@@ -235,6 +254,10 @@ namespace ViewMate.Pinyin
                 int incremental = ProcessAllPendingBatched();
                 total += incremental;
 
+                // Phase 3: backfill — rows written by older releases lack the
+                // initials token (or drifted); rewrite them by cursor.
+                total += ProcessBackfill();
+
                 if (total > 0)
                 {
                     _logger.Info("[PinyinSearch] Periodic scan: {0} items processed", total);
@@ -247,6 +270,194 @@ namespace ViewMate.Pinyin
             {
                 _logger.Error("[PinyinSearch] Periodic scan failed", ex);
             }
+        }
+
+        // ── Initials backfill (cursor-paged, rides the periodic scan) ──
+        // Walks fts_search9_content by id in 1000-row pages and rewrites every row
+        // whose c0 differs from the freshly built full value (missing initials,
+        // leading-pinyin drift, Emby trigger overwrites — anything). Comparison is
+        // a whole-string compare on the C# side by design: a SQL marker like
+        // c0 NOT GLOB '*[a-z]*' misses originals that contain lowercase letters.
+        private int ProcessBackfill()
+        {
+            long cursor = Volatile.Read(ref _backfillCursor);
+            var rows = new List<BackfillRow>();
+
+            try
+            {
+                using (var conn = _connectionCache.OpenReadConnection())
+                {
+                    if (conn == null) return 0;
+
+                    using (var stmt = conn.PrepareStatement(FtsIndexWriter.BackfillQuery(cursor, BackfillLimit)))
+                    {
+                        while (stmt.MoveNext())
+                        {
+                            long id = stmt.Current.GetInt64(0);
+                            string name = stmt.Current.GetString(1);
+                            string currentC0 = stmt.Current.GetString(2);
+                            var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams) =
+                                TinyPinyinLoader.GeneratePinyin(name);
+
+                            // TinyPinyin unavailable → abandon the whole round and
+                            // leave the cursor put; never rewrite a row without pinyin.
+                            if (string.IsNullOrEmpty(spaced))
+                            {
+                                _logger.Warn("[PinyinSearch] Backfill abandoned: no pinyin for id {0}", id);
+                                return 0;
+                            }
+
+                            rows.Add(new BackfillRow
+                            {
+                                Id = id,
+                                Name = name,
+                                Spaced = spaced,
+                                Connected = connected,
+                                Bigrams = bigrams,
+                                SingleChars = singleChars,
+                                CjkBigrams = cjkBigrams,
+                                Initials = initials,
+                                InitialsBigrams = initialsBigrams,
+                                ExpectedC0 = FtsIndexWriter.BuildFtsNameColumn(name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams),
+                                CurrentC0 = currentC0,
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn("[PinyinSearch] Backfill query failed: {0}", ex.Message);
+                return 0;
+            }
+
+            if (rows.Count == 0) return 0;
+
+            int updated = 0;
+            for (int offset = 0; offset < rows.Count; offset += BackfillBatchSize)
+            {
+                if (IsDisposed) return updated;
+
+                int count = Math.Min(BackfillBatchSize, rows.Count - offset);
+                long maxId = 0;
+
+                using (var conn = _connectionCache.OpenWriteConnection())
+                {
+                    if (conn == null) return updated;
+                    try
+                    {
+                        conn.BeginTransaction(TransactionMode.Deferred);
+                        for (int i = 0; i < count; i++)
+                        {
+                            var row = rows[offset + i];
+                            if (row.Id > maxId) maxId = row.Id;
+                            if (row.ExpectedC0 == row.CurrentC0) continue;
+
+                            _writer.ReadExistingColumns(conn, row.Id,
+                                "[PinyinSearch] Backfill read existing columns for id {0}: {1}",
+                                out string origTitle, out string seriesName, out string album);
+                            _writer.ExecuteInsert(conn, row.Id, row.Name, row.Spaced, row.Connected,
+                                row.Bigrams, row.SingleChars, row.CjkBigrams, row.Initials, row.InitialsBigrams,
+                                origTitle, seriesName, album);
+                            updated++;
+                        }
+                        conn.CommitTransaction();
+                    }
+                    catch (Exception ex)
+                    {
+                        conn.RollbackTransaction();
+                        _logger.Error("[PinyinSearch] Backfill batch offset={0} failed, rolled back: {1}", offset, ex.Message);
+                        return updated;
+                    }
+                }
+
+                // Advance only after the batch committed, then persist so a restart
+                // resumes from here instead of re-walking the table from id 0.
+                Volatile.Write(ref _backfillCursor, maxId);
+                PersistBackfillCursor(maxId);
+
+                if (offset + BackfillBatchSize < rows.Count)
+                    Thread.Sleep(500);
+            }
+
+            if (updated > 0)
+                _logger.Info("[PinyinSearch] Backfill: {0} rows rewritten, cursor={1}",
+                    updated, Volatile.Read(ref _backfillCursor));
+
+            return updated;
+        }
+
+        // ── Backfill cursor persistence ──
+        // Memory-only cursor meant every Emby restart re-walked the FTS table from
+        // id 0: the full backfill (~85 min) never completed on a server restarted
+        // more often than that. One long, UTF-8 without BOM, trailing newline.
+        private void LoadBackfillCursor()
+        {
+            foreach (var dir in BackfillCursorProbeDirs)
+            {
+                string path = Path.Combine(dir, BackfillCursorFileName);
+                try
+                {
+                    if (!File.Exists(path)) continue;
+
+                    if (long.TryParse(File.ReadAllText(path).Trim(), out long value))
+                    {
+                        Volatile.Write(ref _backfillCursor, value);
+                        _logger.Info("[PinyinSearch] Backfill cursor restored from disk: {0}", value);
+                    }
+                    else
+                    {
+                        _logger.Warn("[PinyinSearch] Backfill cursor file unparsable, keeping cursor at 0: {0}", path);
+                    }
+
+                    return; // File found — this is the authoritative location.
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn("[PinyinSearch] Backfill cursor restore failed ({0}): {1}", path, ex.Message);
+                    return;
+                }
+            }
+        }
+
+        private void PersistBackfillCursor(long cursor)
+        {
+            foreach (var dir in BackfillCursorProbeDirs)
+            {
+                if (!Directory.Exists(dir)) continue;
+
+                string path = Path.Combine(dir, BackfillCursorFileName);
+                try
+                {
+                    string tmpPath = path + ".tmp";
+                    File.WriteAllText(tmpPath, cursor.ToString(CultureInfo.InvariantCulture) + "\n", new UTF8Encoding(false));
+                    File.Move(tmpPath, path, true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn("[PinyinSearch] Backfill cursor persist failed ({0}): {1}", path, ex.Message);
+                }
+
+                return;
+            }
+
+            if (Interlocked.Exchange(ref _cursorPersistDirWarned, 1) == 0)
+                _logger.Warn("[PinyinSearch] Backfill cursor not persisted: none of the probe directories exist");
+        }
+
+        private sealed class BackfillRow
+        {
+            public long Id;
+            public string Name = "";
+            public string Spaced = "";
+            public string Connected = "";
+            public string Bigrams = "";
+            public string SingleChars = "";
+            public string CjkBigrams = "";
+            public string Initials = "";
+            public string InitialsBigrams = "";
+            public string ExpectedC0 = "";
+            public string CurrentC0 = "";
         }
 
         // ── Empty-FTS fallback ──
@@ -502,7 +713,7 @@ namespace ViewMate.Pinyin
                                 string name = row.Item2;
 
                                 // Track processed to avoid re-processing on next cycle
-                                var (spaced, connected, bigrams, singleChars, cjkBigrams) = TinyPinyinLoader.GeneratePinyin(name);
+                                var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams) = TinyPinyinLoader.GeneratePinyin(name);
                                 if (string.IsNullOrEmpty(spaced))
                                 {
                                     lock (_processedCatchUpLock)
@@ -526,7 +737,7 @@ namespace ViewMate.Pinyin
                                     "[PinyinSearch] Catch-up batch read existing columns for id {0}: {1}",
                                     out string origTitle, out string seriesName, out string album);
 
-                                _writer.ExecuteInsert(conn, id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album);
+                                _writer.ExecuteInsert(conn, id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams, origTitle, seriesName, album);
                                 processed++;
                             }
                             catch (Exception ex)
@@ -613,10 +824,10 @@ namespace ViewMate.Pinyin
                                 "[PinyinSearch] Queue batch read columns for id {0}: {1}",
                                 out string origTitle, out string seriesName, out string album);
 
-                            var (spaced, connected, bigrams, singleChars, cjkBigrams) = TinyPinyinLoader.GeneratePinyin(name);
+                            var (spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams) = TinyPinyinLoader.GeneratePinyin(name);
                             if (string.IsNullOrEmpty(spaced)) continue;
 
-                            _writer.ExecuteInsert(connection, id, name, spaced, connected, bigrams, singleChars, cjkBigrams, origTitle, seriesName, album);
+                            _writer.ExecuteInsert(connection, id, name, spaced, connected, bigrams, singleChars, cjkBigrams, initials, initialsBigrams, origTitle, seriesName, album);
                         }
                         catch (Exception ex)
                         {
@@ -653,6 +864,8 @@ namespace ViewMate.Pinyin
         {
             if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0)
                 return;
+
+            _logger.Info("[PinyinSearch] Scheduler Dispose called");
 
             _eventTimer?.Dispose();
             _eventTimer = null;

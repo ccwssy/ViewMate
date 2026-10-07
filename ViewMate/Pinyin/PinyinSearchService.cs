@@ -47,7 +47,7 @@ namespace ViewMate.Pinyin
 
         // ── Pinyin generation (public static API, delegates to shared loader) ──
 
-        public static (string spaced, string connected, string bigrams, string singleChars, string cjkBigrams) GeneratePinyin(string text)
+        public static (string spaced, string connected, string bigrams, string singleChars, string cjkBigrams, string initials, string initialsBigrams) GeneratePinyin(string text)
             => TinyPinyinLoader.GeneratePinyin(text);
 
         public static bool IsCjkItem(BaseItem item)

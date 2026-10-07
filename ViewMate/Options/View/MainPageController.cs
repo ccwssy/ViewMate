@@ -1,18 +1,21 @@
 ﻿using MediaBrowser.Model.Plugins;
+using MediaBrowser.Model.Plugins.UI;
 using MediaBrowser.Model.Plugins.UI.Views;
 using ViewMate.Options.Store;
 using ViewMate.Options.UIBaseClasses;
 using ViewMate.Properties;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace ViewMate.Options.View
 {
-    internal class MainPageController : ControllerBase
+    internal class MainPageController : ControllerBase, IHasTabbedUIPages
     {
         private readonly PluginInfo _pluginInfo;
         private readonly PluginOptionsStore _mainOptionsStore;
-        public MainPageController(PluginInfo pluginInfo,PluginOptionsStore mainOptionsStore
-            )
+        private readonly IReadOnlyList<IPluginUIPageController> _tabPageControllers;
+
+        public MainPageController(PluginInfo pluginInfo, PluginOptionsStore mainOptionsStore)
             : base(pluginInfo.Id)
         {
             _pluginInfo = pluginInfo;
@@ -27,9 +30,19 @@ namespace ViewMate.Options.View
                 MenuIcon = "video_settings",
                 IsMainConfigPage = false,
             };
+
+            // Tab order follows this list. The framework registers these through
+            // the UIPageControllers chain; do not list them at the top level.
+            _tabPageControllers = new List<IPluginUIPageController>
+            {
+                new IntroSkipPageController(pluginInfo, mainOptionsStore),
+                new AboutPageController(pluginInfo, mainOptionsStore),
+            };
         }
 
         public override PluginPageInfo PageInfo { get; }
+
+        public IReadOnlyList<IPluginUIPageController> TabPageControllers => _tabPageControllers;
 
         public override Task<IPluginUIView> CreateDefaultPageView()
         {
