@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# release-notes.sh V1.0.0
 # release-notes.sh — 从 CHANGELOG.md 切片生成 Release notes（中文，累计变更口径）
 #
 # 用法：bash scripts/release-notes.sh <TAG> [CHANGELOG路径]
