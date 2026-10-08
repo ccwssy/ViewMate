@@ -30,8 +30,8 @@ Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头
 
 - 使用 TinyPinyin C# 库，**反射加载**（绕过 Emby 插件 ALC 隔离，不在编译时生成 AssemblyRef）
 - 启动时后台分批处理自动扫描新入库的中文媒体注入拼音（不阻塞首页加载），写入 `fts_search9_content.c0`
-- c0 格式：`原名称 空格拼音 连写拼音 拼音bigram 单CJK字 CJK双字bigram 首字母连写 首字母bigram`
-- **拼音首字母 token（v1.2.18.0+）**：`initials` 为每个 CJK 音节首字母大写连写（「功夫女足」→ `GFNZ`），继承 `pinyin-overrides.json` 词组校正（重庆 → `CQ`），非 CJK 字符不进 initials；另附 initials 的相邻双字母滑窗 `initialsBigrams`（「功夫女足」→ `GF FN NZ`）。搜 `gfnz` 命中「功夫女足」（`gfzq` 命中「功夫足球」这类同样打头的条目），支持只打头 2 字母（`gf`）；中段双字母（如 `fn`）走 initials bigram，空格分词搜索（`"gf" "fn"`）按 AND 同时匹配
+- c0 格式：`原名称 空格拼音 连写拼音 拼音bigram 单CJK字 CJK双字bigram 首字母连写 首字母后缀族`
+- **拼音首字母 token（v1.2.19.0+）**：`initials` 为每个 CJK 音节首字母大写连写（「功夫女足」→ `GFNZ`），继承 `pinyin-overrides.json` 词组校正（重庆 → `CQ`），非 CJK 字符不进 initials；其后附 **initials 的全部后缀**（`initialsSuffixes`，长度 n-1 → 2，单字母后缀省略）——「阿丽塔：战斗天使」→ initials `ALTZDTS` → 后缀 `LTZDTS TZDTS ZDTS DTS TS`。任意长度、任意位置的缩写都是某个后缀的前缀，配合前缀查询即可命中：整串 `altzdts`、只打头 `al`、中段 `zdts` 都能搜到。旧方案的相邻双字母滑窗（`AL LT TZ ZD DT TS`）只覆盖整串与相邻两字母组合，中段多字母缩写（如 `zdts`）搜不到，故 v1.2.19.0 起替换（索引净增约 1MB）
 - 单 CJK 字 token（如 `变 形 金 刚`）支持单字搜索
 - CJK 双字 bigram token（如 `变形 形金 金刚`）支持中文子串搜索
 - SQL 查询用 `c.c0 NOT GLOB '*[a-zA-Z]*'` + `c.c0 GLOB '*[一-龥]*'` 双筛中文（#15 v1.2.13.1 修复 GLOB 使用实际汉字，非 `\\u` 文本字面量）
@@ -80,7 +80,7 @@ Seek detected: 00:00:05 → 00:00:45 (jump=40s elapsed=0.6s)  # 累计跳转
 
 ### 要求
 - Emby 4.9.3.0+（.NET 6 容器）
-- **4.9.5.0 / 4.10.0.40 / 4.10.0.9 / 4.10.1.0 已实测适配**：插件加载 / EntryPoint / 拼音搜索（FTS5 注入）/ 拼音排序名（SQL 直连）/ 片头片尾跳过 / 漏集补打全部正常。4.10 仅迁移了授权相关内部类（`HardwareAccelerationRequiresPremiere` → `ApplicationHost` 等），ViewMate 不依赖这些 API，无需为 4.10 单独出包
+- **4.9.5.0 / 4.10.0.40 / 4.10.0.9 / 4.10.1.0 已实测适配**（4.10.0.40 首次实测 2026-09-09 / v1.2.17.0）：插件加载 / EntryPoint / 拼音搜索（FTS5 注入）/ 拼音排序名（SQL 直连）/ 片头片尾跳过 / 漏集补打全部正常。4.10 仅迁移了授权相关内部类（`HardwareAccelerationRequiresPremiere` → `ApplicationHost` 等），ViewMate 不依赖这些 API，无需为 4.10 单独出包
 - **Emby 4.10 系搜索已消费 `fts_search9`**：反编译确认 Items 搜索走 `join fts_search9 ... MATCH @SearchTerm`。旧 skill/wiki 中「Emby 不查 FTS」是 4.9.5.0 时代 `Search/Hints` API 失效的误诊，Items 搜索路径两版都在
 
 ### 升级安装（覆盖已有插件）
@@ -198,10 +198,11 @@ dotnet build -c Release -o build ViewMate/ViewMate.csproj
 
 ## 配置
 
-通过 Emby 插件配置页操作，无需手写 XML。设置页为 **3 个横向 tab**：**拼音搜索 / 片头尾跳过 / 关于**；每个 tab 保存时先 Reload 磁盘全量配置、只写回本 tab 的字段，不会交叉覆盖：
+通过 Emby 插件配置页操作，无需手写 XML。设置页为 **4 个横向 tab**：**观影助手（总览，只读） / 拼音搜索 / 片头尾跳过 / 关于**；每个 tab 保存时先 Reload 磁盘全量配置、只写回本 tab 的字段，不会交叉覆盖：
 
 | 设置 | 默认 | 说明 |
 |------|:----:|------|
+| 观影助手 | — | 总览页：一览当前开关与生效状态，纯只读（无保存按钮），防误改 |
 | 拼音搜索 | 开 | 自动化拼音注入，新入库即时处理 |
 | 片头片尾跳过 | 关 | 检测跳转行为写入 IntroSkip 标记 |
 | 最长片头 (秒) | 150 | 跳转起点超过此值不视为片头 |
@@ -247,7 +248,7 @@ sqlite3 <config路径>/data/library.db \
   "SELECT substr(c0,1,120) FROM fts_search9_content LIMIT 1;"
 ```
 
-预期：count > 0（中文媒体多的可能上万）；MATCH 应有结果；c0 内容格式为 `原名 空格拼音 连写拼音 bigram 单字 token 双字 token 首字母连写 首字母bigram`。
+预期：count > 0（中文媒体多的可能上万）；MATCH 应有结果；c0 内容格式为 `原名 空格拼音 连写拼音 bigram 单字 token 双字 token 首字母连写 首字母后缀族`。
 
 ### 验证数据库是否损坏
 
