@@ -323,15 +323,23 @@ docker start embyserver
 
 ## 注意事项
 
-### 卡点：SQLite ≥ 3.45 无 simple tokenizer
+### 历史：为什么不用 FTS tokenizer（simple 分词器）
 
-旧版 EnhanceChineseSearch 依赖 `libsimple.so` 替换 FTS tokenizer。Emby 官方镜像使用 SQLite 3.49.2，`simple` 分词器已从 FTS5 内置列表中移除。即使在当前连接加载成功，其他连接的 FTS5 查询全部崩溃（`no such tokenizer: simple`）。
+> 仅作历史背景，**不适用于 v1.2.0.0 及以后版本**：当前代码零 `libsimple` 依赖。
+
+旧版 EnhanceChineseSearch 依赖 `libsimple.so` 替换 FTS tokenizer。Emby 官方镜像使用 SQLite 3.49.2，`simple` 分词器已从 FTS5 内置列表中移除；即使在当前连接加载成功，其他连接的 FTS5 查询也会全部崩溃（`no such tokenizer: simple`）。
 
 **v1.2.0.0+ 已完全移除该方案**，改用 TinyPinyin C# 直接写入 FTS 内容表 + Name 字段。
 
-### 卡点：被归类为 Season 的媒体无法拼音搜索
+### 特殊情况：条目若被归类为 Season，可能搜不到
 
-STRM 库中的电影可能被归类为 **Season**（真库实测 `Type=7`，Path 形如 `.../Season N`）而非 Movie，不在 Emby 搜索白名单内，FTS MATCH 命中也被过滤。常见可搜类型（真库实测）：Movie `Type=5` / Episode `Type=8` / Series `Type=6` / Person `Type=23` / BoxSet `Type=9` / Genre `Type=21` / Studio `Type=29`。
+**排查线索，不是普遍现象**（来源：本项目早期 STRM 库排障记录；**未在当前库复现**——当前库 246 个季条目全部是真实季目录，无季型 `.strm`）。若遇到「拼音索引里明明有、Emby 搜索却不返回」，先查该条目在库里的真实类型：
+
+```sql
+SELECT RowId, Name, Type FROM MediaItems WHERE Name LIKE '%<关键词>%';
+```
+
+若该条目是 **Season**（`Type=7`，Path 形如 `.../Season N`）而非 Movie（`Type=5`），则它**可能**不在 Emby 的搜索白名单内，FTS MATCH 命中也会被过滤（该行为未逐条实测，仅记录为排查方向）。常见类型实测：Movie `5` / Series `6` / Season `7` / Episode `8` / Genre `21` / Person `23` / Studio `29` / BoxSet `9`。
 
 ### 检测阈值
 
