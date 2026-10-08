@@ -40,19 +40,19 @@ namespace ViewMate
         public readonly IServerConfigurationManager ConfigurationManager;
         public readonly ILibraryManager LibraryManager;
 
-        // ── IntroSkip ──
+        // ── IntroSkip（片头尾跳过） ──
         public static ChapterMarkerApi ChapterMarkerApi { get; private set; }
         public static PlaySessionMonitor PlaySessionMonitor { get; private set; }
 
-        // ── PinyinSearch ──
+        // ── PinyinSearch（拼音搜索） ──
         public static PinyinSearchService PinyinSearch { get; private set; }
 
-        // ── PinyinSortName ──
+        // ── PinyinSortName（拼音排序名） ──
         public static PinyinSortNameService PinyinSortName { get; private set; }
 
         /// <summary>
-        /// Runtime toggle for PinyinSortName. Called from config save.
-        /// Safe to call multiple times — handles create/dispose internally.
+        /// PinyinSortName 的运行时开关。由配置保存时调用。
+        /// 可安全重复调用 —— 内部自行处理创建与销毁。
         /// </summary>
         public static void SetPinyinSortNameEnabled(bool enable)
         {
@@ -73,15 +73,15 @@ namespace ViewMate
             }
             else if (enable && PinyinSortName != null)
             {
-                // Already enabled — re-apply if needed
+                // 已启用 —— 需要时重新应用一次
                 PinyinSortName.SetEnabled(true);
             }
         }
 
-        // ── IntroBackfill ──
+        // ── IntroBackfill（片头尾回填） ──
         public static IntroBackfillService IntroBackfill { get; private set; }
 
-        // ── Version check ──
+        // ── 版本检查 ──
         public static string LatestVersion { get; private set; }
         public static bool HasUpdate { get; private set; }
         public static bool VersionCheckFailed { get; private set; }
@@ -117,7 +117,7 @@ namespace ViewMate
 
             DefaultUICulture = new CultureInfo(configurationManager.Configuration.UICulture);
 
-            // ── Initialise IntroSkip components ──
+            // ── 初始化 IntroSkip 各组件 ──
             ChapterMarkerApi = new ChapterMarkerApi(libraryManager, itemRepository, Logger);
             PlaySessionMonitor = new PlaySessionMonitor(libraryManager, sessionManager, Logger);
         }
@@ -134,7 +134,7 @@ namespace ViewMate
         {
             var config = Configuration as PluginConfiguration ?? new PluginConfiguration();
 
-            // ── Start IntroSkip (if enabled in config) ──
+            // ── 启动 IntroSkip（若配置中已启用） ──
             if (config.EnableIntroSkip)
             {
                 Logger.Info("[IntroSkip] Starting PlaySessionMonitor...");
@@ -146,13 +146,13 @@ namespace ViewMate
                 Logger.Info("[IntroSkip] Disabled by configuration");
             }
 
-            // ── Start PinyinSearch (if enabled) ──
+            // ── 启动 PinyinSearch（若已启用） ──
             if (config.EnablePinyinSearch)
             {
                 Logger.Info("[PinyinSearch] Starting PinyinSearchService...");
                 PinyinSearch = new PinyinSearchService(LibraryManager, Logger);
-                // Deferred background scan — non-blocking, batched.
-                // Prevents SQLite write-lock congestion on slow ARM hardware.
+                // 延后的后台扫描 —— 非阻塞、分批执行。
+                // 避免在性能较弱的 ARM 硬件上造成 SQLite 写锁拥塞。
                 PinyinSearch.ProcessAllPendingDeferred();
             }
             else
@@ -161,12 +161,12 @@ namespace ViewMate
                 PinyinSearch = null;
             }
 
-            // ── Start PinyinSortName (if enabled) ──
+            // ── 启动 PinyinSortName（若已启用） ──
             if (config.EnablePinyinSortName)
             {
                 Logger.Info("[PinyinSortName] Starting PinyinSortNameService...");
                 PinyinSortName = new PinyinSortNameService(LibraryManager, Logger);
-                PinyinSortName.BackfillAll(startupDelayMs: 60000); // delay 60s for Emby startup
+                PinyinSortName.BackfillAll(startupDelayMs: 60000); // 启动延后 60 秒，给 Emby 启动让路
             }
             else
             {
@@ -174,16 +174,16 @@ namespace ViewMate
                 PinyinSortName = null;
             }
 
-            // ── Start IntroBackfill (if enabled) ──
+            // ── 启动 IntroBackfill（若已启用） ──
             if (config.EnableIntroBackfill)
             {
                 Logger.Info("[IntroBackfill] Starting IntroBackfillService...");
                 var introBackfill = new IntroBackfillService(ChapterMarkerApi, Logger);
                 IntroBackfill = introBackfill;
-                // Deferred background scan — non-blocking, full-library read+write,
-                // must not block Emby startup (same 60s pattern as PinyinSearch /
-                // PinyinSortName). IntroBackfillService has no internal delay, so
-                // this is the only delay — no double startup delay.
+                // 延后的后台扫描 —— 非阻塞、全库读写，
+                // 绝不能阻塞 Emby 启动（与 PinyinSearch / PinyinSortName 相同的
+                // 60 秒模式）。IntroBackfillService 内部没有自己的延时，
+                // 因此这里是唯一的延时 —— 不会出现启动延时叠加。
                 Task.Run(async () =>
                 {
                     await Task.Delay(TimeSpan.FromSeconds(60));
@@ -197,7 +197,7 @@ namespace ViewMate
                 IntroBackfill = null;
             }
 
-            // ── Version check (deferred 5 min, max 3 retries) ──
+            // ── 版本检查（延后 5 分钟，最多重试 3 次） ──
             bool versionCheckEnabled = config.EnableVersionCheck;
             if (versionCheckEnabled)
             {
@@ -277,9 +277,9 @@ namespace ViewMate
         public Stream GetThumbImage()
         {
             var type = typeof(Plugin);
-            // Try the new property name first, then fallbacks
+            // 先试新的属性名，不行再逐个回退
             var assembly = type.Assembly;
-            // Search common resource names
+            // 搜索常见的资源键名
             var names = assembly.GetManifestResourceNames();
             foreach (var n in names)
             {
@@ -308,21 +308,21 @@ namespace ViewMate
 
     public class PluginConfiguration : BasePluginConfiguration
     {
-        // ── IntroSkip configuration ──
+        // ── IntroSkip 配置 ──
         public bool EnableIntroSkip { get; set; } = false;
         public int MaxIntroDurationSeconds { get; set; } = IntroSkipDefaults.MaxIntroDurationSeconds;
         public int MaxCreditsDurationSeconds { get; set; } = IntroSkipDefaults.MaxCreditsDurationSeconds;
 
-        // ── PinyinSearch configuration ──
+        // ── PinyinSearch 配置 ──
         public bool EnablePinyinSearch { get; set; } = true;
 
-        // ── PinyinSortName configuration ──
+        // ── PinyinSortName 配置 ──
         public bool EnablePinyinSortName { get; set; } = false;
 
-        // ── IntroBackfill configuration ──
+        // ── IntroBackfill 配置 ──
         public bool EnableIntroBackfill { get; set; } = false;
 
-        // ── Version check configuration ──
+        // ── 版本检查配置 ──
         public bool EnableVersionCheck { get; set; } = false;
     }
 }

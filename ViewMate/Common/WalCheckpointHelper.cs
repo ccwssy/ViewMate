@@ -5,18 +5,18 @@ using System;
 namespace ViewMate.Common
 {
     /// <summary>
-    /// Shared SQLite WAL checkpoint helpers. The three services that write to
-    /// Emby's SQLite database (PinyinSearch, PinyinSortName, IntroBackfill) each
-    /// reclaimed WAL space after bulk writes with an identical implementation;
-    /// those are unified here. Logic preserved verbatim (TRUNCATE + PASSIVE).
+    /// 共用的 SQLite WAL checkpoint 辅助方法。三个写入 Emby SQLite 数据库的服务
+    /// （PinyinSearch、PinyinSortName、IntroBackfill）各自用一份完全相同的实现
+    /// 在批量写入后回收 WAL 空间，现统一到此。
+    /// 逻辑逐字保留（TRUNCATE + PASSIVE）。
     /// </summary>
     public static class WalCheckpointHelper
     {
         /// <summary>
-        /// Full WAL checkpoint (TRUNCATE). Waits for active readers to drain,
-        /// then truncates the WAL to reclaim disk space. Safe on background
-        /// threads — blocks only briefly while readers finish their current query.
-        /// Call after bulk write operations (initial catch-up, backfill).
+        /// 完整 WAL checkpoint（TRUNCATE）。等待活跃读者退出，
+        /// 然后截断 WAL 以回收磁盘空间。后台线程上使用是安全的 ——
+        /// 仅在读者完成当前查询期间短暂阻塞。
+        /// 在批量写操作（首次追赶、回填）之后调用。
         /// </summary>
         public static void TryTruncateCheckpoint(ConnectionManagerCache connectionCache, ILogger logger, string logPrefix, LogSeverity severity = LogSeverity.Debug)
         {
@@ -29,12 +29,12 @@ namespace ViewMate.Common
                     logger.Log(severity, "[{0}] TRUNCATE checkpoint done", logPrefix);
                 }
             }
-            catch { /* checkpoint failures are benign — WAL will recover on next write */ }
+            catch { /* checkpoint 失败无害 —— WAL 会在下次写入时自行恢复 */ }
         }
 
         /// <summary>
-        /// Passive WAL checkpoint. Checkpoints pages that no active reader needs,
-        /// without waiting. Call after moderate write operations (periodic scans).
+        /// 被动 WAL checkpoint。只对当前无活跃读者需要的页做检查点，不等待。
+        /// 在中等规模写操作（周期性扫描）之后调用。
         /// </summary>
         public static void TryPassiveCheckpoint(ConnectionManagerCache connectionCache)
         {

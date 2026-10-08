@@ -3,8 +3,8 @@ using System.Text.RegularExpressions;
 namespace ViewMate.Common
 {
     /// <summary>
-    /// Shared text helpers for pinyin processing — extracted from duplicated
-    /// implementations in PinyinSearchService and PinyinSortNameService.
+    /// 拼音处理共用的文本辅助方法 —— 从 PinyinSearchService 与
+    /// PinyinSortNameService 里重复的实现中抽取而来。
     /// </summary>
     public static class TextUtil
     {

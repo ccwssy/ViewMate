@@ -15,6 +15,7 @@ build/
 # Build output
 libs/
 out/
+.dsh-*
 _lastScanId
 
 # Hermes Agent project-level config (superpowers-zh skills, etc.)

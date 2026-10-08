@@ -4,8 +4,8 @@ using System;
 namespace ViewMate.IntroSkip
 {
     /// <summary>
-    /// Mutable per-session playback tracking data.
-    /// Fields are mutated in-place by PlaySessionMonitor during playback.
+    /// 各会话可变的播放跟踪数据。
+    /// 播放期间由 PlaySessionMonitor 就地修改这些字段。
     /// </summary>
     public class PlaySessionData
     {
@@ -16,26 +16,26 @@ namespace ViewMate.IntroSkip
             CreditsStart = Plugin.ChapterMarkerApi.GetCreditsStart(item);
         }
 
-        // ── existing marker positions (read once at session start) ──
+        // ── 已存在的标记位置（会话开始时读取一次） ──
         public long? IntroStart { get; set; }
         public long? IntroEnd { get; set; }
         public long? CreditsStart { get; set; }
 
-        // ── playback tracking ──
+        // ── 播放跟踪 ──
         public long PlaybackStartTicks { get; set; } = 0;
         public long PreviousPositionTicks { get; set; } = 0;
         public DateTime PreviousEventTime { get; set; } = DateTime.MinValue;
 
-        // ── cumulative seek tracking ──
+        // ── 累计跳转跟踪 ──
         public long? FirstJumpPositionTicks { get; set; }
         public long? FirstJumpTargetTicks { get; set; }
         public long? LastJumpPositionTicks { get; set; }
 
-        // ── big-jump tracking (≥20s forward jumps, used by OnPlaybackStopped) ──
+        // ── 大跨度跳转跟踪（≥20 秒的前跳，供 OnPlaybackStopped 使用） ──
         public long? LastBigJumpSourceTicks { get; set; }
         public long? LastBigJumpTargetTicks { get; set; }
 
-        // ── event timestamps ──
+        // ── 事件时间戳 ──
         public DateTime? LastPauseEventTime { get; set; }
     }
 }

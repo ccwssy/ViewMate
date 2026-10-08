@@ -55,7 +55,7 @@ namespace ViewMate.Options
                     IconMode = ItemListIconMode.SmallRegular
                 });
 
-            // ── Version check status ──
+            // ── 版本检查状态 ──
             var statusText = Plugin.VersionCheckStatus;
             string displayText;
             var icon = IconNames.info;

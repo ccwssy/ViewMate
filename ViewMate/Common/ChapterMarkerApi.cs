@@ -119,12 +119,12 @@ namespace ViewMate.Common
             SaveChapters(item, chapters);
         }
 
-        // ── IItemRepository wrapper (handles API differences across Emby versions) ──
+        // ── IItemRepository 包装层（处理各 Emby 版本间的 API 差异） ──
 
         private List<ChapterInfo> GetChapters(BaseItem item)
         {
-            // The IItemRepository.GetChapters() methods vary by Emby version.
-            // Try the most common overloads in order.
+            // IItemRepository.GetChapters() 的签名随 Emby 版本而异。
+            // 按常用程度依次尝试各个重载。
             try
             {
                 return _itemRepository.GetChapters(item).ToList();
@@ -132,7 +132,7 @@ namespace ViewMate.Common
             catch (Exception ex)
             {
                 _logger.Warn("[ChapterMarkerApi] GetChapters failed for {0}: {1}", item.Name, ex.Message);
-                // Fallback: return empty list on API mismatch
+                // 兜底：API 不匹配时返回空列表
                 return new List<ChapterInfo>();
             }
         }
@@ -142,7 +142,7 @@ namespace ViewMate.Common
             _itemRepository.SaveChapters(item.InternalId, chapters);
         }
 
-        // ── helpers ──
+        // ── 辅助方法 ──
 
         private static bool IsMarkerOurs(ChapterInfo c) =>
             c.Name != null && c.Name.EndsWith(MarkerSuffix);
@@ -160,8 +160,8 @@ namespace ViewMate.Common
                 MediaTypes = new[] { MediaType.Video }
             }).Items.OfType<Episode>().OrderBy(e => e.IndexNumber ?? 0).ToList();
 
-            // Apply intro positions to ALL episodes in the same season — batch auto-complete.
-            // Episodes with existing #ECS markers are overwritten (auto-healing).
+            // 把片头位置应用到同一季的所有剧集 —— 一次性批量补全。
+            // 已带 #ECS 标记的剧集会被覆盖（自动修复）。
             return allEpisodes.ToList();
         }
     }
