@@ -18,6 +18,9 @@ out/
 .dsh-*
 _lastScanId
 
+# 内部施工文档（公开仓库不上传 — 含内网 IP / 宿主路径，仅本地保留）
+docs/
+
 # Hermes Agent project-level config (superpowers-zh skills, etc.)
 .hermes/
 HERMES.md
