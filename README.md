@@ -38,9 +38,18 @@ Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头
 - 监听 `ItemAdded`/`ItemUpdated` 事件，新入库即时处理
 - 默认开启
 - **词组级多音字校正**：通过外部 JSON 文件 `pinyin-overrides.json` 配置，`Lazy<T>` 进程内只加载一次——**改完需重启 Emby 生效**（无热重载路径，配置页保存不会重新读取）。
-- **拼音排序名（SortName）**：把中文媒体的 `MediaItems.SortName` 更新为拼音首字母（「功夫」→ `GF`），Emby 的 A-Z 索引/侧边栏就按拼音排而不是按汉字；**默认关闭**（配置页「拼音搜索」tab 开），开启后启动延时 60 秒再回填
+### 2. 拼音排序名（SortName）
 
-### 2. 片头片尾跳过（IntroSkip）
+Emby 对中文条目的 `SortName` 默认取汉字本身，A-Z 索引里中文会整堆落到「#」。开启后插件改为**直连 SQL `UPDATE MediaItems.SortName`**：逐字取拼音首字母大写连写，「功夫」→ `GF`、「阿丽塔：战斗天使」→ `ALTZDTS`，字母索引/侧边栏即按拼音归位。**无 Harmony 依赖、不改 Emby 二进制、不写媒体文件与 NFO**，只动 `library.db`。
+
+- 生成规则：遍历 `Name`，汉字取其拼音首字母（大写），**字母与数字原样保留**，其余符号丢弃（`A-阿丽塔：战斗天使` → `AALTZDTS`）；整名无汉字则跳过不动
+- 词组级校正 `pinyin-overrides.json` 同样生效（重庆 → `CQ`）
+- **可回滚**：覆盖前先把原始 `SortName` 备份到同库 `PinyinSortNameBackup` 表；在配置页把「拼音排序名」关掉时自动还原并清空备份表（日志 `[PinyinSortName] Restore complete: N items restored`）。首次开启若发现尚无备份（从旧版本升上来），会先把现存 `SortName` 重置为 `Name`（即 Emby 默认）再生成，避免旧残留
+- **默认关闭**（配置页「拼音搜索」tab）。开启后启动延时 60 秒开始回填（存量 1.2 万条量级，200 条/事务、批间 300ms），回填完做一次 `wal_checkpoint(TRUNCATE)`；之后 `ItemAdded`/`ItemUpdated` 由 30 秒批量队列（50 条/批）同步
+- 新入库事件路径会跳过：`SortName` 已锁定的条目、剧集/季（`IHasSeries`）、不支持字母排序的条目；存量回填走 SQL 扫描（`Name` 含汉字且未备份过），不检查锁定标记
+- ⚠️ **卸载前先关开关**：还原只在「配置页关闭」时触发，直接删 DLL 不会还原；要彻底恢复就先关开关、确认日志出现 `Restore complete`，再卸载
+
+### 3. 片头片尾跳过（IntroSkip）
 
 监控用户播放行为，自动检测并写入 Emby 标准 Chapter 标记（`IntroStart`/`IntroEnd`），支持所有标准 Emby 客户端。
 
@@ -73,7 +82,7 @@ Big jump tracked: 5s → 45s (elapsed=0.6s)          # 跳转原始数据
 Seek detected: 00:00:05 → 00:00:45 (jump=40s elapsed=0.6s)  # 累计跳转
 ```
 
-### 3. 漏集补打（IntroBackfill）
+### 4. 漏集补打（IntroBackfill）
 
 启动时自动扫描缺少 Intro 标记的剧集，从同季已有标记的集复制补打。解决库扫描时序竞态导致的漏打问题。
 
@@ -212,7 +221,7 @@ dotnet build -c Release -o build ViewMate/ViewMate.csproj
 | 片头片尾跳过 | 关 | 检测跳转行为写入 IntroSkip 标记 |
 | 最长片头 (秒) | 150 | 跳转起点超过此值不视为片头 |
 | 最长片尾 (秒) | 180 | 片尾检测阈值 |
-| 拼音排序名 | 关 | 把中文媒体 SortName 更新为拼音首字母，A-Z 索引按拼音排（拼音搜索 tab） |
+| 拼音排序名 | 关 | 把中文媒体 SortName 更新为拼音首字母，A-Z 索引按拼音排（拼音搜索 tab，详见功能 §2） |
 | 漏集补打 | 关 | 启动时补打缺失标记 |
 | 版本更新检查 | 关 | 启动 5 分钟后检查 GitHub 最新 Release，最多重试 3 次（关于 tab） |
 
