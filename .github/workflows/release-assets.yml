@@ -1,6 +1,8 @@
 name: Build and Attach DLL Assets
 
 # 触发：push tag v* 自动构建并上传 DLL；也可 workflow_dispatch 手动为历史 tag 补资产
+# Release notes：由 scripts/release-notes.sh 从 CHANGELOG.md 切片生成（中文、累计变更口径），
+#   push tag 与 workflow_dispatch 补历史 tag 都会刷新 notes
 on:
   push:
     tags:
@@ -51,11 +53,17 @@ jobs:
           echo "Target tag: $TAG"
           DLL1="ViewMate/bin/Release/net6.0/ViewMate.dll"
           DLL2="ViewMate/bin/Release/net6.0/TinyPinyin.dll"
-          # release 不存在 → 创建；存在 → 只上传资产（--clobber 覆盖重传）
+          # notes 从 CHANGELOG.md 切片生成；生成失败或产物为空时落回退文案，绝不阻断发版
+          NOTES=/tmp/release-notes.md
+          if ! bash scripts/release-notes.sh "$TAG" > "$NOTES" || [[ ! -s "$NOTES" ]]; then
+            printf '未在 CHANGELOG.md 找到 %s 条目，详见 git log。\n' "$TAG" > "$NOTES"
+          fi
+          # release 不存在 → 创建；存在 → 刷新 notes 并上传资产（--clobber 覆盖重传）
           if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file "$NOTES"
             gh release upload "$TAG" "$DLL1" "$DLL2" --clobber
           else
-            gh release create "$TAG" "$DLL1" "$DLL2" --title "$TAG" --generate-notes
+            gh release create "$TAG" "$DLL1" "$DLL2" --title "$TAG" --notes-file "$NOTES"
           fi
           echo "Assets attached to $TAG:"
           gh release view "$TAG" --json assets -q '.assets[].name'
