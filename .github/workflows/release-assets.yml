@@ -67,3 +67,23 @@ jobs:
           fi
           echo "Assets attached to $TAG:"
           gh release view "$TAG" --json assets -q '.assets[].name'
+
+      - name: Demote older releases to draft (凷 2026-10-16 政策：只保留一个正式发行版)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG="${{ github.event.inputs.tag }}"
+          if [[ -z "$TAG" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          echo "本次正式发行版: $TAG —— 其余 published 全部转草稿（tag/assets 保留）"
+          API="https://api.github.com/repos/${{ github.repository }}"
+          gh api "$API/releases" --paginate \
+            -q '.[] | select(.draft==false and .tag_name != "'"$TAG"'") | "\(.id) \(.tag_name)"' \
+            | while read -r ID TN; do
+                echo "  demote $TN (id=$ID)"
+                gh api -X PATCH "$API/releases/$ID" -f draft=true >/dev/null
+              done
+          echo "剩余 published:"
+          gh api "$API/releases" --paginate -q '.[] | select(.draft==false) | .tag_name'
