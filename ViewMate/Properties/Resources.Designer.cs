@@ -2065,5 +2065,767 @@ namespace ViewMate.Properties {
                 return ResourceManager.GetString("Wiki_Link", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   查找类似 多音字配置 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_EditorTitle {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_EditorTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 编辑文件 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_EditButton {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_EditButton", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 保存 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_SaveButton {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_SaveButton", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 取消 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_CancelButton {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_CancelButton", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 恢复原内容 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_RestoreButton {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_RestoreButton", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 通过 pinyin-overrides.json 校正多音字读音（如「重庆」→ chong qing）；键可以是词组或单字，匹配时取当前位置最长命中——单字作默认读音，更长的词组作特例覆盖；修改后需重启 Emby 生效。 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_Description {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 文件状态 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_StatusTitle {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_StatusTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 已存在：{0}（{1} 条规则） 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_StatusExists {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_StatusExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 未找到文件，保存后将创建：{0} 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_StatusMissing {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_StatusMissing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 未找到文件，保存后将创建（{0}） 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_StatusMissingShort {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_StatusMissingShort", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 已保存，需重启 Emby 生效 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_SavedRestartHint {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_SavedRestartHint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 保存失败 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorTitle {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 JSON 格式无效 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorInvalidJson {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorInvalidJson", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 顶层必须是 JSON 对象 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorNotObject {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorNotObject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 「{0}」的值必须是字符串 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorValueNotString {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorValueNotString", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 写入文件失败：{0} 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorSaveFailed {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorSaveFailed", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 已自动修正行尾多余的逗号（JSON 不允许对象或数组末尾出现逗号） 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_RepairedTrailingComma {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_RepairedTrailingComma", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 已自动修正全角符号（，："" → ,:"） 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_RepairedFullWidth {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_RepairedFullWidth", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 第 {0} 行附近：{1}—— {2} 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorDetailFormat {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorDetailFormat", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 这一行是「{0}」 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorLineContext {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorLineContext", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 值缺少双引号（JSON 字符串必须用 " 包裹） 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorMissingQuote {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorMissingQuote", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 键值之间缺少英文冒号 : 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorMissingColon {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorMissingColon", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 这两个键之间缺少逗号 , 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorMissingComma {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorMissingComma", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 括号或引号未闭合 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorUnclosed {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorUnclosed", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 第 {0} 条「{1}」：键过长（>{2} 字符） 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorKeyTooLong {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorKeyTooLong", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 第 {0} 条「{1}」：值过长（>{2} 字符） 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorValueTooLong {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorValueTooLong", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 第 {0} 条「{1}」：值含不允许的字符「{2}」（只允许字母、数字、空格与声调符号） 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorValueCharset {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorValueCharset", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 规则条数 {0} 超过上限 {1} 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorTooManyRules {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorTooManyRules", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 第 {0} 条：键含非法字符（不能含空白、" 或 \） 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorBadKey {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorBadKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 未标记 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_State_Unmarked {
+            get {
+                return ResourceManager.GetString("IntroMarker_State_Unmarked", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 自动 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_State_Auto {
+            get {
+                return ResourceManager.GetString("IntroMarker_State_Auto", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 手动锁定 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_State_Locked {
+            get {
+                return ResourceManager.GetString("IntroMarker_State_Locked", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 已抑制 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_State_Suppressed {
+            get {
+                return ResourceManager.GetString("IntroMarker_State_Suppressed", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 异常(片头≥5分钟) 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_State_LongIntro {
+            get {
+                return ResourceManager.GetString("IntroMarker_State_LongIntro", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 异常(缺片尾) 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_State_NoCredits {
+            get {
+                return ResourceManager.GetString("IntroMarker_State_NoCredits", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 未标记 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Summary_Unmarked {
+            get {
+                return ResourceManager.GetString("IntroMarker_Summary_Unmarked", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 片头 {0} → {1} 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Summary_Intro {
+            get {
+                return ResourceManager.GetString("IntroMarker_Summary_Intro", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 片尾 {0} 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Summary_Credits {
+            get {
+                return ResourceManager.GetString("IntroMarker_Summary_Credits", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 片尾未标记 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Summary_NoCredits {
+            get {
+                return ResourceManager.GetString("IntroMarker_Summary_NoCredits", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 无法解析「{0}」：支持 mm:ss、hh:mm:ss 或纯秒数 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Error_Parse {
+            get {
+                return ResourceManager.GetString("IntroMarker_Error_Parse", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 片头开始时间不能晚于结束时间 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Error_Order {
+            get {
+                return ResourceManager.GetString("IntroMarker_Error_Order", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 时间不能为负 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Error_Negative {
+            get {
+                return ResourceManager.GetString("IntroMarker_Error_Negative", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 片头结束时间超出片长 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Error_TooLong {
+            get {
+                return ResourceManager.GetString("IntroMarker_Error_TooLong", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 片尾开始时间超出片长 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Error_CreditsTooLong {
+            get {
+                return ResourceManager.GetString("IntroMarker_Error_CreditsTooLong", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 请至少填写一个时间（或用「清除标记」） 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Error_Nothing {
+            get {
+                return ResourceManager.GetString("IntroMarker_Error_Nothing", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 未找到该剧集 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Error_EpisodeNotFound {
+            get {
+                return ResourceManager.GetString("IntroMarker_Error_EpisodeNotFound", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 没有可写入的剧集（该季没有可播放的剧集） 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Error_NoTargets {
+            get {
+                return ResourceManager.GetString("IntroMarker_Error_NoTargets", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 已保存：{0} 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Result_Saved {
+            get {
+                return ResourceManager.GetString("IntroMarker_Result_Saved", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 已应用到整季（{0} 集）：{1} 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Result_SeasonSaved {
+            get {
+                return ResourceManager.GetString("IntroMarker_Result_SeasonSaved", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 已清除标记：{0} 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Result_Cleared {
+            get {
+                return ResourceManager.GetString("IntroMarker_Result_Cleared", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 已清除整季标记（{0} 集） 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Result_ClearSeason {
+            get {
+                return ResourceManager.GetString("IntroMarker_Result_ClearSeason", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 剧集标记 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_Title {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_Title", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 时间留空表示不改写该标记；保存后本集会被锁定，自动检测与漏集补打都会跳过。 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_Description {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_Description", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 锁定本集（自动检测不再覆盖） 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_Lock {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_Lock", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 锁定只挡自动检测与漏集补打；你主动发起的整季应用仍会覆盖本集。 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_LockHint {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_LockHint", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 应用到整季（本季 {0} 集）：会覆盖这些集的标记（含手动锁定） 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_ApplySeason {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_ApplySeason", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 清除标记 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_Clear {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_Clear", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 片头开始 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_IntroStart {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_IntroStart", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 片头结束 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_IntroEnd {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_IntroEnd", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 片尾开始 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_CreditsStart {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_CreditsStart", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 格式：mm:ss / hh:mm:ss / 秒数；留空 = 不写入 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_IntroStartHint {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_IntroStartHint", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 格式：mm:ss / hh:mm:ss / 秒数；留空 = 不写入片头 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_IntroEndHint {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_IntroEndHint", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 格式：mm:ss / hh:mm:ss / 秒数；留空 = 不写入 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_CreditsStartHint {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_CreditsStartHint", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 状态 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Dialog_StatusTitle {
+            get {
+                return ResourceManager.GetString("IntroMarker_Dialog_StatusTitle", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 剧集标记管理 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Page_Title {
+            get {
+                return ResourceManager.GetString("IntroMarker_Page_Title", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 全部剧集库 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Library_All {
+            get {
+                return ResourceManager.GetString("IntroMarker_Library_All", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 第 {0} 季 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Season_Name {
+            get {
+                return ResourceManager.GetString("IntroMarker_Season_Name", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 编辑 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Button_Edit {
+            get {
+                return ResourceManager.GetString("IntroMarker_Button_Edit", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 新增 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Button_Add {
+            get {
+                return ResourceManager.GetString("IntroMarker_Button_Add", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 该季没有可管理的剧集 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Page_ListEmpty {
+            get {
+                return ResourceManager.GetString("IntroMarker_Page_ListEmpty", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 未发现含剧集的媒体库 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Page_NoLibrary {
+            get {
+                return ResourceManager.GetString("IntroMarker_Page_NoLibrary", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 片头需同时填写开始与结束时间（或都留空） 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Error_IntroPair {
+            get {
+                return ResourceManager.GetString("IntroMarker_Error_IntroPair", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 这一行的结尾缺少逗号 ,，不能直接接下一行的新键 的本地化字符串。
+        /// </summary>
+        public static string PinyinOverrides_ErrorMissingCommaAtEndOfLine {
+            get {
+                return ResourceManager.GetString("PinyinOverrides_ErrorMissingCommaAtEndOfLine", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 本集已锁定，自动检测与漏集补打都会跳过 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Result_LockedSuffix {
+            get {
+                return ResourceManager.GetString("IntroMarker_Result_LockedSuffix", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 本集已解锁，交回自动管理 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Result_UnlockedSuffix {
+            get {
+                return ResourceManager.GetString("IntroMarker_Result_UnlockedSuffix", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 本季 {0} 集已锁定，自动检测与漏集补打都会跳过 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Result_SeasonLockedSuffix {
+            get {
+                return ResourceManager.GetString("IntroMarker_Result_SeasonLockedSuffix", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 对剧集/单集执行 Emby 的「刷新元数据」（尤其是「替换所有元数据」）会触发媒体重新探测… 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_Page_RefreshMetadataHint {
+            get {
+                return ResourceManager.GetString("IntroMarker_Page_RefreshMetadataHint", resourceCulture);
+            }
+        }        
+        /// <summary>
+        ///   查找类似 社区数据配置 的本地化字符串。
+        /// </summary>
+        public static string Community_ConfigButton {
+            get {
+                return ResourceManager.GetString("Community_ConfigButton", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 社区数据 的本地化字符串。
+        /// </summary>
+        public static string Community_StatusTitle {
+            get {
+                return ResourceManager.GetString("Community_StatusTitle", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 社区数据未启用 的本地化字符串。
+        /// </summary>
+        public static string Community_StatusDisabled {
+            get {
+                return ResourceManager.GetString("Community_StatusDisabled", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 获取：{0} ｜ 共享：{1} ｜ Key：{2} 的本地化字符串。
+        /// </summary>
+        public static string Community_StatusSummary {
+            get {
+                return ResourceManager.GetString("Community_StatusSummary", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 开 的本地化字符串。
+        /// </summary>
+        public static string Community_State_On {
+            get {
+                return ResourceManager.GetString("Community_State_On", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 关 的本地化字符串。
+        /// </summary>
+        public static string Community_State_Off {
+            get {
+                return ResourceManager.GetString("Community_State_Off", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 已配置 的本地化字符串。
+        /// </summary>
+        public static string Community_Key_Set {
+            get {
+                return ResourceManager.GetString("Community_Key_Set", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 未配置 的本地化字符串。
+        /// </summary>
+        public static string Community_Key_NotSet {
+            get {
+                return ResourceManager.GetString("Community_Key_NotSet", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 社区数据配置 的本地化字符串。
+        /// </summary>
+        public static string Community_Dialog_Title {
+            get {
+                return ResourceManager.GetString("Community_Dialog_Title", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 社区数据增强的三层开关：①「社区数据增强」（上一页，总开关）—— 关 = 查询与共享全部静默；②「自动补打」（上一页，获取）—— 刷新元数据时只查询本地缺失的片头/片尾；③ 本页「共享本机检测结果」—— 每 12 小时把本地检测到的值提交回社区。API Key 在 theintrodb.org / introdb.app 官网申请，留空则只用匿名额度（查询可用、提交不可）。 的本地化字符串。
+        /// </summary>
+        public static string Community_Dialog_Intro {
+            get {
+                return ResourceManager.GetString("Community_Dialog_Intro", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 改完点「保存」写盘；点「取消」不会修改任何配置 的本地化字符串。
+        /// </summary>
+        public static string Community_Dialog_StatusHint {
+            get {
+                return ResourceManager.GetString("Community_Dialog_StatusHint", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 保存 的本地化字符串。
+        /// </summary>
+        public static string Community_SaveButton {
+            get {
+                return ResourceManager.GetString("Community_SaveButton", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 社区数据配置已保存 的本地化字符串。
+        /// </summary>
+        public static string Community_SavedHint {
+            get {
+                return ResourceManager.GetString("Community_SavedHint", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 手动标记校正 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_ManagerButton {
+            get {
+                return ResourceManager.GetString("IntroMarker_ManagerButton", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 剧集标记管理 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_ManagerTitle {
+            get {
+                return ResourceManager.GetString("IntroMarker_ManagerTitle", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 关闭 的本地化字符串。
+        /// </summary>
+        public static string IntroMarker_ManagerCloseButton {
+            get {
+                return ResourceManager.GetString("IntroMarker_ManagerCloseButton", resourceCulture);
+            }
+        }
+
     }
 }

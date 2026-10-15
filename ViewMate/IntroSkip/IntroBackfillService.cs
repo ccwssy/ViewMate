@@ -51,6 +51,9 @@ namespace ViewMate.IntroSkip
 
             _logger.Info("[IntroBackfill] Scanning...");
 
+            // 回填是长任务：开始前刷新手动覆盖表，保证本轮读到最新的人工接管记录。
+            IntroMarkerOverrides.Reload();
+
             // 阶段 1：读 —— 找出已有标记的剧集系列
             var seriesIds = new List<long>();
             using (var conn = _connectionCache.OpenReadConnection())
@@ -78,6 +81,8 @@ namespace ViewMate.IntroSkip
             _logger.Info("[IntroBackfill] {0} series with existing markers", seriesIds.Count);
 
             int totalFixed = 0;
+            int manualSkipped = 0;
+            int communitySkipped = 0;
 
             foreach (var sid in seriesIds)
             {
@@ -136,6 +141,18 @@ namespace ViewMate.IntroSkip
 
                     foreach (var ep in eps)
                     {
+                        // 手动接管过的集不参与参考值提取（避免把手动值扩散到同季其它集）。
+                        if (IntroMarkerOverrides.IsProtected(ep.Item1))
+                        {
+                            continue;
+                        }
+
+                        // T17 §B.0.4：带社区值（#VMDB）的集同样不做参考源。
+                        if (HasCommunityMarkers(ep.Item1))
+                        {
+                            continue;
+                        }
+
                         using (var conn = _connectionCache.OpenReadConnection())
                         {
                             if (conn == null) break;
@@ -178,6 +195,20 @@ namespace ViewMate.IntroSkip
                     // 阶段 4：写 —— 为该季补齐缺失的标记
                     foreach (var ep in eps)
                     {
+                        // 手动锁定 / 手动清除过的集：不 DELETE、不重写（墓碑由覆盖表承担）。
+                        if (IntroMarkerOverrides.IsProtected(ep.Item1))
+                        {
+                            manualSkipped++;
+                            continue;
+                        }
+
+                        // T17 §B.0.4：已有社区值（#VMDB）的集不做本地补打（优先级：手动 > 社区 > 本地检测）。
+                        if (HasCommunityMarkers(ep.Item1))
+                        {
+                            communitySkipped++;
+                            continue;
+                        }
+
                         using (var conn = _connectionCache.OpenWriteConnection())
                         {
                             if (conn == null) continue;
@@ -272,10 +303,39 @@ namespace ViewMate.IntroSkip
                 }
             }
 
-            _logger.Info("[IntroBackfill] Complete: {0} episodes fixed", totalFixed);
+            _logger.Info("[IntroBackfill] Complete: {0} episodes fixed, {1} manual skipped", totalFixed, manualSkipped);
             if (totalFixed > 0)
                 WalCheckpointHelper.TryTruncateCheckpoint(_connectionCache, _logger, "IntroBackfill", LogSeverity.Info);
             return totalFixed;
         }
+
+        /// <summary>
+        /// T17 §B.0.4：该集是否已有社区写入的标记（#VMDB）——本地补打据此让位。
+        /// 只读、失败按「没有」处理（不阻断补打）。
+        /// </summary>
+        private bool HasCommunityMarkers(long itemId)
+        {
+            try
+            {
+                using (var conn = _connectionCache.OpenReadConnection())
+                {
+                    if (conn == null) return false;
+
+                    var query = $@"SELECT COUNT(*) FROM Chapters3
+                                   WHERE ItemId = {itemId} AND Name LIKE '%{ChapterMarkerApi.CommunitySuffix}%'";
+                    using (var stmt = conn.PrepareStatement(query))
+                    {
+                        stmt.MoveNext();
+                        return stmt.Current.GetInt64(0) > 0;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn("[IntroBackfill] Community marker check failed for {0}: {1}", itemId, ex.Message);
+                return false;
+            }
+        }
+
     }
 }
