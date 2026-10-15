@@ -1,5 +1,6 @@
 using MediaBrowser.Common;
 using MediaBrowser.Common.Configuration;
+using MediaBrowser.Common.Net;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Library;
@@ -40,7 +41,18 @@ namespace ViewMate
         public readonly IServerConfigurationManager ConfigurationManager;
         public readonly ILibraryManager LibraryManager;
 
+        // ── 标记管理界面所需的只读依赖（构造注入后供视图层复用） ──
+        public readonly IItemRepository ItemRepository;
+        public readonly IUserDataManager UserDataManager;
+        public readonly IUserManager UserManager;
+
         // ── IntroSkip（片头尾跳过） ──
+        /// <summary>
+        /// T17 §B.2.6：社区查询走 Emby 自己的 IHttpClient（连接池 / DNS / 代理策略统一），
+        /// 插件不新建 HttpClient。
+        /// </summary>
+        internal static IHttpClient SharedHttpClient { get; private set; }
+
         public static ChapterMarkerApi ChapterMarkerApi { get; private set; }
         public static PlaySessionMonitor PlaySessionMonitor { get; private set; }
 
@@ -81,6 +93,9 @@ namespace ViewMate
         // ── IntroBackfill（片头尾回填） ──
         public static IntroBackfillService IntroBackfill { get; private set; }
 
+        // ── IntroMarkerSelfHeal（手动标记自愈，T12） ──
+        public static IntroMarkerSelfHealService IntroMarkerSelfHeal { get; private set; }
+
         // ── 版本检查 ──
         public static string LatestVersion { get; private set; }
         public static bool HasUpdate { get; private set; }
@@ -101,7 +116,8 @@ namespace ViewMate
         public Plugin(IApplicationHost applicationHost, IApplicationPaths applicationPaths, ILogManager logManager,
             IServerConfigurationManager configurationManager,
             ILibraryManager libraryManager, IXmlSerializer xmlSerializer, IItemRepository itemRepository,
-            ISessionManager sessionManager)
+            ISessionManager sessionManager, IUserDataManager userDataManager, IUserManager userManager,
+            IHttpClient httpClient)
             : base(applicationPaths, xmlSerializer)
         {
             Instance = this;
@@ -114,6 +130,10 @@ namespace ViewMate
             MainOptionsStore = new PluginOptionsStore(applicationHost, Logger, Name);
 
             LibraryManager = libraryManager;
+            ItemRepository = itemRepository;
+            UserDataManager = userDataManager;
+            UserManager = userManager;
+            SharedHttpClient = httpClient;
 
             DefaultUICulture = new CultureInfo(configurationManager.Configuration.UICulture);
 
@@ -125,6 +145,7 @@ namespace ViewMate
         public void Run() => Initialize();
         public void Dispose()
         {
+            IntroMarkerSelfHeal?.Dispose();
             PlaySessionMonitor?.Dispose();
             PinyinSearch?.Dispose();
             PinyinSortName?.Dispose();
@@ -133,6 +154,14 @@ namespace ViewMate
         private void Initialize()
         {
             var config = Configuration as PluginConfiguration ?? new PluginConfiguration();
+
+            // ── 覆盖文件缺失时落一份示例模板（T14） ──
+            // 只在插件启动时检查一次，与拼音服务初始化同阶段，且刻意放在 PinyinSearch
+            // 之前：模板落盘后，本次启动的拼音流程看到的就是「文件已存在」。
+            // 不做定时检查（避免与自愈轮次、FTS 扫描抢 IO）；
+            // 文件已存在时一律不动、不记日志；目录不存在时只 Warn 跳过；
+            // 任何失败只 Warn，绝不影响插件加载。
+            PinyinOverridesFileService.EnsureSampleTemplateIfMissing();
 
             // ── 启动 IntroSkip（若配置中已启用） ──
             if (config.EnableIntroSkip)
@@ -196,6 +225,17 @@ namespace ViewMate
                 Logger.Info("[IntroBackfill] Disabled by configuration");
                 IntroBackfill = null;
             }
+
+            // ── 启动 IntroMarkerSelfHeal（手动标记自愈，T12） ──
+            // Emby 的缩略图/章节图片刷新会用媒体文件章节**全量替换** Chapters3，
+            // 插件写入的 #ECS 手动标记会被抹掉；自愈按覆盖表周期校验并补回
+            // （或把被写回的标记再次抑制）。无条件启动：它只遍历覆盖表条目，
+            // 正常轮零写入、零 Info 日志。
+            // 独立定时器（启动 +150 秒首轮，其后每 10 分钟一轮），刻意避开
+            // 拼音链路 5 分钟整点相位，也不与 FtsScanScheduler 共享任何调度工具。
+            Logger.Info("[IntroMarker] Starting IntroMarkerSelfHealService...");
+            IntroMarkerSelfHeal = new IntroMarkerSelfHealService(ChapterMarkerApi, LibraryManager, Logger);
+            IntroMarkerSelfHeal.Start();
 
             // ── 版本检查（延后 5 分钟，最多重试 3 次） ──
             bool versionCheckEnabled = config.EnableVersionCheck;
@@ -321,6 +361,22 @@ namespace ViewMate
 
         // ── IntroBackfill 配置 ──
         public bool EnableIntroBackfill { get; set; } = false;
+
+        // ── 社区数据增强配置（T17 §B.1）──
+        /// <summary>总开关：关 = 查询与共享全部静默。</summary>
+        public bool EnableCommunityData { get; set; } = false;
+
+        /// <summary>「自动补打」（获取侧）：刷新元数据时自动查询缺失片段。</summary>
+        public bool EnableCommunityFetch { get; set; } = false;
+
+        /// <summary>「共享本机检测结果」（提交侧）。</summary>
+        public bool EnableCommunityShare { get; set; } = false;
+
+        /// <summary>TheIntroDB API key（留空 = 匿名，额度更低且不可提交）。</summary>
+        public string TheIntroDbApiKey { get; set; } = string.Empty;
+
+        /// <summary>IntroDB API key（留空 = 匿名查询，不可提交）。</summary>
+        public string IntroDbApiKey { get; set; } = string.Empty;
 
         // ── 版本检查配置 ──
         public bool EnableVersionCheck { get; set; } = false;

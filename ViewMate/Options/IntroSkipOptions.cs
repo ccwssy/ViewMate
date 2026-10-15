@@ -1,29 +1,63 @@
 using Emby.Web.GenericEdit;
+using Emby.Web.GenericEdit.Elements;
 using MediaBrowser.Model.Attributes;
 using System.ComponentModel;
 using ViewMate.Common;
+using ViewMate.Properties;
 
 namespace ViewMate.Options
 {
+    /// <summary>
+    /// 「片头尾跳过」tab（T16+T17 §B.1.1 第三版结构，自上而下）：
+    ///   标题 → 顶部说明（与开关隔行）→ 启用检测 → 时长配置开关 → 两时长 →
+    ///   启用漏集补打 → 社区数据增强 → 自动补打 → 社区数据配置按钮 → 手动标记校正按钮 → 状态行。
+    /// 「手动标记校正」打开弹窗 1（剧集标记管理，视图态整体迁到 MarkerManagerDialogOptions），
+    /// 本类只保留运行时开关与两个入口按钮 —— 主 tab 零标记管理区字段残留。
+    /// 条件显隐（R1/R3/R4）全部用官方 VisibleCondition 特性声明，由服务端输出 PropertyConditions；
+    /// 客户端 genericedit 的 applyPropertyConditions 消费（见报告行号）。
+    /// </summary>
     public class IntroSkipOptions : EditableOptionsBase
     {
         public override string EditorTitle => "片头尾跳过";
+
+        /// <summary>
+        /// T15 §2.5（F5）：Emby 的「刷新元数据」会重新探测媒体，Chapters3 被全量替换 →
+        /// 插件的片头/片尾标记会暂时消失（手动标记由自愈在下一轮 ≤10 分钟内补回）。
+        /// 这句提示给用户看，避免误以为标记丢失而重复手写。
+        /// T16 §2.2（F2）：段落末尾追加一行「不换行空格」（U+00A0）——genericedit 的
+        /// formatDescription 把 "\n" 转成 &lt;br /&gt;，纯空白行会被 HTML 折叠，故用 U+00A0 占位，
+        /// 在说明与主开关之间撑出一行间距。资源文案本身一字未改（四件套无需变更）。
+        /// </summary>
+        public override string EditorDescription => Resources.IntroMarker_Page_RefreshMetadataHint + "\n\u00a0";
 
         [DisplayName("启用片头尾跳过检测")]
         [Description("播放时拖进度条跳过片头，自动写入 IntroSkip marker")]
         [Required]
         public bool EnableIntroSkip { get; set; } = false;
 
+        // ── R1/R4：时长配置开关（视图态，绝不进 Options 持久化；默认折叠）──
+
+        /// <summary>
+        /// T17 §B.1.1 第 4 行：时长配置开关。视图态 —— 只在会话内记住（保存链白名单不含它），
+        /// 与 T11 的 clean 保存链同模式。R1：检测关时本行隐藏；视图侧还会在检测关时把它归零，
+        /// 保证 R1 连同时长两字段一起折叠。
+        /// </summary>
+        [DisplayName("时长配置")]
+        [Description("展开「最长片头时长 / 最长片尾时长」两个参数（默认折叠）")]
+        [VisibleCondition("EnableIntroSkip", SimpleCondition.IsTrue)]
+        public bool ShowDurationSettings { get; set; } = false;
+
+        // R4：仅当「时长配置」开着时显示；R1 由视图侧把 ShowDurationSettings 归零来保证。
         [DisplayName("最长片头时长 (秒)")]
         [Description("跳转起点在此秒数之内才识别为片头跳过，默认 150")]
         [Required, MinValue(30), MaxValue(600)]
-        [VisibleCondition("EnableIntroSkip", SimpleCondition.IsTrue)]
+        [VisibleCondition("ShowDurationSettings", SimpleCondition.IsTrue)]
         public int MaxIntroDurationSeconds { get; set; } = IntroSkipDefaults.MaxIntroDurationSeconds;
 
         [DisplayName("最长片尾时长 (秒)")]
         [Description("默认 180")]
         [Required, MinValue(30), MaxValue(1200)]
-        [VisibleCondition("EnableIntroSkip", SimpleCondition.IsTrue)]
+        [VisibleCondition("ShowDurationSettings", SimpleCondition.IsTrue)]
         public int MaxCreditsDurationSeconds { get; set; } = IntroSkipDefaults.MaxCreditsDurationSeconds;
 
         [DisplayName("启用漏集补打")]
@@ -31,5 +65,41 @@ namespace ViewMate.Options
         [Required]
         [VisibleCondition("EnableIntroSkip", SimpleCondition.IsTrue)]
         public bool EnableIntroBackfill { get; set; } = false;
+
+        // ── T17 社区数据增强（§B.1.1 第 7–9 行）──
+
+        [DisplayName("社区数据增强")]
+        [Description("从 TheIntroDB / IntroDB 社区库获取片头片尾数据，并可把本地检测结果共享回社区；需在各媒体库的「元数据下载器」里勾选对应 Provider")]
+        [Required]
+        public bool EnableCommunityData { get; set; } = false;
+
+        /// <summary>
+        /// T17 §B.1.1 第 8 行「自动补打」：与弹窗 2 的「获取」是**同一个 Options 字段**
+        /// （EnableCommunityFetch，UI 文案在主 tab 叫「自动补打」），弹窗 2 不再重复放置。
+        /// </summary>
+        [DisplayName("自动补打")]
+        [Description("刷新元数据时自动从社区查询缺失的片头/片尾并写入标记（仅当本地缺该片段时才查询）")]
+        [Required]
+        [VisibleCondition("EnableCommunityData", SimpleCondition.IsTrue)]
+        public bool EnableCommunityFetch { get; set; } = false;
+
+        [DisplayName("社区数据配置")]
+        [Description("配置共享开关与两个社区库的 API Key")]
+        [VisibleCondition("EnableCommunityData", SimpleCondition.IsTrue)]
+        public ButtonItem EditCommunityDataButton { get; set; } =
+            new ButtonItem(Resources.Community_ConfigButton) { CommandId = "EditCommunityData" };
+
+        /// <summary>T17 §B.1.3：打开弹窗 1（剧集标记管理：搜索/过滤/三级下拉/集列表/状态卡）。</summary>
+        [DisplayName("手动标记校正")]
+        [Description("按剧集/季浏览并校正片头片尾标记（含单集编辑、整季应用、清除标记）")]
+        public ButtonItem EditMarkerManagerButton { get; set; } =
+            new ButtonItem(Resources.IntroMarker_ManagerButton) { CommandId = "EditMarkerManager" };
+
+        /// <summary>
+        /// T17 §B.1.1 第 11 行：社区状态行（获取/共享/Key 摘要；社区增强关闭时显示「社区数据未启用」）。
+        /// 必须非 null：客户端 genericedit 只在拿到 StatusItem 时才隐藏 spinner（T9 教训）。
+        /// 视图侧每次构造/保存后由 ApplyCommunityStatus() 覆盖。
+        /// </summary>
+        public StatusItem CommunityStatus { get; set; } = new StatusItem();
     }
 }

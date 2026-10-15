@@ -774,4 +774,283 @@
   <data name="About_StrmAssistant_Pro" xml:space="preserve">
     <value>如有能力，请积极支持神医助手Pro版，功能更多，更新更快，点击了解！</value>
   </data>
+  <data name="PinyinOverrides_EditorTitle" xml:space="preserve">
+    <value>多音字配置</value>
+  </data>
+  <data name="PinyinOverrides_EditButton" xml:space="preserve">
+    <value>编辑多音字列表</value>
+  </data>
+  <data name="PinyinOverrides_SaveButton" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="PinyinOverrides_CancelButton" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="PinyinOverrides_RestoreButton" xml:space="preserve">
+    <value>恢复原内容</value>
+  </data>
+  <data name="PinyinOverrides_Description" xml:space="preserve">
+    <value>通过 pinyin-overrides.json 校正多音字读音（如「重庆」→ chong qing）；键可以是词组或单字，匹配时取当前位置最长命中——单字作默认读音，更长的词组作特例覆盖；修改后需重启 Emby 生效。</value>
+  </data>
+  <data name="PinyinOverrides_StatusTitle" xml:space="preserve">
+    <value>文件状态</value>
+  </data>
+  <data name="PinyinOverrides_StatusExists" xml:space="preserve">
+    <value>已存在：{0}（{1} 条规则）</value>
+  </data>
+  <data name="PinyinOverrides_StatusMissing" xml:space="preserve">
+    <value>未找到文件，保存后将创建：{0}</value>
+  </data>
+  <data name="PinyinOverrides_StatusMissingShort" xml:space="preserve">
+    <value>未找到文件，保存后将创建（{0}）</value>
+  </data>
+  <data name="PinyinOverrides_SavedRestartHint" xml:space="preserve">
+    <value>已保存，需重启 Emby 生效</value>
+  </data>
+  <data name="PinyinOverrides_ErrorTitle" xml:space="preserve">
+    <value>保存失败</value>
+  </data>
+  <data name="PinyinOverrides_ErrorInvalidJson" xml:space="preserve">
+    <value>JSON 格式无效</value>
+  </data>
+  <data name="PinyinOverrides_ErrorNotObject" xml:space="preserve">
+    <value>顶层必须是 JSON 对象</value>
+  </data>
+  <data name="PinyinOverrides_ErrorValueNotString" xml:space="preserve">
+    <value>「{0}」的值必须是字符串</value>
+  </data>
+  <data name="PinyinOverrides_ErrorSaveFailed" xml:space="preserve">
+    <value>写入文件失败：{0}</value>
+  </data>
+  <data name="PinyinOverrides_RepairedTrailingComma" xml:space="preserve">
+    <value>已自动修正行尾多余的逗号（JSON 不允许对象或数组末尾出现逗号）</value>
+  </data>
+  <data name="PinyinOverrides_RepairedFullWidth" xml:space="preserve">
+    <value>已自动修正全角符号（，："" → ,:"）</value>
+  </data>
+  <data name="PinyinOverrides_ErrorDetailFormat" xml:space="preserve">
+    <value>第 {0} 行附近：{1}—— {2}</value>
+  </data>
+  <data name="PinyinOverrides_ErrorLineContext" xml:space="preserve">
+    <value>这一行是「{0}」</value>
+  </data>
+  <data name="PinyinOverrides_ErrorMissingQuote" xml:space="preserve">
+    <value>值缺少双引号（JSON 字符串必须用 " 包裹）</value>
+  </data>
+  <data name="PinyinOverrides_ErrorMissingColon" xml:space="preserve">
+    <value>键值之间缺少英文冒号 :</value>
+  </data>
+  <data name="PinyinOverrides_ErrorMissingComma" xml:space="preserve">
+    <value>这两个键之间缺少逗号 ,</value>
+  </data>
+  <data name="PinyinOverrides_ErrorUnclosed" xml:space="preserve">
+    <value>括号或引号未闭合</value>
+  </data>
+  <data name="PinyinOverrides_ErrorKeyTooLong" xml:space="preserve">
+    <value>第 {0} 条「{1}」：键过长（&gt;{2} 字符）</value>
+  </data>
+  <data name="PinyinOverrides_ErrorValueTooLong" xml:space="preserve">
+    <value>第 {0} 条「{1}」：值过长（&gt;{2} 字符）</value>
+  </data>
+  <data name="PinyinOverrides_ErrorValueCharset" xml:space="preserve">
+    <value>第 {0} 条「{1}」：值含不允许的字符「{2}」（只允许字母、数字、空格与声调符号）</value>
+  </data>
+  <data name="PinyinOverrides_ErrorTooManyRules" xml:space="preserve">
+    <value>规则条数 {0} 超过上限 {1}</value>
+  </data>
+  <data name="PinyinOverrides_ErrorBadKey" xml:space="preserve">
+    <value>第 {0} 条：键含非法字符（不能含空白、" 或 \）</value>
+  </data>
+  <data name="IntroMarker_State_Unmarked" xml:space="preserve">
+    <value>未标记</value>
+  </data>
+  <data name="IntroMarker_State_Auto" xml:space="preserve">
+    <value>自动</value>
+  </data>
+  <data name="IntroMarker_State_Locked" xml:space="preserve">
+    <value>手动锁定</value>
+  </data>
+  <data name="IntroMarker_State_Suppressed" xml:space="preserve">
+    <value>已抑制</value>
+  </data>
+  <data name="IntroMarker_State_LongIntro" xml:space="preserve">
+    <value>异常(片头≥5分钟)</value>
+  </data>
+  <data name="IntroMarker_State_NoCredits" xml:space="preserve">
+    <value>异常(缺片尾)</value>
+  </data>
+  <data name="IntroMarker_Summary_Unmarked" xml:space="preserve">
+    <value>未标记</value>
+  </data>
+  <data name="IntroMarker_Summary_Intro" xml:space="preserve">
+    <value>片头 {0} → {1}</value>
+  </data>
+  <data name="IntroMarker_Summary_Credits" xml:space="preserve">
+    <value>片尾 {0}</value>
+  </data>
+  <data name="IntroMarker_Summary_NoCredits" xml:space="preserve">
+    <value>片尾未标记</value>
+  </data>
+  <data name="IntroMarker_Error_Parse" xml:space="preserve">
+    <value>无法解析「{0}」：支持 mm:ss、hh:mm:ss 或纯秒数</value>
+  </data>
+  <data name="IntroMarker_Error_Order" xml:space="preserve">
+    <value>片头开始时间不能晚于结束时间</value>
+  </data>
+  <data name="IntroMarker_Error_Negative" xml:space="preserve">
+    <value>时间不能为负</value>
+  </data>
+  <data name="IntroMarker_Error_TooLong" xml:space="preserve">
+    <value>片头结束时间超出片长</value>
+  </data>
+  <data name="IntroMarker_Error_CreditsTooLong" xml:space="preserve">
+    <value>片尾开始时间超出片长</value>
+  </data>
+  <data name="IntroMarker_Error_Nothing" xml:space="preserve">
+    <value>请至少填写一个时间（或用「清除标记」）</value>
+  </data>
+  <data name="IntroMarker_Error_EpisodeNotFound" xml:space="preserve">
+    <value>未找到该剧集</value>
+  </data>
+  <data name="IntroMarker_Error_NoTargets" xml:space="preserve">
+    <value>没有可写入的剧集（该季没有可播放的剧集）</value>
+  </data>
+  <data name="IntroMarker_Result_Saved" xml:space="preserve">
+    <value>已保存：{0}</value>
+  </data>
+  <data name="IntroMarker_Result_SeasonSaved" xml:space="preserve">
+    <value>已应用到整季（{0} 集）：{1}</value>
+  </data>
+  <data name="IntroMarker_Result_Cleared" xml:space="preserve">
+    <value>已清除标记：{0}</value>
+  </data>
+  <data name="IntroMarker_Result_ClearSeason" xml:space="preserve">
+    <value>已清除整季标记（{0} 集）</value>
+  </data>
+  <data name="IntroMarker_Dialog_Title" xml:space="preserve">
+    <value>剧集标记</value>
+  </data>
+  <data name="IntroMarker_Dialog_Description" xml:space="preserve">
+    <value>时间留空表示不改写该标记；保存后本集会被锁定，自动检测与漏集补打都会跳过。</value>
+  </data>
+  <data name="IntroMarker_Dialog_Lock" xml:space="preserve">
+    <value>锁定本集（自动检测不再覆盖）</value>
+  </data>
+  <data name="IntroMarker_Dialog_LockHint" xml:space="preserve">
+    <value>锁定只挡自动检测与漏集补打；你主动发起的整季应用仍会覆盖本集。</value>
+  </data>
+  <data name="IntroMarker_Dialog_ApplySeason" xml:space="preserve">
+    <value>应用到整季（本季 {0} 集）：会覆盖这些集的标记（含手动锁定）</value>
+  </data>
+  <data name="IntroMarker_Dialog_Clear" xml:space="preserve">
+    <value>清除标记</value>
+  </data>
+  <data name="IntroMarker_Dialog_IntroStart" xml:space="preserve">
+    <value>片头开始</value>
+  </data>
+  <data name="IntroMarker_Dialog_IntroEnd" xml:space="preserve">
+    <value>片头结束</value>
+  </data>
+  <data name="IntroMarker_Dialog_CreditsStart" xml:space="preserve">
+    <value>片尾开始</value>
+  </data>
+  <data name="IntroMarker_Dialog_IntroStartHint" xml:space="preserve">
+    <value>格式：mm:ss / hh:mm:ss / 秒数；留空 = 不写入</value>
+  </data>
+  <data name="IntroMarker_Dialog_IntroEndHint" xml:space="preserve">
+    <value>格式：mm:ss / hh:mm:ss / 秒数；留空 = 不写入片头</value>
+  </data>
+  <data name="IntroMarker_Dialog_CreditsStartHint" xml:space="preserve">
+    <value>格式：mm:ss / hh:mm:ss / 秒数；留空 = 不写入</value>
+  </data>
+  <data name="IntroMarker_Dialog_StatusTitle" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="IntroMarker_Page_Title" xml:space="preserve">
+    <value>剧集标记管理</value>
+  </data>
+  <data name="IntroMarker_Library_All" xml:space="preserve">
+    <value>全部剧集库</value>
+  </data>
+  <data name="IntroMarker_Season_Name" xml:space="preserve">
+    <value>第 {0} 季</value>
+  </data>
+  <data name="IntroMarker_Button_Edit" xml:space="preserve">
+    <value>编辑</value>
+  </data>
+  <data name="IntroMarker_Button_Add" xml:space="preserve">
+    <value>新增</value>
+  </data>
+  <data name="IntroMarker_Page_ListEmpty" xml:space="preserve">
+    <value>该季没有可管理的剧集</value>
+  </data>
+  <data name="IntroMarker_Page_NoLibrary" xml:space="preserve">
+    <value>未发现含剧集的媒体库</value>
+  </data>
+  <data name="IntroMarker_Error_IntroPair" xml:space="preserve">
+    <value>片头需同时填写开始与结束时间（或都留空）</value>
+  </data>
+  <data name="PinyinOverrides_ErrorMissingCommaAtEndOfLine" xml:space="preserve">
+    <value>这一行的结尾缺少逗号 ,，不能直接接下一行的新键</value>
+  </data>
+  <data name="IntroMarker_Result_LockedSuffix" xml:space="preserve">
+    <value>本集已锁定，自动检测与漏集补打都会跳过</value>
+  </data>
+  <data name="IntroMarker_Result_UnlockedSuffix" xml:space="preserve">
+    <value>本集已解锁，交回自动管理</value>
+  </data>
+  <data name="IntroMarker_Result_SeasonLockedSuffix" xml:space="preserve">
+    <value>本季 {0} 集已锁定，自动检测与漏集补打都会跳过</value>
+  </data>
+  <data name="IntroMarker_Page_RefreshMetadataHint" xml:space="preserve">
+    <value>对剧集/单集执行 Emby 的「刷新元数据」（尤其是「替换所有元数据」）会触发媒体重新探测，可能暂时抹掉插件的片头/片尾标记；手动标记会在自愈的下一轮（≤10 分钟）内自动补回，勿重复手动补写。</value>
+  </data>
+  <data name="Community_ConfigButton" xml:space="preserve">
+    <value>社区数据配置</value>
+  </data>
+  <data name="Community_StatusTitle" xml:space="preserve">
+    <value>社区数据</value>
+  </data>
+  <data name="Community_StatusDisabled" xml:space="preserve">
+    <value>社区数据未启用</value>
+  </data>
+  <data name="Community_StatusSummary" xml:space="preserve">
+    <value>获取：{0} ｜ 共享：{1} ｜ Key：{2}</value>
+  </data>
+  <data name="Community_State_On" xml:space="preserve">
+    <value>开</value>
+  </data>
+  <data name="Community_State_Off" xml:space="preserve">
+    <value>关</value>
+  </data>
+  <data name="Community_Key_Set" xml:space="preserve">
+    <value>已配置</value>
+  </data>
+  <data name="Community_Key_NotSet" xml:space="preserve">
+    <value>未配置</value>
+  </data>
+  <data name="Community_Dialog_Title" xml:space="preserve">
+    <value>社区数据配置</value>
+  </data>
+  <data name="Community_Dialog_Intro" xml:space="preserve">
+    <value>API Key 在 theintrodb.org / introdb.app 官网申请，留空则只用匿名额度（查询可用、提交不可）。</value>
+  </data>
+  <data name="Community_Dialog_StatusHint" xml:space="preserve">
+    <value>改完点「保存」写盘；点「取消」不会修改任何配置</value>
+  </data>
+  <data name="Community_SaveButton" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="Community_SavedHint" xml:space="preserve">
+    <value>社区数据配置已保存</value>
+  </data>
+  <data name="IntroMarker_ManagerButton" xml:space="preserve">
+    <value>手动标记校正</value>
+  </data>
+  <data name="IntroMarker_ManagerTitle" xml:space="preserve">
+    <value>剧集标记管理</value>
+  </data>
+  <data name="IntroMarker_ManagerCloseButton" xml:space="preserve">
+    <value>关闭</value>
+  </data>
 </root>
