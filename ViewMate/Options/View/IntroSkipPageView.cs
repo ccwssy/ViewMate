@@ -17,7 +17,7 @@ namespace ViewMate.Options.View
     /// 剧集标记管理整体迁入弹窗 1（<see cref="MarkerManagerDialogView"/>），
     /// 本页零标记管理区字段残留。
     /// 条件显隐（R1/R3/R4）由 <see cref="IntroSkipOptions"/> 的 VisibleCondition 声明，
-    /// 本视图只负责「R1 连同时长两字段一起折叠」所需的视图态归零。
+    /// 本视图只负责「R1 连同时长两字段一起折叠」所需的渲染期临时归零（不改持久化值）。
     /// </summary>
     internal class IntroSkipPageView : PluginPageView, IMarkerHostView
     {
@@ -25,6 +25,14 @@ namespace ViewMate.Options.View
         private readonly PluginOptionsStore _store;
 
         private string _saveNotice;
+
+        /// <summary>
+        /// T19：「时长配置」的**真实持久化值**（未经 R1 归零）。检测关时该字段被隐藏，
+        /// 客户端仍会带回隐藏字段的 false —— 服务端无法与「用户取消勾选」区分；
+        /// 因此检测关时的任何提交都不改变它，只有检测开着时的提交才更新。
+        /// 它同时是渲染期归零的还原来源（切回检测开时勾选状态照旧）。
+        /// </summary>
+        private bool _persistedShowDuration;
 
         /// <summary>
         /// 弹窗 1 需要它做「媒体库 / 剧集 / 季 / 集」查询；服务本身无状态、可安全共享。
@@ -37,17 +45,21 @@ namespace ViewMate.Options.View
             _pluginInfo = pluginInfo;
             _store = store;
 
-            var options = store.GetOptions();
+            // T19：用 ReloadOptions() 从磁盘取权威值（GetOptions() 可能返回被历史版本污染的缓存实例）；
+            // 再复制一份供本视图使用 —— 视图的 R1 渲染期归零、表单回填只动副本，缓存与磁盘不动。
+            var options = _store.ReloadOptions();
+            var view = CloneOptions(options.IntroSkipOptions);
+            _persistedShowDuration = view.ShowDurationSettings;
             // 运行时开关以 PluginConfiguration（XML）为准。
             var config = Plugin.Instance.Configuration as PluginConfiguration ?? new PluginConfiguration();
-            options.IntroSkipOptions.EnableIntroSkip = config.EnableIntroSkip;
-            options.IntroSkipOptions.MaxIntroDurationSeconds = config.MaxIntroDurationSeconds;
-            options.IntroSkipOptions.MaxCreditsDurationSeconds = config.MaxCreditsDurationSeconds;
-            options.IntroSkipOptions.EnableIntroBackfill = config.EnableIntroBackfill;
-            options.IntroSkipOptions.EnableCommunityData = config.EnableCommunityData;
-            options.IntroSkipOptions.EnableCommunityFetch = config.EnableCommunityFetch;
+            view.EnableIntroSkip = config.EnableIntroSkip;
+            view.MaxIntroDurationSeconds = config.MaxIntroDurationSeconds;
+            view.MaxCreditsDurationSeconds = config.MaxCreditsDurationSeconds;
+            view.EnableIntroBackfill = config.EnableIntroBackfill;
+            view.EnableCommunityData = config.EnableCommunityData;
+            view.EnableCommunityFetch = config.EnableCommunityFetch;
 
-            ContentData = options.IntroSkipOptions;
+            ContentData = view;
 
             var plugin = Plugin.Instance;
             _admin = new IntroMarkerAdminService(
@@ -59,6 +71,29 @@ namespace ViewMate.Options.View
 
             NormalizeViewState();
             ApplyCommunityStatus();
+        }
+
+        /// <summary>
+        /// T19：复制一份 Options 供本视图使用（深拷贝）。视图对副本做 R1 渲染期归零、
+        /// 表单值回填，都不再触碰 store 缓存里那份，缓存与磁盘始终保存持久化真实值。
+        /// JSON 往返与项目现有序列化链路一致；万一失败退回浅拷贝（只损失隔离，不影响功能）。
+        /// </summary>
+        private static IntroSkipOptions CloneOptions(IntroSkipOptions source)
+        {
+            if (source == null)
+            {
+                return new IntroSkipOptions();
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<IntroSkipOptions>(
+                    JsonSerializer.Serialize(source));
+            }
+            catch (Exception)
+            {
+                return source;
+            }
         }
 
         private IntroSkipOptions Options => (IntroSkipOptions)ContentData;
@@ -128,11 +163,15 @@ namespace ViewMate.Options.View
 
             var options = _store.ReloadOptions();
 
-            // 只把运行时开关写回存储：两个入口按钮/状态行/时长配置开关都是渲染态或视图态，
-            // 不进 JSON 配置（ShowDurationSettings 属视图态，白名单刻意不含它）。
+            // 只把运行时开关写回存储：两个入口按钮/状态行是渲染态，不进 JSON 配置。
+            // T19：ShowDurationSettings 已改为持久化字段（与 EnableIntroSkip 等同规格），
+            // 必须进白名单，否则「勾选时长配置 → 保存 → 切出再切回」会丢掉勾选（旧缺陷）。
+            // 落盘一律用 _persistedShowDuration（真实持久化值）：检测关时 Options.ShowDurationSettings
+            // 已被 R1 归零，直接落盘会把持久化值抹掉。
             var clean = new IntroSkipOptions
             {
                 EnableIntroSkip = Options.EnableIntroSkip,
+                ShowDurationSettings = _persistedShowDuration,
                 MaxIntroDurationSeconds = Options.MaxIntroDurationSeconds,
                 MaxCreditsDurationSeconds = Options.MaxCreditsDurationSeconds,
                 EnableIntroBackfill = Options.EnableIntroBackfill,
@@ -166,15 +205,16 @@ namespace ViewMate.Options.View
         // ── 视图态与状态行 ──
 
         /// <summary>
-        /// R1：检测关 → 时长配置开关归零，让两时长字段一并折叠（客户端 applyPropertyConditions
-        /// 只看 ShowDurationSettings 一条条件）。检测开着时保留会话内值（视图态）。
+        /// R1：检测关 → 「时长配置」行与两个时长字段一并折叠；R4：时长配置开关 → 控制两个时长字段。
+        /// 显隐由 <see cref="IntroSkipOptions"/> 上的 VisibleCondition 声明、客户端
+        /// applyPropertyConditions 消费 —— 服务端**不再**把 ShowDurationSettings 归零：
+        /// 该字段被隐藏时若归零，客户端带回的表单值就会把持久化真实值抹掉（T19 实测：
+        /// 检测关保存一次后，再打开检测时长配置仍是未勾选），与「R1 只限渲染期」的要求冲突。
+        /// 保持真实值还有个好处：字段随检测重新显示时，勾选状态天然就是上次保存的状态。
         /// </summary>
         private void NormalizeViewState()
         {
-            if (!Options.EnableIntroSkip)
-            {
-                Options.ShowDurationSettings = false;
-            }
+            // 仅保留调用点语义；字段值一律保持持久化真实值（显隐交给 VisibleCondition）。
         }
 
         /// <summary>
@@ -234,6 +274,14 @@ namespace ViewMate.Options.View
                     Options.EnableIntroBackfill = FormDataReader.ReadBool(root, nameof(Options.EnableIntroBackfill), Options.EnableIntroBackfill);
                     Options.EnableCommunityData = FormDataReader.ReadBool(root, nameof(Options.EnableCommunityData), Options.EnableCommunityData);
                     Options.EnableCommunityFetch = FormDataReader.ReadBool(root, nameof(Options.EnableCommunityFetch), Options.EnableCommunityFetch);
+
+                    // T19：上面已把整份表单读完（顺序无关，同一提交里「打开检测 + 勾选时长配置」也正确），
+                    // 再判定「时长配置」的真实值 —— 检测开着时表单提交才是用户意图；检测关时该字段被隐藏，
+                    // 客户端带回的是隐藏值，一律不作为修改依据（否则关闭检测保存会误清勾选状态）。
+                    if (Options.EnableIntroSkip)
+                    {
+                        _persistedShowDuration = Options.ShowDurationSettings;
+                    }
                 }
             }
             catch (JsonException)
