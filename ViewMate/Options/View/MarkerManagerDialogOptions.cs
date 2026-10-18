@@ -11,8 +11,8 @@ using ViewMate.Properties;
 namespace ViewMate.Options.View
 {
     /// <summary>
-    /// 弹窗 1「手动标记校正」（剧集标记管理）的选项容器（T17 §B.1.3）。
-    /// 字段与语义**整体迁自** T15 的 IntroSkipOptions 标记管理区块（搜索 / 两个过滤 /
+    /// 弹窗 1「手动标记校正」（剧集标记管理）的选项容器。
+    /// 字段与语义**整体迁自** IntroSkipOptions 标记管理区块（搜索 / 两个过滤 /
     /// 三级联动下拉 / 集列表 / 状态卡），只是换了容器 —— 数据链路
     /// （<see cref="ViewMate.IntroSkip.IntroMarkerAdminService"/> 的查询与 Summarize）一字未动。
     /// 全是视图态：关闭弹窗即丢，保存链不写盘。

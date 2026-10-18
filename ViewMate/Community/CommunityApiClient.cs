@@ -12,10 +12,10 @@ using MediaBrowser.Model.Logging;
 namespace ViewMate.Community
 {
     /// <summary>
-    /// 社区片头片尾查询客户端（§B.2）。只走 <see cref="IHttpClient"/>（Emby 的连接池），
+    /// 社区片头片尾查询客户端。只走 <see cref="IHttpClient"/>（Emby 的连接池），
     /// 10 秒超时、ThrowOnErrorResponse=false、整段 try/catch —— 失败一律返回未命中结果，
     /// 绝不上抛到 Emby 的元数据刷新管线。
-    /// 出站域名写死：api.theintrodb.org（§白名单 1）/ api.introdb.app（§白名单 2）。
+    /// 出站域名写死：api.theintrodb.org / api.introdb.app。
     /// </summary>
     internal static class CommunityApiClient
     {
@@ -231,7 +231,7 @@ namespace ViewMate.Community
             return result;
         }
 
-        // ── 解析与校验（§B.2.5 同口径：start ≥ 0、end > start、credits start < 片长）──
+        // ── 解析与校验（同口径：start ≥ 0、end > start、credits start < 片长）──
 
         private static long? SelectIntroStart(List<TheIntroDbSegment> intro)
         {

@@ -17,13 +17,13 @@ using ViewMate.IntroSkip;
 namespace ViewMate.Community
 {
     /// <summary>
-    /// 社区数据写入器（§B.2.5 + §B.4）：同一条 Emby 元数据刷新管线里的**后置** provider
+    /// 社区数据写入器：同一条 Emby 元数据刷新管线里的**后置** provider
     /// （<c>ICustomMetadataProvider</c>，在 ffprobe 之后、SaveItem/SaveChapters 之前被调用，
     /// 拿得到 BaseItem 与 LibraryOptions），负责：
-    ///   1) 内嵌章节名映射 → 追加 <c>#VMCH</c> 标记（§B.4，纯 C# 接口，不用 Harmony）；
-    ///   2) 社区查询 → 追加 <c>#VMDB</c> 标记（§B.2，三闸门 + 锁定集豁免）；
+    ///   1) 内嵌章节名映射 → 追加 <c>#VMCH</c> 标记（纯 C# 接口，不用 Harmony）；
+    ///   2) 社区查询 → 追加 <c>#VMDB</c> 标记（三闸门 + 锁定集豁免）；
     ///   3) 把该集**已有的插件标记行**（#ECS / #VMDB / #VMCH）并回即将交给 SaveChapters 的列表，
-    ///      避免 Emby 的「先 DELETE 再全量 INSERT」把插件标记抹掉（T12 自愈要 10 分钟才补回）。
+    ///      避免 Emby 的「先 DELETE 再全量 INSERT」把插件标记抹掉（自愈要 10 分钟才补回）。
     /// 只有真的要新增标记时才把 Chapters 交回去并返回 MetadataImport ——
     /// 没有任何可写内容时保持原样（返回 None），绝不额外触发 SaveChapters。
     /// </summary>
@@ -83,7 +83,7 @@ namespace ViewMate.Community
                     return ItemUpdateType.None;
                 }
 
-                // 锁定/抑制的集永久豁免（§B.2.2 / §B.4）：既不查社区，也不写 #VMCH。
+                // 锁定/抑制的集永久豁免：既不查社区，也不写 #VMCH。
                 var protectedItem = IntroMarkerOverrides.IsProtected(item.InternalId);
 
                 var chapters = itemResult.Chapters ?? new List<ChapterInfo>();
@@ -159,7 +159,7 @@ namespace ViewMate.Community
         }
 
         /// <summary>
-        /// §B.2 查询侧：三闸门（Options 总开关+获取 / 库勾选 / 本地缺片段）+ 锁定集豁免。
+        /// 查询侧：三闸门（Options 总开关+获取 / 库勾选 / 本地缺片段）+ 锁定集豁免。
         /// 返回是否真的写入了 #VMDB 行。
         /// </summary>
         private static async Task<bool> ApplyCommunityAsync(
@@ -233,7 +233,7 @@ namespace ViewMate.Community
                     continue;
                 }
 
-                // 写前逐段校验（§B.2.5 同 T15 口径）：start ≥ 0、intro 成对且 end > start、
+                // 写前逐段校验（同一口径）：start ≥ 0、intro 成对且 end > start、
                 // credits start < 片长；任一不满足 → 该段丢弃、不写、Info 一条日志。
                 if (missing.NeedIntro && result.IntroStartTicks.HasValue && result.IntroEndTicks.HasValue)
                 {

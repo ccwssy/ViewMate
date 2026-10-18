@@ -314,7 +314,7 @@ namespace ViewMate.IntroSkip
                     stats.MarkedCount++;
                 }
 
-                // T15 §2.3（F3）：剧集级 ⚠ 与单集状态**同一口径** —— 直接复用 ResolveStateKind
+                // 剧集级 ⚠ 与单集状态**同一口径** —— 直接复用 ResolveStateKind
                 // 的分类结果，不再用"只看标记三元组"的另一套判定（那套会把手动锁定/墓碑集也算成异常，
                 // 与单集行显示的状态自相矛盾）。阈值 LongIntroThresholdTicks 不参与这里，仍在 ResolveStateKind 内。
                 var stateKind = ResolveStateKind(
@@ -349,7 +349,7 @@ namespace ViewMate.IntroSkip
         }
 
         /// <summary>
-        /// T15 §2.3：剧集级异常判定 = 该剧下存在 <c>Unmarked / LongIntro / NoCredits</c> 的集。
+        /// 剧集级异常判定 = 该剧下存在 <c>Unmarked / LongIntro / NoCredits</c> 的集。
         /// <c>ManualLocked</c> 与 <c>Suppressed</c>（用户手动接管过的集）一律豁免 —— 不再使剧集亮 ⚠；
         /// 单集行内仍照常显示各自状态标签、异常橙条仍按原逻辑（整体状态含 Warning）。
         /// 「只看标记异常」筛选复用同一结果，故与 ⚠ 口径天然一致。

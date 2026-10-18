@@ -39,7 +39,7 @@ namespace ViewMate.Options.View
         [DisplayName("锁定本集（自动检测不再覆盖）")]
         public bool LockEpisode { get; set; } = true;
 
-        // T11：整季应用覆盖同季全部可播放集（含手动锁定集）——文案必须明示覆盖范围。
+        // 整季应用覆盖同季全部可播放集（含手动锁定集）——文案必须明示覆盖范围。
         // 字面量与资源键 IntroMarker_Dialog_ApplySeason 保持一致（含「本季 N 集」的语义：
         // 弹窗状态行还会用该资源键渲染实际集数）。
         [DisplayName("应用到整季（本季 N 集）：会覆盖这些集的标记（含手动锁定）")]

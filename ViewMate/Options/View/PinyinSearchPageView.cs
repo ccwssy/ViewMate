@@ -42,9 +42,9 @@ namespace ViewMate.Options.View
         private PinyinOptions Options => (PinyinOptions)ContentData;
 
         /// <summary>
-        /// T15 §2.1（F1）：ButtonItem 是 ContentData 里的可序列化字段，插件配置文件会残留上一版的
+        /// ButtonItem 是 ContentData 里的可序列化字段，插件配置文件会残留上一版的
         /// Caption（"编辑文件"），反序列化后盖掉 <see cref="PinyinOptions"/> 的字段初始化器 ——
-        /// 只改资源键的话，老用户升级后仍看到旧文案（T15 首轮自证即复现）。
+        /// 只改资源键的话，老用户升级后仍看到旧文案（实测即复现）。
         /// 视图构造时按资源键重建按钮，保证 UI 文案始终随版本走；命令链路不变。
         /// </summary>
         private void EnsureEditButtonCaption()
@@ -56,7 +56,7 @@ namespace ViewMate.Options.View
         }
 
         /// <summary>
-        /// T16 §2.1（F1）：语义说明文本（LabelItem）与按钮 Caption 同理 ——
+        /// 语义说明文本（LabelItem）与按钮 Caption 同理 ——
         /// 它是 ContentData 里的可序列化字段，配置文件残留值会盖掉字段初始化器，
         /// 且语言切换后必须随版本走。视图构造时按资源键重建；保存前清空不落盘。
         /// </summary>
@@ -92,7 +92,7 @@ namespace ViewMate.Options.View
         }
 
         /// <summary>
-        /// T16 §2.1（F1）：页头说明堆已清空（EditorDescription 不再覆写），
+        /// 页头说明堆已清空（EditorDescription 不再覆写），
         /// SubCaption 只保留保存回执（「已保存，需重启 Emby 生效」，跟随保存动作出现）。
         /// </summary>
         public override string SubCaption => string.IsNullOrEmpty(_saveNotice) ? null : _saveNotice;
@@ -126,11 +126,11 @@ namespace ViewMate.Options.View
         {
             var options = _store.ReloadOptions();
 
-            // T10：写回磁盘之前清掉页面的 UI 状态快照 —— MessageStatus 是渲染态
-            // （T9 起必须非 null，见 ApplyFileStatus 注释），不该留在插件配置文件里。
+            // 写回磁盘之前清掉页面的 UI 状态快照 —— MessageStatus 是渲染态
+            // （必须非 null，见 ApplyFileStatus 注释），不该留在插件配置文件里。
             // SetOptions 在锁内同步序列化，所以先置 null 即保证落盘内容不含该字段；
             // 返回视图前再由 ApplyFileStatus() 恢复成真实文件状态（否则客户端转圈图标会回来）。
-            // T16 F1：OverridesNotice（语义说明文本载体）同理，属于视图态、不落盘。
+            // OverridesNotice（语义说明文本载体）同理，属于视图态、不落盘。
             Options.MessageStatus = null;
             Options.OverridesNotice = null;
             options.PinyinOptions = Options;

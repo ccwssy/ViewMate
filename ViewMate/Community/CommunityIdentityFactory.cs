@@ -8,7 +8,7 @@ using MediaBrowser.Model.Entities;
 namespace ViewMate.Community
 {
     /// <summary>
-    /// BaseItem → 社区库定位参数（§B.2.3）。
+    /// BaseItem → 社区库定位参数。
     /// id 读取一律走 Emby 的 <c>GetProviderId</c> 扩展方法（ProviderIdDictionary 大小写不敏感），
     /// 不手解析字符串；剧集用所属剧（Series）的 id，片长取集自身的 RunTimeTicks。
     /// </summary>
@@ -88,7 +88,7 @@ namespace ViewMate.Community
                 : (int?)null;
         }
 
-        /// <summary>缓存键：{site}_{id 类型}:{值}_{movie|tv}[_s{季}_e{集}]（§B.2.6）。</summary>
+        /// <summary>缓存键：{site}_{id 类型}:{值}_{movie|tv}[_s{季}_e{集}]。</summary>
         internal static string BuildCacheKey(CommunityIdentity identity, string type)
         {
             string idPart;
@@ -120,7 +120,7 @@ namespace ViewMate.Community
         }
 
         /// <summary>
-        /// §B.2.2 闸门 3：本地缺哪个片段（缺 IntroStart 或缺 CreditsStart 之一才算缺；
+        /// 闸门 3：本地缺哪个片段（缺 IntroStart 或缺 CreditsStart 之一才算缺；
         /// 有标记但值不完整时按缺处理）。
         /// 只认**本地检测值**（#ECS）：社区值（#VMDB）与内嵌章节映射值（#VMCH）不算
         /// 「本地已有」—— 否则同一次刷新里先写入的 #VMCH 会把社区查询永久挡掉，

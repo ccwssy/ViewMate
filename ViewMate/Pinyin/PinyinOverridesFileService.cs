@@ -22,7 +22,7 @@ namespace ViewMate.Pinyin
         internal const string EmptyTemplate = "{\n  \n}";
 
         /// <summary>
-        /// 文件缺失时自动落盘的示例模板（T14）。必须是合法 JSON 对象（键值均为字符串）：
+        /// 文件缺失时自动落盘的示例模板。必须是合法 JSON 对象（键值均为字符串）：
         /// 解析链路为 JsonDocument.Parse（严格）+ JsonSerializer.Deserialize，
         /// **不支持 `//` 注释**，所以示例语义只能由规则本身承载。
         /// 选这 4 条是为了「零副作用」——不得改变任何未预期位置的读音：
@@ -432,8 +432,8 @@ namespace ViewMate.Pinyin
 
         // JsonException → 「第 N 行附近：这一行是「<该行原文>」—— <中文原因>」。
         // 编辑框（Emby [EditMultiline] 渲染的 <textarea>）没有行号栏，框架也不提供带行号的编辑器类型，
-        // 所以必须把出错行的原文一并给出，用户才能在框里搜到那行（T11 §2.6）。
-        // T15 §2.2（F2）：JsonDocument.Parse 报的是"读到哪个 token 才发现不对"——缺逗号类错误的
+        // 所以必须把出错行的原文一并给出，用户才能在框里搜到那行。
+        // JsonDocument.Parse 报的是"读到哪个 token 才发现不对"——缺逗号类错误的
         // 坐标落在**下一个 token**（下一行的行首键）处，真实错误在上一行行尾。
         // 修复规则（确定性映射，非猜测）：原因类别 = 缺逗号 且 报错列号落在报错行行首
         // → 行号 -1、行原文取上一行、原因换成「行尾缺少逗号」的说法。其余错误一律按原位置。
@@ -554,7 +554,7 @@ namespace ViewMate.Pinyin
             return lines.Length - 1;
         }
 
-        /// <summary>解析失败的原因类别；只有 <see cref="JsonErrorReason.MissingComma"/> 参与 §2.2 的"行号 -1"映射。</summary>
+        /// <summary>解析失败的原因类别；只有 <see cref="JsonErrorReason.MissingComma"/> 参与"行号 -1"映射。</summary>
         private enum JsonErrorReason
         {
             MissingComma,
@@ -565,13 +565,13 @@ namespace ViewMate.Pinyin
         }
 
         // 英文 message → 原因类别；认不出来的按原文附上，避免用户只看到「格式无效」。
-        // T15 §2.2 实证（探针 + 容器内真实链路，System.Text.Json 6/10 行为一致）：
+        // 实测（探针 + 容器内真实链路，System.Text.Json 6/10 行为一致）：
         //   · 两个键值对之间漏逗号 → `'"' is invalid after a value. Expected either ',', '}', or ']'.`
         //     （报错 token 是**下一个键**的引号，坐标因此在下一行行首）；
         //   · 漏逗号且报错行以非 ASCII 开头 → `'0xE3' is an invalid start of a property name. Expected a '"'.`；
         //   · 键值之间漏冒号 → `'"' is invalid after a property name. Expected a ':'.`
         // 缺冒号的 message 同时含 "invalid after a property name"，故**先判缺冒号**再判缺逗号，
-        // 否则 §2.2 S2 的"缺冒号"会被误报成"缺逗号"。
+        // 否则"缺冒号"会被误报成"缺逗号"。
         private static JsonErrorReason ClassifyJsonError(string message)
         {
             var text = message ?? string.Empty;

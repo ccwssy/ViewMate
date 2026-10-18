@@ -10,9 +10,9 @@ using MediaBrowser.Model.Providers;
 namespace ViewMate.Community
 {
     /// <summary>
-    /// TheIntroDB 的「元数据下载器」占位 Provider（§B.2.1）。
+    /// TheIntroDB 的「元数据下载器」占位 Provider。
     /// 存在意义：让 <c>ViewMate — TheIntroDB</c> 出现在每个媒体库的「元数据下载器」勾选列表里
-    /// （§B.2.2 闸门 2 由维护者按库控制）。**它自身不发任何网络请求** ——
+    /// （闸门 2 由维护者按库控制）。**它自身不发任何网络请求** ——
     /// <c>IRemoteMetadataProvider</c> 的回调只拿到 <c>MovieInfo</c>/<c>EpisodeInfo</c>（查找信息），
     /// 拿不到 BaseItem，无法实施「本地缺片段才查」与「锁定集豁免」两条闸门；
     /// 真正的查询与写回由同一条 ProviderManager 管线里的

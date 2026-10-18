@@ -147,7 +147,7 @@ namespace ViewMate.IntroSkip
                             continue;
                         }
 
-                        // T17 §B.0.4：带社区值（#VMDB）的集同样不做参考源。
+                        // 带社区值（#VMDB）的集同样不做参考源。
                         if (HasCommunityMarkers(ep.Item1))
                         {
                             continue;
@@ -202,7 +202,7 @@ namespace ViewMate.IntroSkip
                             continue;
                         }
 
-                        // T17 §B.0.4：已有社区值（#VMDB）的集不做本地补打（优先级：手动 > 社区 > 本地检测）。
+                        // 已有社区值（#VMDB）的集不做本地补打（优先级：手动 > 社区 > 本地检测）。
                         if (HasCommunityMarkers(ep.Item1))
                         {
                             communitySkipped++;
@@ -310,7 +310,7 @@ namespace ViewMate.IntroSkip
         }
 
         /// <summary>
-        /// T17 §B.0.4：该集是否已有社区写入的标记（#VMDB）——本地补打据此让位。
+        /// 该集是否已有社区写入的标记（#VMDB）——本地补打据此让位。
         /// 只读、失败按「没有」处理（不阻断补打）。
         /// </summary>
         private bool HasCommunityMarkers(long itemId)

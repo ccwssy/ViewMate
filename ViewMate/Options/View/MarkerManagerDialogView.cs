@@ -18,7 +18,7 @@ using ViewMate.Properties;
 namespace ViewMate.Options.View
 {
     /// <summary>
-    /// 弹窗 1「手动标记校正」（T17 §B.1.3）：把 T15 主 tab 上的「剧集标记管理」区块整体搬进弹窗，
+    /// 弹窗 1「手动标记校正」：把主 tab 上的「剧集标记管理」区块整体搬进弹窗，
     /// 字段、命令链、渲染语义一字未改（搜索 / 只看异常 / 只看最近播放 / 三级联动 / 集列表 / 状态卡）。
     /// 点某集行内按钮 → 打开单集编辑弹窗（<see cref="IntroMarkerDialogView"/>，即"孙弹窗"）：
     /// 宿主对 dialog → dialog 是一等公民（CreateUIViewHost 的 IPluginDialogView 分支），
@@ -168,7 +168,7 @@ namespace ViewMate.Options.View
             }
         }
 
-        // ── 四级联动（与 T15 现役实现逐行一致，只换容器） ──
+        // ── 四级联动（与现役实现逐行一致，只换容器） ──
 
         internal void RebuildAll()
         {
@@ -370,7 +370,7 @@ namespace ViewMate.Options.View
         }
 
         /// <summary>
-        /// 同季可写入的集 —— 弹窗「应用到整季」的目标集合（T11/T15 口径不变）：
+        /// 同季可写入的集 —— 弹窗「应用到整季」的目标集合（口径不变）：
         /// 用户主动发起的整季应用覆盖同季**全部**可播放集（含手动锁定/抑制的集）。
         /// </summary>
         private List<Episode> BuildSeasonTargets(Episode episode)

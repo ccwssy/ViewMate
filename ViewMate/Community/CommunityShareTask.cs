@@ -22,7 +22,7 @@ using ViewMate.IntroSkip;
 namespace ViewMate.Community
 {
     /// <summary>
-    /// 社区共享计划任务（§B.3）：Emby 计划任务面板名「共享片头片尾标志到社区」，
+    /// 社区共享计划任务：Emby 计划任务面板名「共享片头片尾标志到社区」，
     /// 12 小时一趟（IntervalTrigger，起点 = 服务启动 + 1 小时，自然相位错开；
     /// 也可在面板手动触发）。
     ///

@@ -10,7 +10,7 @@ using MediaBrowser.Model.Logging;
 namespace ViewMate.Community
 {
     /// <summary>
-    /// 社区查询的 6 小时磁盘缓存（§B.2.6）：未命中也缓存（负缓存），避免反复打社区接口。
+    /// 社区查询的 6 小时磁盘缓存：未命中也缓存（负缓存），避免反复打社区接口。
     /// 位置与其它插件数据文件同序探测（/config/plugins/ → plugins/ → ../plugins/），
     /// 原子写（.tmp + File.Move(overwrite)）、UTF-8 无 BOM；任何失败只 Warn，不影响刷新管线。
     /// </summary>

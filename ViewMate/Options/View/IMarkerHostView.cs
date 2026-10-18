@@ -3,7 +3,7 @@ using MediaBrowser.Model.Plugins.UI.Views;
 namespace ViewMate.Options.View
 {
     /// <summary>
-    /// 「单集标记编辑弹窗」的宿主抽象（T17 §B.1.3）。
+    /// 「单集标记编辑弹窗」的宿主抽象。
     /// 现役 <see cref="IntroMarkerDialogView"/> 保存/清除成功后要回到「列表」，
     /// 而列表现在有两个容器：页面（旧路径）与弹窗 1（新路径）。
     /// 通过本接口把「回到哪里」从具体类型里解耦 —— 弹窗内部的命令链、

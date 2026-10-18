@@ -14,7 +14,7 @@ using ViewMate.Common;
 namespace ViewMate.IntroSkip
 {
     /// <summary>
-    /// 手动标记自愈服务（T12）。
+    /// 手动标记自愈服务。
     ///
     /// 背景：Emby 的缩略图/章节图片刷新流程会把**媒体文件探测出来的章节**
     /// （不含本项目的标记）交给 <c>IItemRepository.SaveChapters</c>，而该方法是
@@ -26,14 +26,14 @@ namespace ViewMate.IntroSkip
     ///   · <c>suppressed</c> 的集：又出现 <c>#ECS</c> → 再次删除（保持"已清除"语义）。
     /// 只在"确实不一致"时写库，正常轮零写入、零 Info 日志。
     ///
-    /// T15 §2.6（F6）追加："现存超片长标记"清理 —— 每轮把**所有含 #ECS 行的集**纳入检查：
-    ///   · 覆盖表 locked 集：只 Warn 不删（用户手动接管的数据绝不自动动，§2.6.2 红线）；
+    /// 另含："现存超片长标记"清理 —— 每轮把**所有含 #ECS 行的集**纳入检查：
+    ///   · 覆盖表 locked 集：只 Warn 不删（用户手动接管的数据绝不自动动，红线）；
     ///   · 覆盖表 suppressed 集：又出现超片长 #ECS = 被写回 → 按墓碑逻辑清除（允许删）；
     ///   · 其余（自动态）集：删除值超出 <c>RunTimeTicks</c> 的单条 #ECS 标记（Info 一行）；
     ///   · <c>RunTimeTicks</c> 为 NULL/≤0 → 跳过该集（无法比较，绝不删）。
     /// 删除计数计入单轮写入上限（与覆盖表补写共用 <see cref="MaxEntriesPerRun"/>）。
     ///
-    /// 日志降噪（T13）：无法写入的冲突（如记录值超出片长）每轮都会重现，
+    /// 日志降噪：无法写入的冲突（如记录值超出片长）每轮都会重现，
     /// 上一版会对**同一条**冲突每 10 分钟打一行同样的 Warn（一天约 144 条纯噪音）。
     /// 现在按「冲突键」（<c>集 ItemId | 标记类型 | 原因类别</c>）去重：
     /// 进程内首次遇到某键记 Warn（原文案不变），同键的后续轮次降 Debug（默认级别看不到）；
@@ -43,7 +43,7 @@ namespace ViewMate.IntroSkip
     /// 补写成功（<c>restored manual markers</c>）与墓碑恢复（<c>re-suppressed markers</c>）
     /// 是真实状态变化，**每次都记 Info**，不参与降噪。
     ///
-    /// 隔离约束（§2.5，硬要求；T15 §2.6.4 起清理阶段按施工书要求做全库剧集枚举）：
+    /// 隔离约束（硬要求）—— 清理阶段做全库剧集枚举：
     ///   · 独立轻量定时器 —— 不使用也不等待拼音链路的 FtsScanScheduler；
     ///   · 读写一律经 ChapterMarkerApi → IItemRepository，绝不新建 SQLite 连接；
     ///   · 覆盖表遍历上限 <see cref="MaxEntriesPerRun"/> 条；清理阶段枚举全库可播放剧集
@@ -64,7 +64,7 @@ namespace ViewMate.IntroSkip
         internal static readonly TimeSpan Interval = TimeSpan.FromMinutes(10);
 
         /// <summary>
-        /// 单轮上限：覆盖表最多遍历这么多条，**写库（含 §2.6 的删除）总数也不超过它**
+        /// 单轮上限：覆盖表最多遍历这么多条，**写库（含超片长删除）总数也不超过它**
         /// （正常情况远小于此值）。
         /// </summary>
         internal const int MaxEntriesPerRun = 50;
@@ -88,7 +88,7 @@ namespace ViewMate.IntroSkip
         private readonly object _warnedMissingLock = new object();
 
         /// <summary>
-        /// T13：已 Warn 过的「冲突键」（<c>集 ItemId | 标记类型 | 原因类别</c>），进程内、不持久化。
+        /// 已 Warn 过的「冲突键」（<c>集 ItemId | 标记类型 | 原因类别</c>），进程内、不持久化。
         /// 首次遇到某键 → Warn；同键再次遇到 → Debug（默认级别看不到）。
         /// 一轮**完整**遍历后，本轮未再出现的键会被移除（冲突消失即重置，
         /// 将来同一集再现同一冲突会重新 Warn 一次）。
@@ -165,10 +165,10 @@ namespace ViewMate.IntroSkip
             var entries = IntroMarkerOverrides.Snapshot();
             var processed = 0;
 
-            // T15 §2.6.4：本轮写库次数（覆盖表补写 + 超片长删除），与 MaxEntriesPerRun 共用上限。
+            // 本轮写库次数（覆盖表补写 + 超片长删除），与 MaxEntriesPerRun 共用上限。
             var writes = 0;
 
-            // T13：本轮观察到的冲突键。只有当本轮把覆盖表**全部**条目都走完
+            // 本轮观察到的冲突键。只有当本轮把覆盖表**全部**条目都走完
             // （没被上限截断、没被释放中断、没有单条异常）时，才用它来重置降噪集合 ——
             // 否则"没看到"可能只是"没轮到"，误重置会让下轮又 Warn 一次。
             var seenConflicts = new HashSet<string>(StringComparer.Ordinal);
@@ -202,7 +202,7 @@ namespace ViewMate.IntroSkip
                 }
             }
 
-            // T15 §2.6（F6）：超片长 #ECS 清理。放在覆盖表遍历之后：
+            // 超片长 #ECS 清理。放在覆盖表遍历之后：
             // 锁定/墓碑集刚被上面处理过，这里的判定不会与补写打架。
             CleanOutOfRangeMarkers(seenConflicts, Math.Max(0, MaxEntriesPerRun - writes));
 
@@ -216,7 +216,7 @@ namespace ViewMate.IntroSkip
 
         // ── 单条处理 ──
 
-        /// <summary>处理一条覆盖表记录，返回本轮实际写库次数（T15 §2.6.4 的写入额度用）。</summary>
+        /// <summary>处理一条覆盖表记录，返回本轮实际写库次数（计入写入额度）。</summary>
         private int HealEntry(long itemId, IntroMarkerOverrides.EpisodeOverride entry, HashSet<string> seenConflicts)
         {
             if (entry == null) return 0;
@@ -240,7 +240,7 @@ namespace ViewMate.IntroSkip
                 return RestoreLocked(item, entry, seenConflicts);
             }
 
-            // T13：同一条配置不良的记录也只 Warn 一次（该键同样参与"消失即重置"）。
+            // 同一条配置不良的记录也只 Warn 一次（该键同样参与"消失即重置"）。
             WarnConflictOnce(seenConflicts, ConflictKey(item.InternalId, "Entry", "NotLockedNorSuppressed"),
                 "self-heal: entry {0} has neither locked nor suppressed, skipped", itemId);
             return 0;
@@ -255,7 +255,7 @@ namespace ViewMate.IntroSkip
             if (conflict.HasValue)
             {
                 var c = conflict.Value;
-                // T13：同一条冲突只 Warn 一次（原文案含集名与两个片长数值，全部保留）。
+                // 同一条冲突只 Warn 一次（原文案含集名与两个片长数值，全部保留）。
                 WarnConflictOnce(seenConflicts, ConflictKey(item.InternalId, c.MarkerKind, c.ReasonKind),
                     "self-heal: skipped {0} - {1}; 按当前片长无法写入，覆盖表记录保留且不再重试", item.Name, c.Description);
                 return 0;
@@ -271,7 +271,7 @@ namespace ViewMate.IntroSkip
                 var error = _chapterMarkerApi.UpdateIntroSingle(item, entry.StartTicks.Value, entry.EndTicks.Value);
                 if (error != null)
                 {
-                    // T13：写入被拒（校验不通过）同样是确定性、每轮重现的冲突 → 只 Warn 一次。
+                    // 写入被拒（校验不通过）同样是确定性、每轮重现的冲突 → 只 Warn 一次。
                     WarnConflictOnce(seenConflicts, ConflictKey(item.InternalId, "Intro", "WriteRejected"),
                         "self-heal: failed to restore intro for {0}: {1}", item.Name, error);
                 }
@@ -324,7 +324,7 @@ namespace ViewMate.IntroSkip
             return 1;
         }
 
-        // ── T15 §2.6（F6）：现存超片长标记清理 ──
+        // ── 现存超片长标记清理 ──
 
         /// <summary>
         /// 遍历库中所有可播放剧集清理「现存超片长」标记（只有含本项目 #ECS 的集才真正进入判定）：
@@ -380,7 +380,7 @@ namespace ViewMate.IntroSkip
                 return 0;
             }
 
-            // §2.6.3：片长未知（NULL / ≤0）→ 无法比较，整集跳过，绝不删。
+            // 片长未知（NULL / ≤0）→ 无法比较，整集跳过，绝不删。
             if (!item.RunTimeTicks.HasValue || item.RunTimeTicks.Value <= 0)
             {
                 Debug("self-heal: skip out-of-range check for {0} (runtime unknown)", item.Name);
@@ -395,7 +395,7 @@ namespace ViewMate.IntroSkip
 
             if (entry != null && entry.Locked)
             {
-                // §2.6.2 用户数据保护：locked 集只 Warn 不删、不写库、不重试（T13 降噪键语义）。
+                // 用户数据保护：locked 集只 Warn 不删、不写库、不重试（降噪键语义）。
                 foreach (var marker in outOfRange)
                 {
                     WarnConflictOnce(seenConflicts, ConflictKey(item.InternalId, marker.MarkerKind, "OutOfRange"),
@@ -408,7 +408,7 @@ namespace ViewMate.IntroSkip
 
             if (entry != null && entry.Suppressed)
             {
-                // §2.6.2：墓碑集又出现超片长 #ECS（被写回）→ 按既有墓碑逻辑整集清除（允许删）。
+                // 墓碑集又出现超片长 #ECS（被写回）→ 按既有墓碑逻辑整集清除（允许删）。
                 _chapterMarkerApi.ClearMarkers(item);
                 Info("self-heal: re-suppressed markers for {0} (out-of-range marker written back)", item.Name);
                 return 1;
@@ -462,7 +462,7 @@ namespace ViewMate.IntroSkip
                 label, ticks, TicksToSeconds(ticks), runtime, TicksToSeconds(runtime));
         }
 
-        /// <summary>库中全部可播放剧集（Video + 有路径），供 §2.6 清理逐集比对。</summary>
+        /// <summary>库中全部可播放剧集（Video + 有路径），供清理阶段逐集比对。</summary>
         private List<Episode> AllEpisodes()
         {
             try
@@ -502,7 +502,7 @@ namespace ViewMate.IntroSkip
         /// <summary>
         /// 记录值超出片长时返回冲突描述；不冲突返回 null。
         /// <c>MarkerKind</c> = 标记类型（Intro / Credits），<c>ReasonKind</c> = 原因类别，
-        /// <c>Description</c> = 可直接落日志的原文案（含两个片长数值），三者共同构成 T13 的冲突键。
+        /// <c>Description</c> = 可直接落日志的原文案（含两个片长数值），三者共同构成降噪用的冲突键。
         /// </summary>
         private static (string MarkerKind, string ReasonKind, string Description)? DescribeRuntimeConflict(
             Episode item, IntroMarkerOverrides.EpisodeOverride entry)
@@ -534,12 +534,12 @@ namespace ViewMate.IntroSkip
             return null;
         }
 
-        /// <summary>T13 冲突键：<c>集 ItemId | 标记类型（Intro/Credits/Entry）| 原因类别</c>。</summary>
+        /// <summary>冲突键：<c>集 ItemId | 标记类型（Intro/Credits/Entry）| 原因类别</c>。</summary>
         private static string ConflictKey(long itemId, string markerKind, string reasonKind) =>
             string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}", itemId, markerKind, reasonKind);
 
         /// <summary>
-        /// T13：同一条冲突只 Warn 一次 —— 首次遇到该键记 Warn（<paramref name="format"/> 原文案不变），
+        /// 同一条冲突只 Warn 一次 —— 首次遇到该键记 Warn（<paramref name="format"/> 原文案不变），
         /// 同一进程内再次遇到记 Debug（默认日志级别看不到，带「已抑制重复」标记便于排障）。
         /// <paramref name="seenConflicts"/> 记录本轮出现过的键，供轮末重置使用。
         /// </summary>
@@ -570,7 +570,7 @@ namespace ViewMate.IntroSkip
         }
 
         /// <summary>
-        /// T13：一轮完整遍历后，把本轮未再出现的冲突键从集合移除 ——
+        /// 一轮完整遍历后，把本轮未再出现的冲突键从集合移除 ——
         /// 冲突消失（记录被清掉、值变合法、集被删除）即重置，
         /// 将来同一集再次出现同一冲突会重新 Warn 一次。
         /// </summary>

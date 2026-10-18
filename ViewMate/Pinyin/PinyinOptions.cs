@@ -9,7 +9,7 @@ namespace ViewMate.Pinyin
     {
         public override string EditorTitle => "拼音搜索";
 
-        // T16 §2.1（F1）：页头说明堆清空 —— 不覆写 EditorDescription（基类默认 null，
+        // 页头说明堆清空 —— 不覆写 EditorDescription（基类默认 null，
         // genericedit 的 renderForm 只在 root.Description 非空时渲染 ge-section-description 段落）。
         // 原先挤在页头的「语义说明 + 文件状态行」现在分别由按钮下方的 OverridesNotice
         // 与列表末尾的 MessageStatus 承载；两个开关及其字段说明一字未动、位置未动。
@@ -25,7 +25,7 @@ namespace ViewMate.Pinyin
         [VisibleCondition("EnablePinyinSearch", SimpleCondition.IsTrue)]
         public bool EnablePinyinSortName { get; set; } = false;
 
-        // T15 §2.1（F1）：按钮文案改「编辑多音字列表」——原名「编辑文件」不点开看不出改的是什么文件。
+        // 按钮文案改「编辑多音字列表」——原名「编辑文件」不点开看不出改的是什么文件。
         // 文案走资源键 PinyinOverrides_EditButton（四件套已同步），命令链路不变。
         [DisplayName("多音字配置")]
         public ButtonItem EditOverridesButton { get; set; } =
@@ -35,7 +35,7 @@ namespace ViewMate.Pinyin
             };
 
         /// <summary>
-        /// T16 §2.1（F1）：多音字语义说明文本，从页头下移到「编辑多音字列表」按钮下方。
+        /// 多音字语义说明文本，从页头下移到「编辑多音字列表」按钮下方。
         /// genericedit 的 ButtonItem 渲染器（renderButtonItemCore）不输出 fieldDescription，
         /// 按钮本身挂不了说明，所以用 LabelItem 承载：渲染为
         /// &lt;p&gt;&lt;a class="labelText"&gt;…&lt;/a&gt;&lt;/p&gt; 正文样式，无输入控件。
