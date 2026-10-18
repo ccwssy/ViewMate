@@ -39,7 +39,7 @@ namespace ViewMate.Community
         /// <summary>单轮最多打包的标记条数（防大库一次跑太久）。</summary>
         internal const int MaxItemsPerRun = 500;
 
-        /// <summary>dry-run 产物文件名（插件数据目录，供自证与维护者查看）。</summary>
+        /// <summary>dry-run 产物文件名（插件数据目录，供校验与维护者查看）。</summary>
         internal const string DryRunFileName = "viewmate-community-share-dryrun.json";
 
         public string Name => "共享片头片尾标志到社区";

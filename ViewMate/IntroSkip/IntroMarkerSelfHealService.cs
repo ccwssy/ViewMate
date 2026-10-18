@@ -148,7 +148,7 @@ namespace ViewMate.IntroSkip
         }
 
         /// <summary>
-        /// 跑一轮校验。返回处理（遍历）的条目数，仅供自证/排障使用。
+        /// 跑一轮校验。返回处理（遍历）的条目数，仅供校验/排障使用。
         /// 每条独立 try/catch：单条失败只 Warn 并继续。
         /// </summary>
         internal int RunOnce()

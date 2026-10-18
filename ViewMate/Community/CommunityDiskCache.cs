@@ -131,7 +131,7 @@ namespace ViewMate.Community
             }
         }
 
-        /// <summary>缓存条目数（自证用）。</summary>
+        /// <summary>缓存条目数（供校验用）。</summary>
         internal static int Count(ILogger logger = null)
         {
             lock (Gate)

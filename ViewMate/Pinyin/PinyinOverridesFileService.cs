@@ -210,7 +210,7 @@ namespace ViewMate.Pinyin
             return EnsureSampleTemplateIfMissing(Plugin.Instance?.Logger);
         }
 
-        /// <summary>上面那条的 logger 显式入口（自证脚本反射调用此重载，日志与线上同源）。</summary>
+        /// <summary>上面那条的 logger 显式入口（校验脚本反射调用此重载，日志与线上同源）。</summary>
         internal static int EnsureSampleTemplateIfMissing(ILogger logger)
         {
             string path;
@@ -565,7 +565,7 @@ namespace ViewMate.Pinyin
         }
 
         // 英文 message → 原因类别；认不出来的按原文附上，避免用户只看到「格式无效」。
-        // 实测（探针 + 容器内真实链路，System.Text.Json 6/10 行为一致）：
+        // 实测（容器内真实链路验证，System.Text.Json 6/10 行为一致）：
         //   · 两个键值对之间漏逗号 → `'"' is invalid after a value. Expected either ',', '}', or ']'.`
         //     （报错 token 是**下一个键**的引号，坐标因此在下一行行首）；
         //   · 漏逗号且报错行以非 ASCII 开头 → `'0xE3' is an invalid start of a property name. Expected a '"'.`；

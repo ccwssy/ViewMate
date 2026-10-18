@@ -196,7 +196,7 @@ namespace ViewMate.Options.View
             Plugin.Instance.UpdateConfiguration(config);
 
             // 状态行读的是 PluginConfiguration（XML，运行时权威），必须等 UpdateConfiguration
-            // 之后再刷新 —— 否则刚保存的开关要等下一次渲染才反映到状态行（自证时实测到这个顺序缺陷）。
+            // 之后再刷新 —— 否则刚保存的开关要等下一次渲染才反映到状态行（实测时发现这个顺序缺陷）。
             ApplyCommunityStatus();
 
             return base.OnSaveCommand(itemId, commandId, data);
