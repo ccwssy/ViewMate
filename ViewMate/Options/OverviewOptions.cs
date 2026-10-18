@@ -38,7 +38,7 @@ namespace ViewMate.Options
             ModuleStatusList.Add(new GenericListItem
             {
                 PrimaryText = config.EnableIntroSkip ? "片头尾跳过：已启用" : "片头尾跳过：已禁用",
-                // T17 §B.1.4：凱选项 A 拍板的副文本（凱 2026-10-15 改名「手动标记校正」）。
+                // T17 §B.1.4：维护者选项 A 拍板的副文本（2026-10-15 改名「手动标记校正」）。
                 SecondaryText = "配置入口：上方「片头尾跳过」标签页（含漏集补打、手动标记校正弹窗）",
                 Icon = IconNames.skip_next,
                 IconMode = ItemListIconMode.SmallRegular,

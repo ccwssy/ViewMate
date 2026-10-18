@@ -70,7 +70,7 @@ namespace ViewMate.Options.View
             config.TheIntroDbApiKey = (Options.TheIntroDbApiKey ?? string.Empty).Trim();
             config.IntroDbApiKey = (Options.IntroDbApiKey ?? string.Empty).Trim();
 
-            // §C-REV 修正 02（凱 2026-10-15 拍板）：保存前自动关共享 ——
+            // §C-REV 修正 02（维护者 2026-10-15 拍板）：保存前自动关共享 ——
             // 两把 key trim 后都为空时，共享开关置 false 后再走写盘（不弹额外提示框，
             // 回主 tab 状态行显示「共享 关」即为用户可见反馈）。
             // 依据：CommunityShareTask 在两把 key 都空时本就跳过（不提交），

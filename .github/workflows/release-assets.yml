@@ -68,7 +68,7 @@ jobs:
           echo "Assets attached to $TAG:"
           gh release view "$TAG" --json assets -q '.assets[].name'
 
-      - name: Demote older releases to draft (凷 2026-10-16 政策：只保留一个正式发行版)
+      - name: Demote older releases to draft (维护者 2026-10-16 政策：只保留一个正式发行版)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

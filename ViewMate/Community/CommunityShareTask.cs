@@ -26,7 +26,7 @@ namespace ViewMate.Community
     /// 12 小时一趟（IntervalTrigger，起点 = 服务启动 + 1 小时，自然相位错开；
     /// 也可在面板手动触发）。
     ///
-    /// 本版为 **dry-run（只打包请求体、绝不 POST）**：凱先在面板点一次看全流程，
+    /// 本版为 **dry-run（只打包请求体、绝不 POST）**：维护者先在面板点一次看全流程，
     /// 真实提交由后续版本启用。范围只含「本地检测产生的标记 + 非锁定集」，
     /// 绝不上传手动锁定值 / 内嵌章节映射值（#VMCH）。
     /// key 无效或任一闸门不满足 → 静默跳过（不写 Error、不中断 embyserver）。
@@ -39,7 +39,7 @@ namespace ViewMate.Community
         /// <summary>单轮最多打包的标记条数（防大库一次跑太久）。</summary>
         internal const int MaxItemsPerRun = 500;
 
-        /// <summary>dry-run 产物文件名（插件数据目录，供自证与凱查看）。</summary>
+        /// <summary>dry-run 产物文件名（插件数据目录，供自证与维护者查看）。</summary>
         internal const string DryRunFileName = "viewmate-community-share-dryrun.json";
 
         public string Name => "共享片头片尾标志到社区";
