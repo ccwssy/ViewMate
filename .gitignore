@@ -34,3 +34,7 @@ CLAUDE.md
 docs/*-prompt.md
 log/
 .dsh-*
+
+# dsh 交付产物（散文报告 + 证据块）单独目录，不进 git
+reports/*
+!reports/.gitkeep

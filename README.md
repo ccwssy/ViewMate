@@ -4,7 +4,7 @@
 
 Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头片尾跳过** + **漏集补打**。
 
-适配 Emby **4.9.5.0 / 4.10.0.9 / 4.10.0.40 / 4.10.1.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll ~820KB + TinyPinyin.dll ~40KB）。
+适配 Emby **4.9.5.0 / 4.10.0.9 / 4.10.0.40 / 4.10.1.0 / 4.10.2.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll ~820KB + TinyPinyin.dll ~40KB）。
 
 ## 支持平台
 
@@ -121,8 +121,29 @@ Seek detected: 00:00:05 → 00:00:45 (jump=40s elapsed=0.6s)  # 累计跳转
 
 ### 要求
 - Emby 4.9.5.0+（.NET 6 容器；4.9.5.0 为**实测下限**，更低版本未验证）
-- **4.9.5.0 / 4.10.0.40 / 4.10.0.9 / 4.10.1.0 已实测适配**（4.10.0.40 首次实测 2026-09-09 / v1.2.17.0）：插件加载 / EntryPoint / 拼音搜索（FTS5 注入）/ 拼音排序名（SQL 直连）/ 片头片尾跳过 / 漏集补打全部正常。4.10 仅迁移了授权相关内部类（`HardwareAccelerationRequiresPremiere` → `ApplicationHost` 等），ViewMate 不依赖这些 API，无需为 4.10 单独出包
+- **4.9.5.0 / 4.10.0.40 / 4.10.0.9 / 4.10.1.0 / 4.10.2.0 已实测适配**（4.10.0.40 首次实测 2026-09-09 / v1.2.17.0）：插件加载 / EntryPoint / 拼音搜索（FTS5 注入）/ 拼音排序名（SQL 直连）/ 片头片尾跳过 / 漏集补打全部正常。4.10 仅迁移了授权相关内部类（`HardwareAccelerationRequiresPremiere` → `ApplicationHost` 等），ViewMate 不依赖这些 API，无需为 4.10 单独出包
 - **Emby 4.10 系搜索已消费 `fts_search9`**：反编译确认 Items 搜索走 `join fts_search9 ... MATCH @SearchTerm`。旧 skill/wiki 中「Emby 不查 FTS」是 4.9.5.0 时代 `Search/Hints` API 失效的误诊，Items 搜索路径两版都在
+
+#### 4.10.2.0 实测结论（2026-10-22）
+
+**ViewMate 在 4.10.2.0 上确认无 bug**，实测数据：
+
+| 检查项 | 结果 |
+|:-------|:-----|
+| 插件加载 | ✅ `Loading ViewMate, Version=1.2.20.1` → `Entry point completed`（0.03s） |
+| 插件错误日志 | ✅ 无 `Error ... Source: ViewMate` / 无 Exception |
+| 四个数据库完整性 | ✅ `library` / `activitylog` / `authentication` / `users` 全部 `PRAGMA integrity_check` = **ok** |
+| WAL 体积 | ✅ 8K / 32K / 44K / 181K —— 全部远低于 1MB 阈值（无 WAL 膨胀） |
+| 拼音 token 注入 | ✅ c0 实测含 `DIAN SHI ZHI BO` / 首字母 `DSZB` |
+| 拼音搜索端到端 | ✅ `MATCH 'DSZB'`→1、`'MAOXIAN'`→16、`'KEHUAN'`→1、`'JINGSONG'`→3 |
+
+**为什么 4.10.2.0 安全（关键机制）**：
+
+ViewMate **复用 Emby 自己的 `fts_search9` 表，不另建表**。反编译 4.10.2.0 的 `SqliteItemRepository` 建库逻辑可见：Emby 只保留 `fts_search9`，并在建库时批量 `drop table if exists fts_search1..8, fts_search10`。ViewMate 与 Emby 同表 → Emby 的清理动作不触及 ViewMate 的索引。
+
+同时 4.10.2.0 **不再用触发器维护 FTS**（实测触发器数 = 0），改为代码直写（`insert into fts_search9 ... values`）。ViewMate 同样是直写，不存在与 Emby 双写冲突。
+
+> ⚠️ **给其它 FTS 插件用户的提醒**：如果你用的是**自建 FTS 表**的插件（如 StrmAssistant / 神医助手，用 `fts_search1`~`fts_search4`），升级到 4.10.2.0 时 Emby 建库会**连表带触发器一起 DROP 掉**，插件继续按旧 schema 写入已消失的表 → **数据库损坏**。这类插件在 4.10.2.0 上需先确认兼容性，或改用 ViewMate 这类与 Emby 共表的实现。
 
 ### 升级安装（覆盖已有插件）
 
