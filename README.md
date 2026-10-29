@@ -112,6 +112,7 @@ Seek detected: 00:00:05 → 00:00:45 (jump=40s elapsed=0.6s)  # 累计跳转
 - **冲突优先级**：手动锁定（覆盖表）> 社区值 > 内嵌章节映射 > 本地检测值。本地检测写入前若该集已有社区值则跳过。
 - **标记体系**（`Chapters3`，按后缀区分来源、可分别清除）：`#ECS` = 手动/本地检测值；`#VMDB` = 社区值；`#VMCH` = 媒体文件内嵌章节名映射（词表含 `intro/opening/片头/オープニング` 与 `credits/ending/片尾/エンディング` 等，识别时不改文件名、不改 Emby 前端）。
 - **API Key（可选）**：在 [theintrodb.org](https://theintrodb.org) / [introdb.app](https://introdb.app) 官网申请后填入「社区数据配置」弹窗。**留空也能查询**（匿名额度较低），但**无法提交**。两把 key **都未配置**时，在社区数据配置弹窗点「保存」会**自动把「共享本机检测结果」关掉**（共享任务本来就无法提交，避免主 tab 状态行显示「共享 开」却实际无效）；只配了其中一把 key 时共享开关保持你的选择。
+- **TheIntroDB 接口版本**：查询走 **v4**（`https://api.theintrodb.org/v4`；v2/v3 已被上游冻结、只剩 `GET /media` 且不再扩展，官方公告 2027-01-18 关停）。v4 以 **TVDB 为身份**，插件按 `tvdb > tmdb > imdb` 顺序寻址；剧集会把 Emby 的排布顺序（`dvd` / `absolute`）作为 `mapping` 带上，并附带集自身的 TVDB id 与片长，避免集号错位取到别的集的段。非 default 排布又没有 TVDB id 的剧集**不查询**（宁可无段，不给错段）。
 - **旧库回填两条官方路径**（插件不做独立"回填"计划任务）：
   1. **手动刷新元数据**：对单集/整季/整库执行 Emby 的「刷新元数据」（**普通刷新**）；
   2. **库级自动刷新间隔**：库设置里的 `AutomaticRefreshIntervalDays`（30/60/90 天档）与占位记录到期（`PlaceholderMetadataRefreshIntervalDays`），到期自动重跑 provider 链。

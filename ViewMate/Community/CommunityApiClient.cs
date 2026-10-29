@@ -16,10 +16,11 @@ namespace ViewMate.Community
     /// 10 秒超时、ThrowOnErrorResponse=false、整段 try/catch —— 失败一律返回未命中结果，
     /// 绝不上抛到 Emby 的元数据刷新管线。
     /// 出站域名写死：api.theintrodb.org / api.introdb.app。
+    /// TheIntroDB 走 v4：v2/v3 已冻结（只剩 GET /media 且不再扩展），v3 于 2027-01-18 00:00:00 GMT 关停。
     /// </summary>
     internal static class CommunityApiClient
     {
-        internal const string TheIntroDbBase = "https://api.theintrodb.org/v3";
+        internal const string TheIntroDbBase = "https://api.theintrodb.org/v4";
         internal const string IntroDbBase = "https://api.introdb.app";
 
         private const int TimeoutMs = 10000;
@@ -95,43 +96,23 @@ namespace ViewMate.Community
             return result;
         }
 
-        /// <summary>TheIntroDB：GET {base}/media，id 优先序 tmdb &gt; tvdb &gt; imdb（照 MIK）。</summary>
+        /// <summary>
+        /// TheIntroDB：GET {base}/media，id 优先序 tvdb &gt; tmdb &gt; imdb（v4 以 TVDB 为身份）。
+        /// query 段全部由 <see cref="BuildTheIntroDbQuery"/> 构造（纯函数），此处只负责发请求与解析。
+        /// </summary>
         private static async Task<CommunityLookupResult> QueryTheIntroDbAsync(
             CommunityIdentity identity,
             string apiKey,
             ILogger logger,
             CancellationToken cancellationToken)
         {
-            var parts = new List<string>();
-            if (identity.TmdbId.HasValue)
+            var query = BuildTheIntroDbQuery(identity);
+            if (query == null)
             {
-                parts.Add("tmdb_id=" + identity.TmdbId.Value.ToString(CultureInfo.InvariantCulture));
-            }
-            else if (identity.TvdbId.HasValue)
-            {
-                parts.Add("tvdb_id=" + identity.TvdbId.Value.ToString(CultureInfo.InvariantCulture));
-            }
-            else if (!string.IsNullOrWhiteSpace(identity.ImdbId))
-            {
-                parts.Add("imdb_id=" + Uri.EscapeDataString(identity.ImdbId));
-            }
-            else
-            {
-                return NotFound(identity, "no tmdb/tvdb/imdb id");
+                return NotFound(identity, DescribeQueryMiss(identity));
             }
 
-            if (!identity.IsMovie)
-            {
-                if (!identity.Season.HasValue || !identity.Episode.HasValue)
-                {
-                    return NotFound(identity, "tv requires season+episode");
-                }
-
-                parts.Add("season=" + identity.Season.Value.ToString(CultureInfo.InvariantCulture));
-                parts.Add("episode=" + identity.Episode.Value.ToString(CultureInfo.InvariantCulture));
-            }
-
-            var url = TheIntroDbBase + "/media?" + string.Join("&", parts);
+            var url = TheIntroDbBase + "/media" + query;
             var headers = string.IsNullOrWhiteSpace(apiKey)
                 ? null
                 : new Dictionary<string, string> { ["Authorization"] = "Bearer " + apiKey.Trim() };
@@ -146,6 +127,20 @@ namespace ViewMate.Community
             TheIntroDbMedia media;
             try
             {
+                // v4 /media 除片头片尾数据外还有 versions[] / episodes[] 两种形态
+                // （官方 parseMediaResponse 先判 versions 再判 episodes），这里只识别、不消费。
+                using (var document = JsonDocument.Parse(body))
+                {
+                    var root = document.RootElement;
+                    if (HasArrayPayload(root, "versions") || HasArrayPayload(root, "episodes"))
+                    {
+                        logger?.Info(
+                            "[Community] TheIntroDB 回应为 versions/episodes 形态（非片头片尾数据）：{0}",
+                            identity.Title);
+                        return NotFound(identity, "unexpected /media shape");
+                    }
+                }
+
                 media = JsonSerializer.Deserialize<TheIntroDbMedia>(body, JsonOptions);
             }
             catch (JsonException ex)
@@ -177,6 +172,104 @@ namespace ViewMate.Community
             }
 
             return result;
+        }
+
+        // ── v4 查询串构造（纯函数，便于离线断言）──
+
+        /// <summary>
+        /// 构造 v4 <c>GET /media</c> 的 query string（含前导 '?'）；无法构造时返回 null。
+        /// 段顺序固定：身份 → season → episode → mapping → tvdb_episode_id → duration_ms。
+        /// 身份三选一按序：tvdb_id → tmdb_id → imdb_id（v4 以 TVDB 为身份）。
+        /// 电影只出身份段：duration_ms 在 v4 仅单集 TV 有效，movie 带 season/episode/mapping 也会 400。
+        /// 剧集非 default 集序必须用 tvdb 寻址（tmdb_id 请求一律按 TMDB 编号解释，配别的集序无意义）。
+        /// </summary>
+        internal static string BuildTheIntroDbQuery(CommunityIdentity identity)
+        {
+            if (identity == null)
+            {
+                return null;
+            }
+
+            var parts = new List<string>();
+            if (identity.TvdbId.HasValue)
+            {
+                parts.Add("tvdb_id=" + identity.TvdbId.Value.ToString(CultureInfo.InvariantCulture));
+            }
+            else if (identity.TmdbId.HasValue)
+            {
+                parts.Add("tmdb_id=" + identity.TmdbId.Value.ToString(CultureInfo.InvariantCulture));
+            }
+            else if (!string.IsNullOrWhiteSpace(identity.ImdbId))
+            {
+                parts.Add("imdb_id=" + Uri.EscapeDataString(identity.ImdbId));
+            }
+            else
+            {
+                return null;
+            }
+
+            if (identity.IsMovie)
+            {
+                return "?" + string.Join("&", parts);
+            }
+
+            if (!identity.Season.HasValue || !identity.Episode.HasValue)
+            {
+                return null;
+            }
+
+            var hasTvdb = identity.TvdbId.HasValue;
+            var hasDisplayOrder = !string.IsNullOrEmpty(identity.DisplayOrder);
+            if (hasDisplayOrder && !hasTvdb)
+            {
+                return null;
+            }
+
+            parts.Add("season=" + identity.Season.Value.ToString(CultureInfo.InvariantCulture));
+            parts.Add("episode=" + identity.Episode.Value.ToString(CultureInfo.InvariantCulture));
+
+            if (hasTvdb && hasDisplayOrder)
+            {
+                parts.Add("mapping=" + Uri.EscapeDataString(identity.DisplayOrder));
+            }
+
+            if (hasTvdb && identity.TvdbEpisodeId.HasValue && identity.TvdbEpisodeId.Value > 0)
+            {
+                parts.Add("tvdb_episode_id=" + identity.TvdbEpisodeId.Value.ToString(CultureInfo.InvariantCulture));
+            }
+
+            if (identity.RuntimeTicks > 0)
+            {
+                parts.Add("duration_ms=" + (identity.RuntimeTicks / TicksPerMs).ToString(CultureInfo.InvariantCulture));
+            }
+
+            return "?" + string.Join("&", parts);
+        }
+
+        /// <summary><see cref="BuildTheIntroDbQuery"/> 返回 null 时的未命中原因（日志用）。</summary>
+        private static string DescribeQueryMiss(CommunityIdentity identity)
+        {
+            if (identity == null)
+            {
+                return "no identity";
+            }
+
+            if (!identity.TvdbId.HasValue && !identity.TmdbId.HasValue && string.IsNullOrWhiteSpace(identity.ImdbId))
+            {
+                return "no tvdb/tmdb/imdb id";
+            }
+
+            if (!identity.IsMovie && (!identity.Season.HasValue || !identity.Episode.HasValue))
+            {
+                return "tv requires season+episode";
+            }
+
+            if (!identity.IsMovie && !string.IsNullOrEmpty(identity.DisplayOrder) && !identity.TvdbId.HasValue)
+            {
+                return "non-default episode order requires tvdb id";
+            }
+
+            return "cannot build query";
         }
 
         /// <summary>IntroDB：GET {base}/segments，imdb_id 硬门（国产剧无 IMDB 直接跳过）。</summary>
@@ -291,6 +384,14 @@ namespace ViewMate.Community
             return null;
         }
 
+        /// <summary>根对象是否含指定名字的数组型属性（v4 /media 的 versions[] / episodes[] 形态判别）。</summary>
+        private static bool HasArrayPayload(JsonElement root, string name)
+        {
+            return root.ValueKind == JsonValueKind.Object
+                   && root.TryGetProperty(name, out var value)
+                   && value.ValueKind == JsonValueKind.Array;
+        }
+
         private static Tuple<long, long> Normalize(IntroDbSegment segment, long runtimeTicks, bool requireEnd)
         {
             if (segment?.start_ms == null || segment.start_ms.Value < 0)
@@ -375,7 +476,11 @@ namespace ViewMate.Community
 
                     if (status == 429)
                     {
-                        logger?.Info("[Community] {0} 达到额度限制（429）：{1}", source, identity?.Title);
+                        logger?.Info(
+                            "[Community] {0} 达到额度限制（429{1}）：{2}",
+                            source,
+                            DescribeLimitCode(body),
+                            identity?.Title);
                         return null;
                     }
 
@@ -399,6 +504,42 @@ namespace ViewMate.Community
                 logger?.Info("[Community] {0} 查询异常（已忽略）：{1} — {2}", source, identity?.Title, ex.Message);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// 429 回应体的 <c>code</c> 字段取值（提不到返回空串）；命中时前缀「，」，直接拼进日志模板。
+        /// 本方法不得抛异常 —— 回应体可能不是 JSON。
+        /// </summary>
+        private static string DescribeLimitCode(string body)
+        {
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                using (var document = JsonDocument.Parse(body))
+                {
+                    var root = document.RootElement;
+                    if (root.ValueKind == JsonValueKind.Object
+                        && root.TryGetProperty("code", out var code)
+                        && code.ValueKind == JsonValueKind.String)
+                    {
+                        var text = code.GetString();
+                        if (!string.IsNullOrWhiteSpace(text))
+                        {
+                            return "，" + text.Trim();
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // 非 JSON 回应体：不记错误码，不影响主流程。
+            }
+
+            return string.Empty;
         }
 
         // ── 结果构造 ──

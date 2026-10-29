@@ -41,6 +41,16 @@ namespace ViewMate.Community
             };
 
             ApplyIds(identity, series, episode);
+
+            // v4 的集序与钉集参数：必须在 ApplyIds 之后（剧 tvdb id 用来判定「集 id 是否与剧相同」），
+            // 且在 BuildCacheKey 之前（两者都要进缓存键）。
+            identity.DisplayOrder = GetDisplayOrder(series);
+            var episodeTvdbId = ParseId(episode.GetProviderId(MetadataProviders.Tvdb));
+            if (episodeTvdbId.HasValue && (!identity.TvdbId.HasValue || identity.TvdbId.Value != episodeTvdbId.Value))
+            {
+                identity.TvdbEpisodeId = episodeTvdbId;
+            }
+
             identity.CacheKey = BuildCacheKey(identity, "tv");
             return identity;
         }
@@ -88,17 +98,43 @@ namespace ViewMate.Community
                 : (int?)null;
         }
 
-        /// <summary>缓存键：{site}_{id 类型}:{值}_{movie|tv}[_s{季}_e{集}]。</summary>
+        /// <summary>
+        /// 集序 → v4 <c>mapping</c> 的取值。只认 Dvd / Absolute 两种，值写死；
+        /// 不做别名猜测（v4 对未知拼写返回 400），其它（含 Aired / default）一律 null（= 不传 mapping）。
+        /// </summary>
+        private static string GetDisplayOrder(Series series)
+        {
+            if (series == null)
+            {
+                return null;
+            }
+
+            switch (series.DisplayOrder)
+            {
+                case SeriesDisplayOrder.Dvd:
+                    return "dvd";
+                case SeriesDisplayOrder.Absolute:
+                    return "absolute";
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// 缓存键：{site}_{id 类型}:{值}_{movie|tv}[_s{季}_e{集}][_o{集序}][_ep{集 tvdb id}]。
+        /// id 段优先序与请求一致：tvdb → tmdb → imdb（v4 以 TVDB 为身份）。
+        /// 剧集额外带集序与钉集 id —— 同一集的不同发行版/不同编号必须落在不同键上。
+        /// </summary>
         internal static string BuildCacheKey(CommunityIdentity identity, string type)
         {
             string idPart;
-            if (identity.TmdbId.HasValue)
-            {
-                idPart = "tmdb:" + identity.TmdbId.Value.ToString(CultureInfo.InvariantCulture);
-            }
-            else if (identity.TvdbId.HasValue)
+            if (identity.TvdbId.HasValue)
             {
                 idPart = "tvdb:" + identity.TvdbId.Value.ToString(CultureInfo.InvariantCulture);
+            }
+            else if (identity.TmdbId.HasValue)
+            {
+                idPart = "tmdb:" + identity.TmdbId.Value.ToString(CultureInfo.InvariantCulture);
             }
             else if (!string.IsNullOrWhiteSpace(identity.ImdbId))
             {
@@ -114,6 +150,19 @@ namespace ViewMate.Community
             {
                 key += "_s" + identity.Season.Value.ToString(CultureInfo.InvariantCulture)
                        + "_e" + identity.Episode.Value.ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (!identity.IsMovie)
+            {
+                if (!string.IsNullOrEmpty(identity.DisplayOrder))
+                {
+                    key += "_o" + identity.DisplayOrder;
+                }
+
+                if (identity.TvdbEpisodeId.HasValue)
+                {
+                    key += "_ep" + identity.TvdbEpisodeId.Value.ToString(CultureInfo.InvariantCulture);
+                }
             }
 
             return key;

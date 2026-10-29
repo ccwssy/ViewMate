@@ -71,6 +71,18 @@ namespace ViewMate.Community
 
         public int? Episode { get; set; }
 
+        /// <summary>
+        /// 集序（v4 的 <c>mapping</c> 参数）：只取 <c>"dvd"</c> / <c>"absolute"</c> 两种；
+        /// null = default 序（aired），此时不传 mapping。
+        /// </summary>
+        public string DisplayOrder { get; set; }
+
+        /// <summary>
+        /// 集自身在 TVDB 的 id（v4 的 <c>tvdb_episode_id</c> 参数，用于钉住具体集）；
+        /// 与所属剧的 tvdb id 相同或缺失时为 null。
+        /// </summary>
+        public int? TvdbEpisodeId { get; set; }
+
         public long RuntimeTicks { get; set; }
 
         /// <summary>日志用的人类可读标识（剧名 SxxExx）。</summary>

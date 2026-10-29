@@ -195,14 +195,14 @@ namespace ViewMate.Community
                         ItemId = item.InternalId,
                     };
 
-                    if (identity.TmdbId.HasValue || !string.IsNullOrWhiteSpace(identity.ImdbId))
+                    if (identity.TvdbId.HasValue || identity.TmdbId.HasValue || !string.IsNullOrWhiteSpace(identity.ImdbId))
                     {
                         entry.TheIntroDbBody = BuildTheIntroDbBody(identity, introStart, introEnd, credits);
                         entry.IntroDbBody = BuildIntroDbBody(identity, introStart, introEnd, credits);
                     }
                     else
                     {
-                        // 没有 TMDB/IMDB 定位 → 两个库都提交不了。
+                        // 没有 TVDB/TMDB/IMDB 定位 → 两个库都提交不了。
                         skipped++;
                         continue;
                     }
@@ -225,22 +225,44 @@ namespace ViewMate.Community
             return items;
         }
 
+        /// <summary>
+        /// TheIntroDB v4 提交体（dry-run 只打包、不 POST）。
+        /// 身份判据：tvdb / tmdb / imdb 任一存在即可（三者皆无 → null）；
+        /// 字段顺序 type → tvdb_id → tmdb_id → imdb_id；
+        /// video_duration_ms 只对单集 TV 生效（v4 里 movie 带它会 400）。
+        /// </summary>
         private static Dictionary<string, object> BuildTheIntroDbBody(
             CommunityIdentity identity,
             long? introStart,
             long? introEnd,
             long? credits)
         {
-            if (!identity.TmdbId.HasValue)
+            if (!identity.TvdbId.HasValue
+                && !identity.TmdbId.HasValue
+                && string.IsNullOrWhiteSpace(identity.ImdbId))
             {
                 return null;
             }
 
             var body = new Dictionary<string, object>
             {
-                ["tmdb_id"] = identity.TmdbId.Value,
                 ["type"] = identity.IsMovie ? "movie" : "tv",
             };
+
+            if (identity.TvdbId.HasValue)
+            {
+                body["tvdb_id"] = identity.TvdbId.Value;
+            }
+
+            if (identity.TmdbId.HasValue)
+            {
+                body["tmdb_id"] = identity.TmdbId.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(identity.ImdbId))
+            {
+                body["imdb_id"] = identity.ImdbId;
+            }
 
             if (!identity.IsMovie)
             {
@@ -251,22 +273,22 @@ namespace ViewMate.Community
 
                 body["season"] = identity.Season.Value;
                 body["episode"] = identity.Episode.Value;
-            }
 
-            if (!string.IsNullOrWhiteSpace(identity.ImdbId))
-            {
-                body["imdb_id"] = identity.ImdbId;
-            }
+                if (!string.IsNullOrEmpty(identity.DisplayOrder))
+                {
+                    body["mapping"] = identity.DisplayOrder;
+                }
 
-            if (identity.TvdbId.HasValue)
-            {
-                body["tvdb_id"] = identity.TvdbId.Value;
-            }
+                if (identity.TvdbEpisodeId.HasValue)
+                {
+                    body["tvdb_episode_id"] = identity.TvdbEpisodeId.Value;
+                }
 
-            var durationMs = identity.RuntimeTicks / 10000L;
-            if (durationMs >= 300000L && durationMs <= 21600000L)
-            {
-                body["video_duration_ms"] = durationMs;
+                var durationMs = identity.RuntimeTicks / 10000L;
+                if (durationMs >= 300000L && durationMs <= 21600000L)
+                {
+                    body["video_duration_ms"] = durationMs;
+                }
             }
 
             // intro 与 credits 是两次独立提交；dry-run 里各给一个 segment 视图。
