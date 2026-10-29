@@ -48,7 +48,7 @@ namespace ViewMate
 
         // ── IntroSkip（片头尾跳过） ──
         /// <summary>
-        /// T17 §B.2.6：社区查询走 Emby 自己的 IHttpClient（连接池 / DNS / 代理策略统一），
+        /// 社区查询走 Emby 自己的 IHttpClient（连接池 / DNS / 代理策略统一），
         /// 插件不新建 HttpClient。
         /// </summary>
         internal static IHttpClient SharedHttpClient { get; private set; }
@@ -93,7 +93,7 @@ namespace ViewMate
         // ── IntroBackfill（片头尾回填） ──
         public static IntroBackfillService IntroBackfill { get; private set; }
 
-        // ── IntroMarkerSelfHeal（手动标记自愈，T12） ──
+        // ── IntroMarkerSelfHeal（手动标记自愈） ──
         public static IntroMarkerSelfHealService IntroMarkerSelfHeal { get; private set; }
 
         // ── 版本检查 ──
@@ -155,7 +155,7 @@ namespace ViewMate
         {
             var config = Configuration as PluginConfiguration ?? new PluginConfiguration();
 
-            // ── 覆盖文件缺失时落一份示例模板（T14） ──
+            // ── 覆盖文件缺失时落一份示例模板 ──
             // 只在插件启动时检查一次，与拼音服务初始化同阶段，且刻意放在 PinyinSearch
             // 之前：模板落盘后，本次启动的拼音流程看到的就是「文件已存在」。
             // 不做定时检查（避免与自愈轮次、FTS 扫描抢 IO）；
@@ -226,7 +226,7 @@ namespace ViewMate
                 IntroBackfill = null;
             }
 
-            // ── 启动 IntroMarkerSelfHeal（手动标记自愈，T12） ──
+            // ── 启动 IntroMarkerSelfHeal（手动标记自愈） ──
             // Emby 的缩略图/章节图片刷新会用媒体文件章节**全量替换** Chapters3，
             // 插件写入的 #ECS 手动标记会被抹掉；自愈按覆盖表周期校验并补回
             // （或把被写回的标记再次抑制）。无条件启动：它只遍历覆盖表条目，
@@ -362,7 +362,7 @@ namespace ViewMate
         // ── IntroBackfill 配置 ──
         public bool EnableIntroBackfill { get; set; } = false;
 
-        // ── 社区数据增强配置（T17 §B.1）──
+        // ── 社区数据增强配置 ──
         /// <summary>总开关：关 = 查询与共享全部静默。</summary>
         public bool EnableCommunityData { get; set; } = false;
 

@@ -4,7 +4,7 @@
 
 Emby 播放体验增强插件 — **拼音搜索** + **中文搜索** + **片头片尾跳过** + **漏集补打**。
 
-适配 Emby **4.9.5.0 / 4.10.0.9 / 4.10.0.40 / 4.10.1.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll ~820KB + TinyPinyin.dll ~40KB）。
+适配 Emby **4.9.5.0 / 4.10.0.9 / 4.10.0.40 / 4.10.1.0 / 4.10.2.0**（.NET 6.0 / SDK 10 跨编译）。双 DLL 部署（ViewMate.dll ~820KB + TinyPinyin.dll ~40KB）。
 
 ## 支持平台
 
@@ -106,12 +106,13 @@ Seek detected: 00:00:05 → 00:00:45 (jump=40s elapsed=0.6s)  # 累计跳转
 - **三开关语义**（片头尾跳过 tab）：
   - 「**社区数据增强**」（总开关，默认关）—— 关 = 查询与共享**全部静默**；
   - 「**自动补打**」（获取侧，默认关）—— 刷新元数据时自动查询缺失片段并写入标记；**与社区配置弹窗里的「获取」是同一个字段**，弹窗不重复放置；
-  - 「**共享本机检测结果**」（提交侧，在「社区数据配置」弹窗里，默认关）—— 每 12 小时把本地检测到的值提交回社区（本版为 **dry-run**：只打包请求体、不真正提交，凱可在计划任务面板手动触发查看）。
+  - 「**共享本机检测结果**」（提交侧，在「社区数据配置」弹窗里，默认关）—— 每 12 小时把本地检测到的值提交回社区（本版为 **dry-run**：只打包请求体、不真正提交，维护者可在计划任务面板手动触发查看）。
 - **每个媒体库还要单独勾选**：库设置 → 元数据下载器里勾选 `ViewMate — TheIntroDB` / `ViewMate — IntroDB`（插件不做按库开关字段）。**未勾选 = 完全不发请求**。
 - **只在本地缺片段时才查**（缺片头或缺片尾之一才查那一侧，不会全量重刷）；**手动锁定/清除过的集永久豁免**（不查询、不写社区值）。
 - **冲突优先级**：手动锁定（覆盖表）> 社区值 > 内嵌章节映射 > 本地检测值。本地检测写入前若该集已有社区值则跳过。
 - **标记体系**（`Chapters3`，按后缀区分来源、可分别清除）：`#ECS` = 手动/本地检测值；`#VMDB` = 社区值；`#VMCH` = 媒体文件内嵌章节名映射（词表含 `intro/opening/片头/オープニング` 与 `credits/ending/片尾/エンディング` 等，识别时不改文件名、不改 Emby 前端）。
 - **API Key（可选）**：在 [theintrodb.org](https://theintrodb.org) / [introdb.app](https://introdb.app) 官网申请后填入「社区数据配置」弹窗。**留空也能查询**（匿名额度较低），但**无法提交**。两把 key **都未配置**时，在社区数据配置弹窗点「保存」会**自动把「共享本机检测结果」关掉**（共享任务本来就无法提交，避免主 tab 状态行显示「共享 开」却实际无效）；只配了其中一把 key 时共享开关保持你的选择。
+- **TheIntroDB 接口版本**：查询走 **v4**（`https://api.theintrodb.org/v4`；v2/v3 已被上游冻结、只剩 `GET /media` 且不再扩展，官方公告 2027-01-18 关停）。v4 以 **TVDB 为身份**，插件按 `tvdb > tmdb > imdb` 顺序寻址；剧集会把 Emby 的排布顺序（`dvd` / `absolute`）作为 `mapping` 带上，并附带集自身的 TVDB id 与片长，避免集号错位取到别的集的段。非 default 排布又没有 TVDB id 的剧集**不查询**（宁可无段，不给错段）。
 - **旧库回填两条官方路径**（插件不做独立"回填"计划任务）：
   1. **手动刷新元数据**：对单集/整季/整库执行 Emby 的「刷新元数据」（**普通刷新**）；
   2. **库级自动刷新间隔**：库设置里的 `AutomaticRefreshIntervalDays`（30/60/90 天档）与占位记录到期（`PlaceholderMetadataRefreshIntervalDays`），到期自动重跑 provider 链。
@@ -121,8 +122,29 @@ Seek detected: 00:00:05 → 00:00:45 (jump=40s elapsed=0.6s)  # 累计跳转
 
 ### 要求
 - Emby 4.9.5.0+（.NET 6 容器；4.9.5.0 为**实测下限**，更低版本未验证）
-- **4.9.5.0 / 4.10.0.40 / 4.10.0.9 / 4.10.1.0 已实测适配**（4.10.0.40 首次实测 2026-09-09 / v1.2.17.0）：插件加载 / EntryPoint / 拼音搜索（FTS5 注入）/ 拼音排序名（SQL 直连）/ 片头片尾跳过 / 漏集补打全部正常。4.10 仅迁移了授权相关内部类（`HardwareAccelerationRequiresPremiere` → `ApplicationHost` 等），ViewMate 不依赖这些 API，无需为 4.10 单独出包
+- **4.9.5.0 / 4.10.0.40 / 4.10.0.9 / 4.10.1.0 / 4.10.2.0 已实测适配**（4.10.0.40 首次实测 2026-09-09 / v1.2.17.0）：插件加载 / EntryPoint / 拼音搜索（FTS5 注入）/ 拼音排序名（SQL 直连）/ 片头片尾跳过 / 漏集补打全部正常。4.10 仅迁移了授权相关内部类（`HardwareAccelerationRequiresPremiere` → `ApplicationHost` 等），ViewMate 不依赖这些 API，无需为 4.10 单独出包
 - **Emby 4.10 系搜索已消费 `fts_search9`**：反编译确认 Items 搜索走 `join fts_search9 ... MATCH @SearchTerm`。旧 skill/wiki 中「Emby 不查 FTS」是 4.9.5.0 时代 `Search/Hints` API 失效的误诊，Items 搜索路径两版都在
+
+#### 4.10.2.0 实测结论（2026-10-22）
+
+**ViewMate 在 4.10.2.0 上确认无 bug**，实测数据：
+
+| 检查项 | 结果 |
+|:-------|:-----|
+| 插件加载 | ✅ `Loading ViewMate, Version=1.2.20.1` → `Entry point completed`（0.03s） |
+| 插件错误日志 | ✅ 无 `Error ... Source: ViewMate` / 无 Exception |
+| 四个数据库完整性 | ✅ `library` / `activitylog` / `authentication` / `users` 全部 `PRAGMA integrity_check` = **ok** |
+| WAL 体积 | ✅ 8K / 32K / 44K / 181K —— 全部远低于 1MB 阈值（无 WAL 膨胀） |
+| 拼音 token 注入 | ✅ c0 实测含 `DIAN SHI ZHI BO` / 首字母 `DSZB` |
+| 拼音搜索端到端 | ✅ `MATCH 'DSZB'`→1、`'MAOXIAN'`→16、`'KEHUAN'`→1、`'JINGSONG'`→3 |
+
+**为什么 4.10.2.0 安全（关键机制）**：
+
+ViewMate **复用 Emby 自己的 `fts_search9` 表，不另建表**。反编译 4.10.2.0 的 `SqliteItemRepository` 建库逻辑可见：Emby 只保留 `fts_search9`，并在建库时批量 `drop table if exists fts_search1..8, fts_search10`。ViewMate 与 Emby 同表 → Emby 的清理动作不触及 ViewMate 的索引。
+
+同时 4.10.2.0 **不再用触发器维护 FTS**（实测触发器数 = 0），改为代码直写（`insert into fts_search9 ... values`）。ViewMate 同样是直写，不存在与 Emby 双写冲突。
+
+> ⚠️ **给其它 FTS 插件用户的提醒**：如果你用的是**自建 FTS 表**的插件（如 StrmAssistant / 神医助手，用 `fts_search1`~`fts_search4`），升级到 4.10.2.0 时 Emby 建库会**连表带触发器一起 DROP 掉**，插件继续按旧 schema 写入已消失的表 → **数据库损坏**。这类插件在 4.10.2.0 上需先确认兼容性，或改用 ViewMate 这类与 Emby 共表的实现。
 
 ### 升级安装（覆盖已有插件）
 
@@ -271,7 +293,7 @@ dotnet build -c Release -o build ViewMate/ViewMate.csproj
 | 观影助手 | — | 总览页：一览当前开关与生效状态，纯只读（无保存按钮），防误改 |
 | 拼音搜索 | 开 | 自动化拼音注入，新入库即时处理 |
 | 片头片尾跳过 | 关 | 检测跳转行为写入 IntroSkip 标记（主 tab 第 1 个开关） |
-| 时长配置 | 关 | 主 tab 的折叠开关：**仅当片头尾检测开着时显示**，控制下面两个时长字段（T19 起持久化，保存后离开再回来保持原状态；检测关时不改变已保存的状态） |
+| 时长配置 | 关 | 主 tab 的折叠开关：**仅当片头尾检测开着时显示**，控制下面两个时长字段（现持久化，保存后离开再回来保持原状态；检测关时不改变已保存的状态） |
 | 最长片头 (秒) | 150 | 跳转起点超过此值不视为片头（仅「时长配置」开着时显示） |
 | 最长片尾 (秒) | 180 | 片尾检测阈值（仅「时长配置」开着时显示） |
 | 社区数据增强 | 关 | 从 TheIntroDB / IntroDB 获取并可共享片头片尾数据（总开关，详见功能 §5） |
@@ -306,7 +328,7 @@ docker inspect embyserver --format '{{range .Mounts}}{{.Source}} → {{.Destinat
 
 取输出中 `→` 左侧的路径，记为 `<config路径>`。后续所有命令都使用该路径。
 
-例：输出为 `/mnt/data/emby-config → /config`，则 `<config路径>` = `/mnt/data/emby-config`。
+例：输出为 `/host/path/emby-config → /config`，则 `<config路径>` = `/host/path/emby-config`。
 
 ### 验证拼音是否录入成功
 

@@ -26,7 +26,7 @@ namespace ViewMate.Options.View
         /// <summary>无片头标记时的「片头开始」预填值（定长 hh:mm:ss，与输入框 MaxLength 一致）。</summary>
         internal const string DefaultIntroStart = "00:00:00";
 
-        // T17 §B.1.3：列表容器改为抽象（页面 or 弹窗 1），弹窗内部逻辑一字未改。
+        // 列表容器改为抽象（页面 or 弹窗 1），弹窗内部逻辑一字未改。
         private readonly IMarkerHostView _host;
         private readonly Episode _episode;
         private readonly IReadOnlyList<Episode> _seasonTargets;
@@ -180,7 +180,7 @@ namespace ViewMate.Options.View
             }
             else if (IntroMarkerOverrides.Get(_episode.InternalId) != null)
             {
-                // T15 §2.4（F4）：取消勾选「锁定本集」= 交回自动管理 —— 删除该集的覆盖表记录。
+                // 取消勾选「锁定本集」= 交回自动管理 —— 删除该集的覆盖表记录。
                 // 修复前这里"什么都不做"：旧记录留着 → 列表照旧显示「手动锁定」，自愈还会按旧记录把值拽回。
                 // 只作用于**当前集**；整季应用（ApplyToSeason）时其它集的锁定状态一律不动（整季只是写值）。
                 // 注意：取消锁定**不删除** Chapters3 里的标记值（只交出"自动不得覆盖"的保护）。
@@ -192,11 +192,11 @@ namespace ViewMate.Options.View
                 ? string.Format(CultureInfo.CurrentCulture, Resources.IntroMarker_Result_SeasonSaved, targets.Count, detail)
                 : string.Format(CultureInfo.CurrentCulture, Resources.IntroMarker_Result_Saved, detail);
 
-            // T15 §2.4.4：回执必须能分辨"锁定 / 解锁"，否则用户无法确认取消勾选是否真的生效。
+            // 回执必须能分辨"锁定 / 解锁"，否则用户无法确认取消勾选是否真的生效。
             return _host.CreateMarkersRefreshedView(body + "；" + DescribeLockState(targets.Count));
         }
 
-        /// <summary>T15 §2.4.4：保存回执里的锁定/解锁后缀（整季锁定时带上集数）。</summary>
+        /// <summary>保存回执里的锁定/解锁后缀（整季锁定时带上集数）。</summary>
         private string DescribeLockState(int targetCount)
         {
             if (!Options.LockEpisode)

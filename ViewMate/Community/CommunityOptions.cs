@@ -3,7 +3,7 @@ using System;
 namespace ViewMate.Community
 {
     /// <summary>
-    /// 社区数据三开关与两把 key 的统一读取口（§B.1）。
+    /// 社区数据三开关与两把 key 的统一读取口。
     /// 值以 PluginConfiguration（XML，常驻内存）为准 —— 与 IntroSkip / Pinyin 的运行开关同一套模式，
     /// 这样元数据 provider 在任意线程都能廉价读到最新值，不必反复读 JSON 文件。
     /// </summary>

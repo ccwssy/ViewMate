@@ -13,11 +13,11 @@ using ViewMate.Properties;
 namespace ViewMate.Options.View
 {
     /// <summary>
-    /// 「片头尾跳过」tab（T17 §B.1.1 第三版）：只承载运行时开关、两个入口按钮与社区状态行；
+    /// 「片头尾跳过」tab：只承载运行时开关、两个入口按钮与社区状态行；
     /// 剧集标记管理整体迁入弹窗 1（<see cref="MarkerManagerDialogView"/>），
     /// 本页零标记管理区字段残留。
-    /// 条件显隐（R1/R3/R4）由 <see cref="IntroSkipOptions"/> 的 VisibleCondition 声明，
-    /// 本视图只负责「R1 连同时长两字段一起折叠」所需的渲染期临时归零（不改持久化值）。
+    /// 条件显隐由 <see cref="IntroSkipOptions"/> 的 VisibleCondition 声明，
+    /// 本视图只负责「检测关时把时长两字段一并折叠」所需的渲染期临时归零（不改持久化值）。
     /// </summary>
     internal class IntroSkipPageView : PluginPageView, IMarkerHostView
     {
@@ -27,7 +27,7 @@ namespace ViewMate.Options.View
         private string _saveNotice;
 
         /// <summary>
-        /// T19：「时长配置」的**真实持久化值**（未经 R1 归零）。检测关时该字段被隐藏，
+        /// 「时长配置」的**真实持久化值**（未经渲染期归零）。检测关时该字段被隐藏，
         /// 客户端仍会带回隐藏字段的 false —— 服务端无法与「用户取消勾选」区分；
         /// 因此检测关时的任何提交都不改变它，只有检测开着时的提交才更新。
         /// 它同时是渲染期归零的还原来源（切回检测开时勾选状态照旧）。
@@ -45,8 +45,8 @@ namespace ViewMate.Options.View
             _pluginInfo = pluginInfo;
             _store = store;
 
-            // T19：用 ReloadOptions() 从磁盘取权威值（GetOptions() 可能返回被历史版本污染的缓存实例）；
-            // 再复制一份供本视图使用 —— 视图的 R1 渲染期归零、表单回填只动副本，缓存与磁盘不动。
+            // 用 ReloadOptions() 从磁盘取权威值（GetOptions() 可能返回被历史版本污染的缓存实例）；
+            // 再复制一份供本视图使用 —— 视图的渲染期归零、表单回填只动副本，缓存与磁盘不动。
             var options = _store.ReloadOptions();
             var view = CloneOptions(options.IntroSkipOptions);
             _persistedShowDuration = view.ShowDurationSettings;
@@ -74,7 +74,7 @@ namespace ViewMate.Options.View
         }
 
         /// <summary>
-        /// T19：复制一份 Options 供本视图使用（深拷贝）。视图对副本做 R1 渲染期归零、
+        /// 复制一份 Options 供本视图使用（深拷贝）。视图对副本做渲染期归零、
         /// 表单值回填，都不再触碰 store 缓存里那份，缓存与磁盘始终保存持久化真实值。
         /// JSON 往返与项目现有序列化链路一致；万一失败退回浅拷贝（只损失隔离，不影响功能）。
         /// </summary>
@@ -99,7 +99,7 @@ namespace ViewMate.Options.View
         private IntroSkipOptions Options => (IntroSkipOptions)ContentData;
 
         /// <summary>
-        /// T16 §2.2（F2）：页头说明为了与主开关隔行，在 <see cref="IntroSkipOptions.EditorDescription"/>
+        /// 页头说明为了与主开关隔行，在 <see cref="IntroSkipOptions.EditorDescription"/>
         /// 末尾追加了一个 U+00A0 占位行（仅用于表单顶部渲染）。SubCaption 是页面副标题，
         /// 复用它会把那个空白行带过去，这里回退成不带占位的纯文案（内容一字未改）；
         /// 保存成功后显示回执（与拼音页同一机制）。
@@ -164,10 +164,10 @@ namespace ViewMate.Options.View
             var options = _store.ReloadOptions();
 
             // 只把运行时开关写回存储：两个入口按钮/状态行是渲染态，不进 JSON 配置。
-            // T19：ShowDurationSettings 已改为持久化字段（与 EnableIntroSkip 等同规格），
+            // ShowDurationSettings 已改为持久化字段（与 EnableIntroSkip 等同规格），
             // 必须进白名单，否则「勾选时长配置 → 保存 → 切出再切回」会丢掉勾选（旧缺陷）。
             // 落盘一律用 _persistedShowDuration（真实持久化值）：检测关时 Options.ShowDurationSettings
-            // 已被 R1 归零，直接落盘会把持久化值抹掉。
+            // 已被渲染期归零，直接落盘会把持久化值抹掉。
             var clean = new IntroSkipOptions
             {
                 EnableIntroSkip = Options.EnableIntroSkip,
@@ -177,7 +177,7 @@ namespace ViewMate.Options.View
                 EnableIntroBackfill = Options.EnableIntroBackfill,
                 EnableCommunityData = Options.EnableCommunityData,
                 EnableCommunityFetch = Options.EnableCommunityFetch,
-                // T9 起状态条必须非 null（否则客户端 spinner 永不结束），落盘前清掉，
+                // 状态条必须非 null（否则客户端 spinner 永不结束），落盘前清掉，
                 // 写完立刻由 ApplyCommunityStatus() 恢复。
                 CommunityStatus = null,
             };
@@ -196,7 +196,7 @@ namespace ViewMate.Options.View
             Plugin.Instance.UpdateConfiguration(config);
 
             // 状态行读的是 PluginConfiguration（XML，运行时权威），必须等 UpdateConfiguration
-            // 之后再刷新 —— 否则刚保存的开关要等下一次渲染才反映到状态行（自证时实测到这个顺序缺陷）。
+            // 之后再刷新 —— 否则刚保存的开关要等下一次渲染才反映到状态行（实测时发现这个顺序缺陷）。
             ApplyCommunityStatus();
 
             return base.OnSaveCommand(itemId, commandId, data);
@@ -205,11 +205,11 @@ namespace ViewMate.Options.View
         // ── 视图态与状态行 ──
 
         /// <summary>
-        /// R1：检测关 → 「时长配置」行与两个时长字段一并折叠；R4：时长配置开关 → 控制两个时长字段。
+        /// 检测关 → 「时长配置」行与两个时长字段一并折叠；时长配置开关 → 控制两个时长字段。
         /// 显隐由 <see cref="IntroSkipOptions"/> 上的 VisibleCondition 声明、客户端
         /// applyPropertyConditions 消费 —— 服务端**不再**把 ShowDurationSettings 归零：
-        /// 该字段被隐藏时若归零，客户端带回的表单值就会把持久化真实值抹掉（T19 实测：
-        /// 检测关保存一次后，再打开检测时长配置仍是未勾选），与「R1 只限渲染期」的要求冲突。
+        /// 该字段被隐藏时若归零，客户端带回的表单值就会把持久化真实值抹掉（实测：
+        /// 检测关保存一次后，再打开检测时长配置仍是未勾选），与「归零只限渲染期」的要求冲突。
         /// 保持真实值还有个好处：字段随检测重新显示时，勾选状态天然就是上次保存的状态。
         /// </summary>
         private void NormalizeViewState()
@@ -218,7 +218,7 @@ namespace ViewMate.Options.View
         }
 
         /// <summary>
-        /// 第 11 行状态行（§B.1.1 / R3）：社区增强关闭时显示「社区数据未启用」，
+        /// 社区状态行：社区增强关闭时显示「社区数据未启用」，
         /// 开启时显示「获取：开/关 ｜ 共享：开/关 ｜ Key：已配置/未配置」。
         /// 必须非 null（客户端 spinner）。
         /// </summary>
@@ -275,7 +275,7 @@ namespace ViewMate.Options.View
                     Options.EnableCommunityData = FormDataReader.ReadBool(root, nameof(Options.EnableCommunityData), Options.EnableCommunityData);
                     Options.EnableCommunityFetch = FormDataReader.ReadBool(root, nameof(Options.EnableCommunityFetch), Options.EnableCommunityFetch);
 
-                    // T19：上面已把整份表单读完（顺序无关，同一提交里「打开检测 + 勾选时长配置」也正确），
+                    // 上面已把整份表单读完（顺序无关，同一提交里「打开检测 + 勾选时长配置」也正确），
                     // 再判定「时长配置」的真实值 —— 检测开着时表单提交才是用户意图；检测关时该字段被隐藏，
                     // 客户端带回的是隐藏值，一律不作为修改依据（否则关闭检测保存会误清勾选状态）。
                     if (Options.EnableIntroSkip)

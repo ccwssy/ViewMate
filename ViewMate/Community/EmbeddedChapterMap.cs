@@ -8,7 +8,7 @@ using MediaBrowser.Model.Entities;
 namespace ViewMate.Community
 {
     /// <summary>
-    /// 内嵌章节名映射（§B.4）：把媒体文件内嵌章节里名为 intro / credits 之类的章节
+    /// 内嵌章节名映射：把媒体文件内嵌章节里名为 intro / credits 之类的章节
     /// 映射成片头/片尾标记，Name 后缀 <c>#VMCH</c>（与社区值的 <c>#VMDB</c>、手动/本地值的
     /// <c>#ECS</c> 各自区分）。词表参考 honue/MediaInfoKeeper 的 EmbeddedChapterMarkerMap，
     /// 并按要求做「英文大小写不敏感 + 中文 + 日语」一体化识别

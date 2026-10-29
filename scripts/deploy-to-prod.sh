@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# ViewMate 部署到正式服（emby 容器）—— 主控手动执行，不自动跑
+# ViewMate 部署到正式服（emby 容器）—— 维护者手动执行，不自动跑
 # 用法: bash deploy-to-prod.sh [--yes]      # --yes 跳过交互确认
 set -euo pipefail
 
-REPO="/mnt/data/project/media-service/ViewMate"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$REPO/ViewMate/bin/Release/net6.0"
 PROD_CONTAINER="emby"
 PLUGIN_DIR="/config/plugins"
+EMBY_HOST="${EMBY_HOST:-127.0.0.1:8095}"
 BACKUP_TAG="$(date +%Y%m%d-%H%M%S)"
 
 cd "$REPO"
@@ -17,7 +18,7 @@ echo "目标版本: $VERSION | 正式服容器: $PROD_CONTAINER"
 # ── 0. 前置检查 + 取「验证过的产物」──
 # 本项目 Deterministic=false，同样源码两次构建 sha 不同 ⇒ 必须部署「测试实例上验证过的那一份」
 TEST_CONTAINER="emby-test"
-SRC_DIR="$REPO/.dsh-vm-archive/deploy-src"
+SRC_DIR="${DEPLOY_SRC_DIR:-${TMPDIR:-/tmp}/viewmate-deploy-src}"
 mkdir -p "$SRC_DIR"
 docker cp "$TEST_CONTAINER:$PLUGIN_DIR/ViewMate.dll" "$SRC_DIR/ViewMate.dll" \
   || { echo "❌ 无法从 $TEST_CONTAINER 导出已验证产物"; exit 1; }
@@ -74,7 +75,7 @@ if [ "$DEPLOYED_SHA" != "$LOCAL_SHA" ] || [ -z "$LOG_LINE" ] || [ "$ERR_CNT" != 
 fi
 
 # thumb 图校验（16:9 定稿图）
-THUMB_CODE="$(curl -s -o /dev/null -w '%{http_code}' -m 15 "http://192.168.2.4:8095/emby/Plugins/63c322b7-a371-41a3-b11f-04f8418b37d8/thumb" || true)"
+THUMB_CODE="$(curl -s -o /dev/null -w '%{http_code}' -m 15 "http://${EMBY_HOST}/emby/Plugins/63c322b7-a371-41a3-b11f-04f8418b37d8/thumb" || true)"
 echo "  插件主图 API: http=$THUMB_CODE（期望 200）"
 
 ROLLBACK=0

@@ -11,7 +11,8 @@
 set -e
 
 CONTAINER="${2:-emby}"
-DB_PATH="/mnt/data/docker-data/${CONTAINER}/data/library.db"
+EMBY_DATA_ROOT="${EMBY_DATA_ROOT:-/path/to/emby/data}"
+DB_PATH="${EMBY_DATA_ROOT}/${CONTAINER}/data/library.db"
 
 check_container() {
     if ! docker ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then

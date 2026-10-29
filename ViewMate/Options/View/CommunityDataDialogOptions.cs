@@ -6,7 +6,7 @@ using ViewMate.Properties;
 namespace ViewMate.Options.View
 {
     /// <summary>
-    /// 弹窗 2「社区数据配置」（T17 §B.1.2）：共享子开关 + 两把 API key + 说明文字。
+    /// 弹窗 2「社区数据配置」：共享子开关 + 两把 API key + 说明文字。
     /// 「获取」已在主 tab 直挂（文案「自动补打」，同一个 EnableCommunityFetch 字段），本弹窗不再重复放置。
     /// API 基址不做用户可配（代码常量两域）。
     /// </summary>

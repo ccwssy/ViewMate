@@ -22,11 +22,11 @@ using ViewMate.IntroSkip;
 namespace ViewMate.Community
 {
     /// <summary>
-    /// 社区共享计划任务（§B.3）：Emby 计划任务面板名「共享片头片尾标志到社区」，
+    /// 社区共享计划任务：Emby 计划任务面板名「共享片头片尾标志到社区」，
     /// 12 小时一趟（IntervalTrigger，起点 = 服务启动 + 1 小时，自然相位错开；
     /// 也可在面板手动触发）。
     ///
-    /// 本版为 **dry-run（只打包请求体、绝不 POST）**：凱先在面板点一次看全流程，
+    /// 本版为 **dry-run（只打包请求体、绝不 POST）**：维护者先在面板点一次看全流程，
     /// 真实提交由后续版本启用。范围只含「本地检测产生的标记 + 非锁定集」，
     /// 绝不上传手动锁定值 / 内嵌章节映射值（#VMCH）。
     /// key 无效或任一闸门不满足 → 静默跳过（不写 Error、不中断 embyserver）。
@@ -39,7 +39,7 @@ namespace ViewMate.Community
         /// <summary>单轮最多打包的标记条数（防大库一次跑太久）。</summary>
         internal const int MaxItemsPerRun = 500;
 
-        /// <summary>dry-run 产物文件名（插件数据目录，供自证与凱查看）。</summary>
+        /// <summary>dry-run 产物文件名（插件数据目录，供校验与维护者查看）。</summary>
         internal const string DryRunFileName = "viewmate-community-share-dryrun.json";
 
         public string Name => "共享片头片尾标志到社区";
@@ -195,14 +195,14 @@ namespace ViewMate.Community
                         ItemId = item.InternalId,
                     };
 
-                    if (identity.TmdbId.HasValue || !string.IsNullOrWhiteSpace(identity.ImdbId))
+                    if (identity.TvdbId.HasValue || identity.TmdbId.HasValue || !string.IsNullOrWhiteSpace(identity.ImdbId))
                     {
                         entry.TheIntroDbBody = BuildTheIntroDbBody(identity, introStart, introEnd, credits);
                         entry.IntroDbBody = BuildIntroDbBody(identity, introStart, introEnd, credits);
                     }
                     else
                     {
-                        // 没有 TMDB/IMDB 定位 → 两个库都提交不了。
+                        // 没有 TVDB/TMDB/IMDB 定位 → 两个库都提交不了。
                         skipped++;
                         continue;
                     }
@@ -225,22 +225,44 @@ namespace ViewMate.Community
             return items;
         }
 
+        /// <summary>
+        /// TheIntroDB v4 提交体（dry-run 只打包、不 POST）。
+        /// 身份判据：tvdb / tmdb / imdb 任一存在即可（三者皆无 → null）；
+        /// 字段顺序 type → tvdb_id → tmdb_id → imdb_id；
+        /// video_duration_ms 只对单集 TV 生效（v4 里 movie 带它会 400）。
+        /// </summary>
         private static Dictionary<string, object> BuildTheIntroDbBody(
             CommunityIdentity identity,
             long? introStart,
             long? introEnd,
             long? credits)
         {
-            if (!identity.TmdbId.HasValue)
+            if (!identity.TvdbId.HasValue
+                && !identity.TmdbId.HasValue
+                && string.IsNullOrWhiteSpace(identity.ImdbId))
             {
                 return null;
             }
 
             var body = new Dictionary<string, object>
             {
-                ["tmdb_id"] = identity.TmdbId.Value,
                 ["type"] = identity.IsMovie ? "movie" : "tv",
             };
+
+            if (identity.TvdbId.HasValue)
+            {
+                body["tvdb_id"] = identity.TvdbId.Value;
+            }
+
+            if (identity.TmdbId.HasValue)
+            {
+                body["tmdb_id"] = identity.TmdbId.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(identity.ImdbId))
+            {
+                body["imdb_id"] = identity.ImdbId;
+            }
 
             if (!identity.IsMovie)
             {
@@ -251,22 +273,22 @@ namespace ViewMate.Community
 
                 body["season"] = identity.Season.Value;
                 body["episode"] = identity.Episode.Value;
-            }
 
-            if (!string.IsNullOrWhiteSpace(identity.ImdbId))
-            {
-                body["imdb_id"] = identity.ImdbId;
-            }
+                if (!string.IsNullOrEmpty(identity.DisplayOrder))
+                {
+                    body["mapping"] = identity.DisplayOrder;
+                }
 
-            if (identity.TvdbId.HasValue)
-            {
-                body["tvdb_id"] = identity.TvdbId.Value;
-            }
+                if (identity.TvdbEpisodeId.HasValue)
+                {
+                    body["tvdb_episode_id"] = identity.TvdbEpisodeId.Value;
+                }
 
-            var durationMs = identity.RuntimeTicks / 10000L;
-            if (durationMs >= 300000L && durationMs <= 21600000L)
-            {
-                body["video_duration_ms"] = durationMs;
+                var durationMs = identity.RuntimeTicks / 10000L;
+                if (durationMs >= 300000L && durationMs <= 21600000L)
+                {
+                    body["video_duration_ms"] = durationMs;
+                }
             }
 
             // intro 与 credits 是两次独立提交；dry-run 里各给一个 segment 视图。

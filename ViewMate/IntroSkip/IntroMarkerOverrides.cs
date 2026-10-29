@@ -140,7 +140,7 @@ namespace ViewMate.IntroSkip
             });
         }
 
-        /// <summary>解除接管：删除该键后恢复受自动逻辑管理（§3c.3）。键不存在时是空操作。</summary>
+        /// <summary>解除接管：删除该键后恢复受自动逻辑管理。键不存在时是空操作。</summary>
         public static void Remove(long itemId)
         {
             var key = itemId.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -163,7 +163,7 @@ namespace ViewMate.IntroSkip
         }
 
         /// <summary>
-        /// T12：自愈每轮开工前的只读刷新。与 <see cref="Reload"/> 的差别是
+        /// 自愈每轮开工前的只读刷新。与 <see cref="Reload"/> 的差别是
         /// **解析失败时保留上次成功加载的缓存**并返回 false（由调用方决定本轮行为，
         /// 自愈选择整轮跳过、不做任何修补）—— 一次坏文件读取不会把共享缓存清空，
         /// 设置页与随后的保存路径不会因此丢条目。
@@ -183,7 +183,7 @@ namespace ViewMate.IntroSkip
         }
 
         /// <summary>
-        /// T12：覆盖表全部条目的只读快照（按 itemId 升序），供自愈服务逐条校验。
+        /// 覆盖表全部条目的只读快照（按 itemId 升序），供自愈服务逐条校验。
         /// 只做浅拷贝：记录对象在写入侧是"整体替换"而非原地修改，拿到即安全。
         /// 非法/非数字的键会被跳过（Load 已把非对象值滤掉）。
         /// </summary>

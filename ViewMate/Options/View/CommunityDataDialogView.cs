@@ -10,7 +10,7 @@ using ViewMate.Properties;
 namespace ViewMate.Options.View
 {
     /// <summary>
-    /// 弹窗 2「社区数据配置」（T17 §B.1.2）。命令链：EditCommunityData（页面打开）→
+    /// 弹窗 2「社区数据配置」。命令链：EditCommunityData（页面打开）→
     /// SaveCommunityData / CancelCommunityData（保存 / 关闭）。
     /// 保存走既有 Options 存储链（JSON 段）并同步 PluginConfiguration（XML，运行时读取口），
     /// 回主 tab 时重建页面视图以刷新状态行。
@@ -70,7 +70,7 @@ namespace ViewMate.Options.View
             config.TheIntroDbApiKey = (Options.TheIntroDbApiKey ?? string.Empty).Trim();
             config.IntroDbApiKey = (Options.IntroDbApiKey ?? string.Empty).Trim();
 
-            // §C-REV 修正 02（凱 2026-10-15 拍板）：保存前自动关共享 ——
+            // 维护者 2026-10-15 拍板：保存前自动关共享 ——
             // 两把 key trim 后都为空时，共享开关置 false 后再走写盘（不弹额外提示框，
             // 回主 tab 状态行显示「共享 关」即为用户可见反馈）。
             // 依据：CommunityShareTask 在两把 key 都空时本就跳过（不提交），

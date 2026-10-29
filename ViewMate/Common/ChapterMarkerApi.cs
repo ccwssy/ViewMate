@@ -20,10 +20,10 @@ namespace ViewMate.Common
 
         internal const string MarkerSuffix = "#ECS";
 
-        /// <summary>T17 §B.2.5：社区数据写入的标记后缀（与手摆/本地值 #ECS 区分）。</summary>
+        /// <summary>社区数据写入的标记后缀（与手摆/本地值 #ECS 区分）。</summary>
         internal const string CommunitySuffix = "#VMDB";
 
-        /// <summary>T17 §B.4：内嵌章节名映射写入的标记后缀。</summary>
+        /// <summary>内嵌章节名映射写入的标记后缀。</summary>
         internal const string EmbeddedSuffix = "#VMCH";
 
         public ChapterMarkerApi(ILibraryManager libraryManager, IItemRepository itemRepository, ILogger logger)
@@ -52,7 +52,7 @@ namespace ViewMate.Common
         }
 
         /// <summary>
-        /// T12：一次性读出该集三个「本项目 #ECS」标记的值（只读，不写库）。
+        /// 一次性读出该集三个「本项目 #ECS」标记的值（只读，不写库）。
         /// 自愈服务每轮要按集比对三元组，这里刻意只读一次 Chapters，
         /// 且只认名称带 #ECS 后缀的标记 —— 别的来源/别的工具写的同类型
         /// 章节不算本项目的可补写对象。
@@ -67,7 +67,7 @@ namespace ViewMate.Common
         }
 
         /// <summary>
-        /// T17 §B.0.4：该集是否已有社区精确值（#VMDB）。本地检测（播放跳转 / 漏集补打）
+        /// 该集是否已有社区精确值（#VMDB）。本地检测（播放跳转 / 漏集补打）
         /// 写入前若命中就不覆盖 —— 避免粗跳把社区精确值糊掉。锁定集仍由覆盖表闸门先行拦下。
         /// </summary>
         public bool HasCommunityMarkers(BaseItem item)
@@ -95,7 +95,7 @@ namespace ViewMate.Common
                     continue;
                 }
 
-                // T17 §B.0.4：已有社区值（#VMDB）→ 本地检测不覆盖（优先级：手动 > 社区 > 本地检测）。
+                // 已有社区值（#VMDB）→ 本地检测不覆盖（优先级：手动 > 社区 > 本地检测）。
                 if (HasCommunityMarkers(episode))
                 {
                     skipped++;
@@ -129,7 +129,7 @@ namespace ViewMate.Common
                     continue;
                 }
 
-                // T17 §B.0.4：已有社区值（#VMDB）→ 本地检测不覆盖。
+                // 已有社区值（#VMDB）→ 本地检测不覆盖。
                 if (HasCommunityMarkers(episode))
                 {
                     skipped++;
@@ -165,7 +165,7 @@ namespace ViewMate.Common
 
         /// <summary>
         /// 写指定的一组剧集片头标记；返回 null 表示成功。
-        /// T11：调用方（用户主动发起的整季应用）传入的是同季全部可播放集，含手动锁定/抑制的集 ——
+        /// 调用方（用户主动发起的整季应用）传入的是同季全部可播放集，含手动锁定/抑制的集 ——
         /// 锁定只挡自动逻辑，见 UpdateIntro / UpdateCredits 与 IntroBackfillService 的避让。
         /// </summary>
         public string UpdateIntroSeason(IReadOnlyList<Episode> episodes, long startTicks, long endTicks)
@@ -251,7 +251,7 @@ namespace ViewMate.Common
         }
 
         /// <summary>
-        /// T15 §2.6（F6）：删除该集「本项目 #ECS」标记中**值超出片长**的条目 —— 三个类型
+        /// 删除该集「本项目 #ECS」标记中**值超出片长**的条目 —— 三个类型
         /// （IntroStart / IntroEnd / CreditsStart）各自单独判断，返回被删除的条目；没有可删的
         /// 条目时是纯读操作、不写库。调用方（自愈）负责"锁定集只告警不删"与"片长未知则跳过"。
         /// </summary>

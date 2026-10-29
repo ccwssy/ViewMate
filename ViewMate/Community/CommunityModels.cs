@@ -35,7 +35,7 @@ namespace ViewMate.Community
 
         public long? CreditsStartTicks { get; set; }
 
-        // ── 提交侧（§B.3）定位信息：未命中时也会带上，便于手动触发共享 ──
+        // ── 提交侧定位信息：未命中时也会带上，便于手动触发共享 ──
         public int? TmdbId { get; set; }
 
         public int? TvdbId { get; set; }
@@ -70,6 +70,18 @@ namespace ViewMate.Community
         public int? Season { get; set; }
 
         public int? Episode { get; set; }
+
+        /// <summary>
+        /// 集序（v4 的 <c>mapping</c> 参数）：只取 <c>"dvd"</c> / <c>"absolute"</c> 两种；
+        /// null = default 序（aired），此时不传 mapping。
+        /// </summary>
+        public string DisplayOrder { get; set; }
+
+        /// <summary>
+        /// 集自身在 TVDB 的 id（v4 的 <c>tvdb_episode_id</c> 参数，用于钉住具体集）；
+        /// 与所属剧的 tvdb id 相同或缺失时为 null。
+        /// </summary>
+        public int? TvdbEpisodeId { get; set; }
 
         public long RuntimeTicks { get; set; }
 

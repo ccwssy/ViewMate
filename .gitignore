@@ -20,7 +20,6 @@ _lastScanId
 
 # 内部施工文档（公开仓库不上传 — 含内网 IP / 宿主路径，仅本地保留）
 docs/
-AGENTS.md
 
 # Hermes Agent project-level config (superpowers-zh skills, etc.)
 .hermes/
@@ -29,3 +28,22 @@ HERMES.md
 *.bak*
 *.release
 @
+# 内部产物：不进公开仓（详见 skill public-repo-hygiene）
+AGENTS.md
+CLAUDE.md
+docs/*-prompt.md
+log/
+.dsh-*
+
+
+# dsh 产物目录分工（均不进 git）
+#   log/      只放 .log
+#   report/   散文报告
+#   evidence/ 证据块
+#   runs/     运行过程原始产物（probes/ 探针脚本, outputs/ 输出, dumps/ xml·截图）
+report/*
+!report/.gitkeep
+evidence/*
+!evidence/.gitkeep
+runs/*
+!runs/.gitkeep

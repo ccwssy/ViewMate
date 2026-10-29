@@ -8,7 +8,7 @@ using MediaBrowser.Model.Entities;
 namespace ViewMate.Community
 {
     /// <summary>
-    /// BaseItem → 社区库定位参数（§B.2.3）。
+    /// BaseItem → 社区库定位参数。
     /// id 读取一律走 Emby 的 <c>GetProviderId</c> 扩展方法（ProviderIdDictionary 大小写不敏感），
     /// 不手解析字符串；剧集用所属剧（Series）的 id，片长取集自身的 RunTimeTicks。
     /// </summary>
@@ -41,6 +41,16 @@ namespace ViewMate.Community
             };
 
             ApplyIds(identity, series, episode);
+
+            // v4 的集序与钉集参数：必须在 ApplyIds 之后（剧 tvdb id 用来判定「集 id 是否与剧相同」），
+            // 且在 BuildCacheKey 之前（两者都要进缓存键）。
+            identity.DisplayOrder = GetDisplayOrder(series);
+            var episodeTvdbId = ParseId(episode.GetProviderId(MetadataProviders.Tvdb));
+            if (episodeTvdbId.HasValue && (!identity.TvdbId.HasValue || identity.TvdbId.Value != episodeTvdbId.Value))
+            {
+                identity.TvdbEpisodeId = episodeTvdbId;
+            }
+
             identity.CacheKey = BuildCacheKey(identity, "tv");
             return identity;
         }
@@ -88,17 +98,43 @@ namespace ViewMate.Community
                 : (int?)null;
         }
 
-        /// <summary>缓存键：{site}_{id 类型}:{值}_{movie|tv}[_s{季}_e{集}]（§B.2.6）。</summary>
+        /// <summary>
+        /// 集序 → v4 <c>mapping</c> 的取值。只认 Dvd / Absolute 两种，值写死；
+        /// 不做别名猜测（v4 对未知拼写返回 400），其它（含 Aired / default）一律 null（= 不传 mapping）。
+        /// </summary>
+        private static string GetDisplayOrder(Series series)
+        {
+            if (series == null)
+            {
+                return null;
+            }
+
+            switch (series.DisplayOrder)
+            {
+                case SeriesDisplayOrder.Dvd:
+                    return "dvd";
+                case SeriesDisplayOrder.Absolute:
+                    return "absolute";
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// 缓存键：{site}_{id 类型}:{值}_{movie|tv}[_s{季}_e{集}][_o{集序}][_ep{集 tvdb id}]。
+        /// id 段优先序与请求一致：tvdb → tmdb → imdb（v4 以 TVDB 为身份）。
+        /// 剧集额外带集序与钉集 id —— 同一集的不同发行版/不同编号必须落在不同键上。
+        /// </summary>
         internal static string BuildCacheKey(CommunityIdentity identity, string type)
         {
             string idPart;
-            if (identity.TmdbId.HasValue)
-            {
-                idPart = "tmdb:" + identity.TmdbId.Value.ToString(CultureInfo.InvariantCulture);
-            }
-            else if (identity.TvdbId.HasValue)
+            if (identity.TvdbId.HasValue)
             {
                 idPart = "tvdb:" + identity.TvdbId.Value.ToString(CultureInfo.InvariantCulture);
+            }
+            else if (identity.TmdbId.HasValue)
+            {
+                idPart = "tmdb:" + identity.TmdbId.Value.ToString(CultureInfo.InvariantCulture);
             }
             else if (!string.IsNullOrWhiteSpace(identity.ImdbId))
             {
@@ -116,11 +152,24 @@ namespace ViewMate.Community
                        + "_e" + identity.Episode.Value.ToString(CultureInfo.InvariantCulture);
             }
 
+            if (!identity.IsMovie)
+            {
+                if (!string.IsNullOrEmpty(identity.DisplayOrder))
+                {
+                    key += "_o" + identity.DisplayOrder;
+                }
+
+                if (identity.TvdbEpisodeId.HasValue)
+                {
+                    key += "_ep" + identity.TvdbEpisodeId.Value.ToString(CultureInfo.InvariantCulture);
+                }
+            }
+
             return key;
         }
 
         /// <summary>
-        /// §B.2.2 闸门 3：本地缺哪个片段（缺 IntroStart 或缺 CreditsStart 之一才算缺；
+        /// 闸门 3：本地缺哪个片段（缺 IntroStart 或缺 CreditsStart 之一才算缺；
         /// 有标记但值不完整时按缺处理）。
         /// 只认**本地检测值**（#ECS）：社区值（#VMDB）与内嵌章节映射值（#VMCH）不算
         /// 「本地已有」—— 否则同一次刷新里先写入的 #VMCH 会把社区查询永久挡掉，
