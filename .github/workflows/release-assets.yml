@@ -72,7 +72,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -e
+          set -eo pipefail
           TAG="${{ github.event.inputs.tag }}"
           if [[ -z "$TAG" ]]; then
             TAG="${GITHUB_REF_NAME}"
@@ -83,7 +83,14 @@ jobs:
             -q '.[] | select(.draft==false and .tag_name != "'"$TAG"'") | "\(.id) \(.tag_name)"' \
             | while read -r ID TN; do
                 echo "  demote $TN (id=$ID)"
-                gh api -X PATCH "$API/releases/$ID" -f draft=true >/dev/null
+                # gh 的 -f 发送的是字符串 "true"（GitHub 静默忽略），必须用 -F 让 gh 推断成布尔；
+                # PATCH 返回 0 不代表生效，回读一次 .draft 确认。
+                gh api -X PATCH "$API/releases/$ID" -F draft=true >/dev/null
+                CUR=$(gh api "$API/releases/$ID" -q '.draft')
+                if [[ "$CUR" != "true" ]]; then
+                  echo "::error::demote $TN (id=$ID) 未生效：回读 draft=$CUR"
+                  exit 1
+                fi
               done
           echo "剩余 published:"
           gh api "$API/releases" --paginate -q '.[] | select(.draft==false) | .tag_name'
