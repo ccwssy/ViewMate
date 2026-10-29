@@ -36,14 +36,11 @@ log/
 .dsh-*
 
 
-# dsh 产物目录分工（均不进 git）
+# 内部产物目录分工（均不进 git；整目录忽略，不在公开仓留空占位目录）
 #   log/      只放 .log
 #   report/   散文报告
 #   evidence/ 证据块
 #   runs/     运行过程原始产物（probes/ 探针脚本, outputs/ 输出, dumps/ xml·截图）
-report/*
-!report/.gitkeep
-evidence/*
-!evidence/.gitkeep
-runs/*
-!runs/.gitkeep
+report/
+evidence/
+runs/
